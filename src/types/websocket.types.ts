@@ -47,8 +47,12 @@ export type WSCommand =
 // Response wrapper
 export interface WSResponse<T = unknown> {
   result: 'Ok' | 'Error';
-  value: T;
+  value?: T;
 }
+
+// CamillaDSP wraps responses under the command name.
+// Example: {"GetVersion": {"result": "Ok", "value": "1.0.0"}}
+export type WSWrappedResponse = Record<string, WSResponse>;
 
 // Processing state
 export type ProcessingState =

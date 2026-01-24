@@ -1,7 +1,6 @@
 import { EventEmitter } from 'eventemitter3';
 import type {
   WSCommand,
-  WSResponse,
   WSConnectionState,
   PendingRequest,
   MessagePriority,
@@ -19,9 +18,8 @@ interface WebSocketManagerEvents {
 export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   private ws: WebSocket | null = null;
   private url: string;
-  private pendingRequests: PendingRequest[] = []; // FIFO queue for responses
+  private pendingRequests = new Map<string, PendingRequest[]>();
   private messageQueue: QueuedMessage[] = [];
-  private requestIdCounter = 0;
   private state: WSConnectionState = 'disconnected';
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 10;
@@ -107,22 +105,24 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
       throw new Error('WebSocket not connected');
     }
 
+    const commandName = this.formatCommand(command);
+
     return new Promise<T>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        // Remove this request from the queue if it times out
-        const index = this.pendingRequests.findIndex(r => r.command === command);
-        if (index !== -1) {
-          this.pendingRequests.splice(index, 1);
-        }
+      const pending: PendingRequest = {
+        resolve: resolve as (value: unknown) => void,
+        reject,
+        timeout: undefined as unknown as ReturnType<typeof setTimeout>,
+        command,
+      };
+
+      pending.timeout = setTimeout(() => {
+        this.removePendingRequest(commandName, pending);
         reject(new Error(`Request timeout: ${this.formatCommand(command)}`));
       }, this.requestTimeout);
 
-      this.pendingRequests.push({
-        resolve: resolve as (value: unknown) => void,
-        reject,
-        timeout,
-        command,
-      });
+      const queue = this.pendingRequests.get(commandName) ?? [];
+      queue.push(pending);
+      this.pendingRequests.set(commandName, queue);
 
       const message = this.formatMessage(command);
       this.ws?.send(message);
@@ -138,60 +138,28 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
 
   private handleMessage(data: string): void {
     try {
-      const parsed = JSON.parse(data) as any;
+      const parsed = JSON.parse(data) as unknown;
       this.emit('message', parsed);
 
-      // Match response to the first pending request (FIFO order)
-      const pending = this.pendingRequests.shift();
-      if (pending) {
-        clearTimeout(pending.timeout);
+      const wrapped = this.extractWrappedResponse(parsed);
+      if (!wrapped) return;
 
-        // Check for CamillaDSP response format {"CommandName": {"result": "Ok"|"Error", "value": ...}}
-        const keys = Object.keys(parsed);
-        if (keys.length === 1) {
-          const responseData = parsed[keys[0]] as any;
+      const { commandName, response } = wrapped;
+      const pending = this.shiftPendingRequest(commandName);
+      if (!pending) return;
 
-          // Check if it's a standard response with result and value
-          if (responseData && typeof responseData === 'object' && 'result' in responseData && 'value' in responseData) {
-            const response = responseData as WSResponse;
-            if (response.result === 'Ok') {
-              pending.resolve(response.value);
-            } else {
-              const errorMessage = typeof response.value === 'string'
-                ? response.value
-                : String(response.value ?? 'Unknown error');
-              pending.reject(new Error(errorMessage));
-            }
-          }
-          // Check for error structure within the response {"CommandName": {"error": "message"}}
-          else if (responseData && typeof responseData === 'object' && 'error' in responseData) {
-            pending.reject(new Error(String(responseData.error)));
-          }
-          // Unknown response structure
-          else {
-            pending.reject(new Error(`Unexpected response format: ${data}`));
-          }
-        }
-        // Check for CamillaDSP error format {"Invalid": {"error": "message"}}
-        else if ('Invalid' in parsed && typeof parsed.Invalid === 'object' && parsed.Invalid !== null) {
-          const errorMsg = (parsed.Invalid as Record<string, any>).error ?? 'Invalid request';
-          pending.reject(new Error(String(errorMsg)));
-        }
-        // Unknown response format
-        else {
-          pending.reject(new Error(`Unexpected response format: ${data}`));
-        }
+      clearTimeout(pending.timeout);
+
+      if (response.result === 'Ok') {
+        pending.resolve(response.value);
+        return;
       }
-    } catch (error) {
+
+      const errorMessage = response.value === undefined ? 'Unknown error' : String(response.value);
+      pending.reject(new Error(errorMessage));
+    } catch {
       // Non-JSON message or parsing error
       this.emit('message', data);
-
-      // If there's a pending request and JSON parsing failed, reject it
-      const pending = this.pendingRequests.shift();
-      if (pending) {
-        clearTimeout(pending.timeout);
-        pending.reject(new Error(`Failed to parse response: ${data}`));
-      }
     }
   }
 
@@ -247,17 +215,13 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   }
 
   private clearPendingRequests(): void {
-    this.pendingRequests.forEach((pending) => {
-      clearTimeout(pending.timeout);
-      pending.reject(new Error('Connection closed'));
+    this.pendingRequests.forEach((queue, commandName) => {
+      queue.forEach((pending) => {
+        clearTimeout(pending.timeout);
+        pending.reject(new Error('Connection closed'));
+      });
+      this.pendingRequests.delete(commandName);
     });
-    this.pendingRequests = [];
-  }
-
-  private generateRequestId(): string {
-    const timestamp = Date.now();
-    const counter = this.requestIdCounter++;
-    return `req_${timestamp.toString()}_${counter.toString()}`;
   }
 
   private formatCommand(command: WSCommand): string {
@@ -268,13 +232,71 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   }
 
   private formatMessage(command: WSCommand): string {
-    // CamillaDSP expects simple format:
+    // CamillaDSP expects the command itself as the JSON payload.
     // No-argument: "GetVersion"
     // With arguments: {"SetVolume": -10.0}
-    if (typeof command === 'string') {
-      return JSON.stringify(command);
-    }
     return JSON.stringify(command);
+  }
+
+  private extractWrappedResponse(
+    parsed: unknown
+  ): { commandName: string; response: { result: 'Ok' | 'Error'; value?: unknown } } | null {
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const record = parsed as Record<string, unknown>;
+    const keys = Object.keys(record);
+    if (keys.length !== 1) {
+      return null;
+    }
+
+    const commandName = keys[0] ?? '';
+    const inner = record[commandName];
+    if (!inner || typeof inner !== 'object' || Array.isArray(inner)) {
+      return null;
+    }
+
+    const response = inner as { result?: unknown; value?: unknown };
+    if (response.result !== 'Ok' && response.result !== 'Error') {
+      return null;
+    }
+
+    return {
+      commandName,
+      response: { result: response.result, value: response.value },
+    };
+  }
+
+  private shiftPendingRequest(commandName: string): PendingRequest | undefined {
+    const queue = this.pendingRequests.get(commandName);
+    if (!queue || queue.length === 0) {
+      return undefined;
+    }
+
+    const pending = queue.shift();
+    if (queue.length === 0) {
+      this.pendingRequests.delete(commandName);
+    } else {
+      this.pendingRequests.set(commandName, queue);
+    }
+
+    return pending;
+  }
+
+  private removePendingRequest(commandName: string, pending: PendingRequest): void {
+    const queue = this.pendingRequests.get(commandName);
+    if (!queue) return;
+
+    const index = queue.indexOf(pending);
+    if (index === -1) return;
+
+    queue.splice(index, 1);
+    if (queue.length === 0) {
+      this.pendingRequests.delete(commandName);
+    } else {
+      this.pendingRequests.set(commandName, queue);
+    }
   }
 
   private queueMessage(command: WSCommand, priority: MessagePriority): void {

@@ -72,3 +72,22 @@ Update the WebSocket client implementation to speak CamillaDSP’s native protoc
      - `{"SetMute":{"result":"Ok"}}` (no `value`)
    - Ensure `send()` resolves for setters (no timeout) and rejects on `result: "Error"`.
 
+## Implementation notes
+
+Implemented CamillaDSP-compatible request/response handling:
+
+- Outgoing messages now serialize the command directly (string commands become JSON strings, object commands become JSON objects).
+- Incoming messages are parsed as the CamillaDSP "wrapped" response shape (`{ [commandName]: { result, value? } }`).
+- Pending requests are tracked per-command in FIFO queues, since CamillaDSP does not echo request IDs.
+- Successful `Ok` responses without a `value` field now resolve with `undefined` (fixes `SetMute` / `SetVolume`).
+
+Files changed:
+
+- `src/lib/websocket/WebSocketManager.ts`
+- `src/lib/websocket/WebSocketManager.test.ts`
+- `src/types/websocket.types.ts`
+
+## Test results
+
+- `npm run test:run` (pass)
+- `npm run typecheck` (pass)

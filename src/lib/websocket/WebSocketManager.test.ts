@@ -147,14 +147,16 @@ describe('WebSocketManager', () => {
     it('should send string command and receive response', async () => {
       const responsePromise = manager.send<string>('GetVersion');
 
+      const ws = (manager as any).ws as MockWebSocket;
+      expect(JSON.parse(ws.lastSentMessage)).toBe('GetVersion');
+
       // Simulate server response
       setTimeout(() => {
-        const ws = (manager as any).ws as MockWebSocket;
-        const lastMessage = JSON.parse(ws.lastSentMessage);
         ws.simulateMessage({
-          id: lastMessage.id,
-          result: 'Ok',
-          value: '1.0.0',
+          GetVersion: {
+            result: 'Ok',
+            value: '1.0.0',
+          },
         });
       }, 10);
 
@@ -165,13 +167,15 @@ describe('WebSocketManager', () => {
     it('should send object command and receive response', async () => {
       const responsePromise = manager.send<null>({ SetVolume: -10.5 });
 
+      const ws = (manager as any).ws as MockWebSocket;
+      expect(JSON.parse(ws.lastSentMessage)).toEqual({ SetVolume: -10.5 });
+
       setTimeout(() => {
-        const ws = (manager as any).ws as MockWebSocket;
-        const lastMessage = JSON.parse(ws.lastSentMessage);
         ws.simulateMessage({
-          id: lastMessage.id,
-          result: 'Ok',
-          value: null,
+          SetVolume: {
+            result: 'Ok',
+            value: null,
+          },
         });
       }, 10);
 
@@ -182,17 +186,36 @@ describe('WebSocketManager', () => {
     it('should handle error response', async () => {
       const responsePromise = manager.send<string>('GetVersion');
 
+      const ws = (manager as any).ws as MockWebSocket;
+      expect(JSON.parse(ws.lastSentMessage)).toBe('GetVersion');
+
       setTimeout(() => {
-        const ws = (manager as any).ws as MockWebSocket;
-        const lastMessage = JSON.parse(ws.lastSentMessage);
         ws.simulateMessage({
-          id: lastMessage.id,
-          result: 'Error',
-          value: 'Command failed',
+          GetVersion: {
+            result: 'Error',
+            value: 'Command failed',
+          },
         });
       }, 10);
 
       await expect(responsePromise).rejects.toThrow('Command failed');
+    });
+
+    it('should resolve Ok response with no value', async () => {
+      const responsePromise = manager.send<void>({ SetMute: true });
+
+      const ws = (manager as any).ws as MockWebSocket;
+      expect(JSON.parse(ws.lastSentMessage)).toEqual({ SetMute: true });
+
+      setTimeout(() => {
+        ws.simulateMessage({
+          SetMute: {
+            result: 'Ok',
+          },
+        });
+      }, 10);
+
+      await expect(responsePromise).resolves.toBeUndefined();
     });
 
     it('should timeout if no response received', async () => {
@@ -275,17 +298,6 @@ describe('WebSocketManager', () => {
     });
   });
 
-  describe('Request ID Generation', () => {
-    it('should generate unique request IDs', () => {
-      const id1 = (manager as any).generateRequestId();
-      const id2 = (manager as any).generateRequestId();
-
-      expect(id1).not.toBe(id2);
-      expect(id1).toMatch(/^req_\d+_\d+$/);
-      expect(id2).toMatch(/^req_\d+_\d+$/);
-    });
-  });
-
   describe('Command Formatting', () => {
     it('should format string commands correctly', () => {
       const formatted = (manager as any).formatCommand('GetVersion');
@@ -305,23 +317,13 @@ describe('WebSocketManager', () => {
 
   describe('Message Formatting', () => {
     it('should format string command messages', () => {
-      const message = (manager as any).formatMessage('GetVersion', 'req_123');
-      const parsed = JSON.parse(message);
-
-      expect(parsed).toEqual({
-        command: 'GetVersion',
-        id: 'req_123',
-      });
+      const message = (manager as any).formatMessage('GetVersion');
+      expect(JSON.parse(message)).toBe('GetVersion');
     });
 
     it('should format object command messages', () => {
-      const message = (manager as any).formatMessage({ SetVolume: -10.5 }, 'req_123');
-      const parsed = JSON.parse(message);
-
-      expect(parsed).toEqual({
-        SetVolume: -10.5,
-        id: 'req_123',
-      });
+      const message = (manager as any).formatMessage({ SetVolume: -10.5 });
+      expect(JSON.parse(message)).toEqual({ SetVolume: -10.5 });
     });
   });
 
