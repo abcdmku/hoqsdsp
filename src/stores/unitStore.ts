@@ -69,7 +69,18 @@ export const selectUnits = (state: UnitStore): DSPUnit[] => state.units;
 export const selectUnitById = (id: string) => (state: UnitStore): DSPUnit | undefined =>
   state.units.find(u => u.id === id);
 
+let cachedZones: string[] = [];
+let cachedUnitIds: (string | undefined)[] = [];
+
 export const selectZones = (state: UnitStore): string[] => {
-  const zones = new Set(state.units.map(u => u.zone).filter((z): z is string => !!z));
-  return Array.from(zones);
+  const currentUnitIds = state.units.map(u => u.zone);
+
+  if (cachedUnitIds.length !== currentUnitIds.length ||
+      !cachedUnitIds.every((id, i) => id === currentUnitIds[i])) {
+    const zones = new Set(currentUnitIds.filter((z): z is string => !!z));
+    cachedZones = Array.from(zones);
+    cachedUnitIds = currentUnitIds;
+  }
+
+  return cachedZones;
 };

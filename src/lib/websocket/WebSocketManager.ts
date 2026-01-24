@@ -19,7 +19,7 @@ interface WebSocketManagerEvents {
 export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   private ws: WebSocket | null = null;
   private url: string;
-  private pendingRequests = new Map<string, PendingRequest>();
+  private pendingRequests: PendingRequest[] = []; // FIFO queue for responses
   private messageQueue: QueuedMessage[] = [];
   private requestIdCounter = 0;
   private state: WSConnectionState = 'disconnected';
@@ -101,8 +101,6 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   }
 
   async send<T>(command: WSCommand, priority: MessagePriority = 'normal'): Promise<T> {
-    const requestId = this.generateRequestId();
-
     if (!this.isConnected) {
       // Queue message if not connected
       this.queueMessage(command, priority);
@@ -111,18 +109,22 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
 
     return new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        this.pendingRequests.delete(requestId);
+        // Remove this request from the queue if it times out
+        const index = this.pendingRequests.findIndex(r => r.command === command);
+        if (index !== -1) {
+          this.pendingRequests.splice(index, 1);
+        }
         reject(new Error(`Request timeout: ${this.formatCommand(command)}`));
       }, this.requestTimeout);
 
-      this.pendingRequests.set(requestId, {
+      this.pendingRequests.push({
         resolve: resolve as (value: unknown) => void,
         reject,
         timeout,
         command,
       });
 
-      const message = this.formatMessage(command, requestId);
+      const message = this.formatMessage(command);
       this.ws?.send(message);
     });
   }
@@ -136,25 +138,60 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
 
   private handleMessage(data: string): void {
     try {
-      const response = JSON.parse(data) as WSResponse & { id?: string };
-      this.emit('message', response);
+      const parsed = JSON.parse(data) as any;
+      this.emit('message', parsed);
 
-      if (response.id && this.pendingRequests.has(response.id)) {
-        const pending = this.pendingRequests.get(response.id);
-        if (pending) {
-          clearTimeout(pending.timeout);
-          this.pendingRequests.delete(response.id);
+      // Match response to the first pending request (FIFO order)
+      const pending = this.pendingRequests.shift();
+      if (pending) {
+        clearTimeout(pending.timeout);
 
-          if (response.result === 'Ok') {
-            pending.resolve(response.value);
-          } else {
-            pending.reject(new Error(String(response.value)));
+        // Check for CamillaDSP response format {"CommandName": {"result": "Ok"|"Error", "value": ...}}
+        const keys = Object.keys(parsed);
+        if (keys.length === 1) {
+          const responseData = parsed[keys[0]] as any;
+
+          // Check if it's a standard response with result and value
+          if (responseData && typeof responseData === 'object' && 'result' in responseData && 'value' in responseData) {
+            const response = responseData as WSResponse;
+            if (response.result === 'Ok') {
+              pending.resolve(response.value);
+            } else {
+              const errorMessage = typeof response.value === 'string'
+                ? response.value
+                : String(response.value ?? 'Unknown error');
+              pending.reject(new Error(errorMessage));
+            }
+          }
+          // Check for error structure within the response {"CommandName": {"error": "message"}}
+          else if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+            pending.reject(new Error(String(responseData.error)));
+          }
+          // Unknown response structure
+          else {
+            pending.reject(new Error(`Unexpected response format: ${data}`));
           }
         }
+        // Check for CamillaDSP error format {"Invalid": {"error": "message"}}
+        else if ('Invalid' in parsed && typeof parsed.Invalid === 'object' && parsed.Invalid !== null) {
+          const errorMsg = (parsed.Invalid as Record<string, any>).error ?? 'Invalid request';
+          pending.reject(new Error(String(errorMsg)));
+        }
+        // Unknown response format
+        else {
+          pending.reject(new Error(`Unexpected response format: ${data}`));
+        }
       }
-    } catch {
+    } catch (error) {
       // Non-JSON message or parsing error
       this.emit('message', data);
+
+      // If there's a pending request and JSON parsing failed, reject it
+      const pending = this.pendingRequests.shift();
+      if (pending) {
+        clearTimeout(pending.timeout);
+        pending.reject(new Error(`Failed to parse response: ${data}`));
+      }
     }
   }
 
@@ -210,11 +247,11 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   }
 
   private clearPendingRequests(): void {
-    this.pendingRequests.forEach((pending, id) => {
+    this.pendingRequests.forEach((pending) => {
       clearTimeout(pending.timeout);
       pending.reject(new Error('Connection closed'));
-      this.pendingRequests.delete(id);
     });
+    this.pendingRequests = [];
   }
 
   private generateRequestId(): string {
@@ -230,14 +267,14 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
     return Object.keys(command)[0] ?? 'Unknown';
   }
 
-  private formatMessage(command: WSCommand, id: string): string {
-    // CamillaDSP expects simple command format
+  private formatMessage(command: WSCommand): string {
+    // CamillaDSP expects simple format:
     // No-argument: "GetVersion"
     // With arguments: {"SetVolume": -10.0}
     if (typeof command === 'string') {
-      return JSON.stringify({ command, id });
+      return JSON.stringify(command);
     }
-    return JSON.stringify({ ...command, id });
+    return JSON.stringify(command);
   }
 
   private queueMessage(command: WSCommand, priority: MessagePriority): void {

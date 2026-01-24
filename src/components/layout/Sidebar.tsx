@@ -1,5 +1,6 @@
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Sliders, AudioWaveform, GitBranch, Volume2 } from 'lucide-react';
-import { useUIStore, selectSidebarOpen, selectActiveView } from '../../stores';
+import { useUIStore, selectSidebarOpen } from '../../stores';
 import type { ViewType } from '../../types';
 import { cn } from '../../lib/utils';
 
@@ -7,20 +8,21 @@ interface NavItem {
   id: ViewType;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  path: string;
 }
 
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'channels', label: 'Channels', icon: Volume2 },
-  { id: 'eq', label: 'EQ Editor', icon: AudioWaveform },
-  { id: 'routing', label: 'Routing', icon: GitBranch },
-  { id: 'settings', label: 'Settings', icon: Sliders },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+  { id: 'channels', label: 'Channels', icon: Volume2, path: '/channels' },
+  { id: 'eq', label: 'EQ Editor', icon: AudioWaveform, path: '/eq' },
+  { id: 'routing', label: 'Routing', icon: GitBranch, path: '/routing' },
+  { id: 'settings', label: 'Settings', icon: Sliders, path: '/settings' },
 ];
 
 export function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const isOpen = useUIStore(selectSidebarOpen);
-  const activeView = useUIStore(selectActiveView);
-  const setActiveView = useUIStore((state) => state.setActiveView);
 
   return (
     <aside
@@ -34,13 +36,13 @@ export function Sidebar() {
       <nav className="p-2 space-y-1" role="menubar" aria-label="Navigation menu">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activeView === item.id;
+          const isActive = location.pathname === item.path || (item.path === '/' && location.pathname === '');
 
           return (
             <button
               key={item.id}
               onClick={() => {
-                setActiveView(item.id);
+                navigate(item.path);
               }}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors",

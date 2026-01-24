@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Menu, Settings, Wifi, WifiOff, Upload, Download } from 'lucide-react';
 import { useUIStore } from '../../stores';
 import { useConnectionStore, selectActiveConnection } from '../../stores';
@@ -16,6 +17,7 @@ export interface TopNavProps {
 }
 
 export function TopNav({ currentConfig, onConfigImport }: TopNavProps) {
+  const navigate = useNavigate();
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const activeConnection = useConnectionStore(selectActiveConnection);
@@ -103,6 +105,7 @@ export function TopNav({ currentConfig, onConfigImport }: TopNavProps) {
         </div>
 
         <button
+          onClick={() => navigate('/settings')}
           className="p-2 hover:bg-dsp-primary/50 rounded-md transition-colors"
           aria-label="Open settings"
         >

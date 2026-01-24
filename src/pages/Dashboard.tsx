@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Plus, RefreshCw, Volume2, VolumeX } from 'lucide-react';
 import { useUnitStore, selectUnits, selectZones } from '../stores/unitStore';
 import { useConnectionStore, selectAllConnections } from '../stores/connectionStore';
@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Toolti
 import { UnitCard } from '../components/dashboard/UnitCard';
 import { AddUnitDialog } from '../components/dashboard/AddUnitDialog';
 import { ZoneGroup, UngroupedSection } from '../components/dashboard/ZoneGroup';
+import { useUnitWebSocket } from '../hooks/useUnitWebSocket';
 import type { DSPUnit, ConnectionStatus } from '../types';
 
 type ZoneCollapsedState = Record<string, boolean>;
@@ -23,10 +24,24 @@ export function Dashboard() {
   const updateUnit = useUnitStore((state) => state.updateUnit);
   const setActiveUnit = useConnectionStore((state) => state.setActiveUnit);
   const activeUnitId = useConnectionStore((state) => state.activeUnitId);
+  const disconnectUnit = useConnectionStore((state) => state.disconnectUnit);
+  const setVolume = useConnectionStore((state) => state.setVolume);
+  const setMute = useConnectionStore((state) => state.setMute);
+  const connectUnit = useConnectionStore((state) => state.connectUnit);
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<DSPUnit | undefined>(undefined);
   const [collapsedZones, setCollapsedZones] = useState<ZoneCollapsedState>({});
+  const [unitVolumes, setUnitVolumes] = useState<Record<string, number>>({});
+  const [unitMuted, setUnitMuted] = useState<Record<string, boolean>>({});
+  const [unitLoads, setUnitLoads] = useState<Record<string, number>>({});
+  const [unitBuffers, setUnitBuffers] = useState<Record<string, number>>({});
+
+  // Get active unit
+  const activeUnit = units.find((u) => u.id === activeUnitId);
+
+  // Connect to active unit
+  useUnitWebSocket(activeUnit);
 
   // Get connection status for a unit
   const getConnectionStatus = useCallback(
@@ -118,36 +133,105 @@ export function Dashboard() {
     }
   }, []);
 
-  // Placeholder handlers for volume/mute (will be connected to WebSocket in later steps)
-  const handleVolumeChange = useCallback((_unitId: string, _volume: number) => {
-    // TODO: Send volume change via WebSocket
-    console.log('Volume change:', _unitId, _volume);
-  }, []);
+  // Poll for real-time data from connected unit
+  useEffect(() => {
+    if (!activeUnitId) return;
 
-  const handleMuteToggle = useCallback((_unitId: string) => {
-    // TODO: Send mute toggle via WebSocket
-    console.log('Mute toggle:', _unitId);
-  }, []);
+    const pollInterval = setInterval(async () => {
+      try {
+        const volume = await useConnectionStore.getState().getVolume(activeUnitId);
+        const mute = await useConnectionStore.getState().getMute(activeUnitId);
+        const load = await useConnectionStore.getState().getProcessingLoad(activeUnitId);
+        const buffer = await useConnectionStore.getState().getBufferLevel(activeUnitId);
 
-  const handleMuteAllInZone = useCallback((_zone: string) => {
-    // TODO: Implement batch mute for zone
-    console.log('Mute all in zone:', _zone);
-  }, []);
+        setUnitVolumes((prev) => ({ ...prev, [activeUnitId]: volume }));
+        setUnitMuted((prev) => ({ ...prev, [activeUnitId]: mute }));
+        setUnitLoads((prev) => ({ ...prev, [activeUnitId]: load }));
+        setUnitBuffers((prev) => ({ ...prev, [activeUnitId]: buffer }));
+      } catch (error) {
+        console.error('Failed to poll unit data:', error);
+      }
+    }, 1000);
 
-  const handleRefreshAll = useCallback(() => {
-    // TODO: Trigger reconnection/refresh for all units
-    console.log('Refresh all units');
-  }, []);
+    return () => clearInterval(pollInterval);
+  }, [activeUnitId]);
+
+  const handleVolumeChange = useCallback(
+    (unitId: string, volume: number) => {
+      setVolume(unitId, volume)
+        .then(() => {
+          setUnitVolumes((prev) => ({ ...prev, [unitId]: volume }));
+        })
+        .catch((error) => {
+          console.error('Failed to set volume:', error);
+        });
+    },
+    [setVolume]
+  );
+
+  const handleMuteToggle = useCallback(
+    (unitId: string) => {
+      const isMuted = unitMuted[unitId] ?? false;
+      setMute(unitId, !isMuted)
+        .then(() => {
+          setUnitMuted((prev) => ({ ...prev, [unitId]: !isMuted }));
+        })
+        .catch((error) => {
+          console.error('Failed to toggle mute:', error);
+        });
+    },
+    [unitMuted, setMute]
+  );
+
+  const handleMuteAllInZone = useCallback(
+    (zone: string) => {
+      const zoneUnits = zoneGroups[zone] ?? [];
+      zoneUnits.forEach((unit) => {
+        setMute(unit.id, true)
+          .then(() => {
+            setUnitMuted((prev) => ({ ...prev, [unit.id]: true }));
+          })
+          .catch((error) => {
+            console.error(`Failed to mute unit ${unit.id}:`, error);
+          });
+      });
+    },
+    [zoneGroups, setMute]
+  );
+
+  const handleRefreshAll = useCallback(async () => {
+    // Reconnect all units
+    for (const unit of units) {
+      try {
+        await disconnectUnit(unit.id);
+        await connectUnit(unit.id, unit.address, unit.port);
+      } catch (error) {
+        console.error(`Failed to reconnect unit ${unit.id}:`, error);
+      }
+    }
+  }, [units, connectUnit, disconnectUnit]);
 
   const handleMuteAll = useCallback(() => {
-    // TODO: Mute all units
-    console.log('Mute all units');
-  }, []);
+    units.forEach((unit) => {
+      setMute(unit.id, true)
+        .then(() => {
+          setUnitMuted((prev) => ({ ...prev, [unit.id]: true }));
+        })
+        .catch((error) => {
+          console.error(`Failed to mute unit ${unit.id}:`, error);
+        });
+    });
+  }, [units, setMute]);
 
   // Render a single unit card
   const renderUnitCard = useCallback(
     (unit: DSPUnit) => {
       const conn = getConnectionStatus(unit.id);
+      const volume = unitVolumes[unit.id] ?? 0;
+      const muted = unitMuted[unit.id] ?? false;
+      const processingLoad = unitLoads[unit.id];
+      const bufferLevel = unitBuffers[unit.id];
+
       return (
         <UnitCard
           key={unit.id}
@@ -160,20 +244,19 @@ export function Dashboard() {
           onSettingsClick={() => { handleUnitSettings(unit); }}
           onVolumeChange={(vol) => { handleVolumeChange(unit.id, vol); }}
           onMuteToggle={() => { handleMuteToggle(unit.id); }}
-          // Mock data for now - will be replaced with real data from WebSocket
-          volume={-12}
-          muted={false}
+          volume={volume}
+          muted={muted}
           sampleRate={48000}
           inputChannels={2}
           outputChannels={2}
-          processingLoad={conn.status === 'connected' ? 15.5 : undefined}
-          bufferLevel={conn.status === 'connected' ? 75 : undefined}
+          processingLoad={conn.status === 'connected' ? processingLoad : undefined}
+          bufferLevel={conn.status === 'connected' ? bufferLevel : undefined}
           inputLevels={conn.status === 'connected' ? [-18, -20] : undefined}
           outputLevels={conn.status === 'connected' ? [-12, -14] : undefined}
         />
       );
     },
-    [activeUnitId, getConnectionStatus, handleUnitClick, handleUnitSettings, handleVolumeChange, handleMuteToggle]
+    [activeUnitId, getConnectionStatus, handleUnitClick, handleUnitSettings, handleVolumeChange, handleMuteToggle, unitVolumes, unitMuted, unitLoads, unitBuffers]
   );
 
   const onlineCount = useMemo(
