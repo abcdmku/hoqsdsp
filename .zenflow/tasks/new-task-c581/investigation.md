@@ -91,3 +91,12 @@ Files changed:
 
 - `npm run test:run` (pass)
 - `npm run typecheck` (pass)
+
+### Rebase notes
+
+While rebasing onto the latest `main`, `src/lib/websocket/WebSocketManager.ts` required a manual conflict resolution (the base branch reintroduced a FIFO-only response matcher and strict `value` requirements).
+
+Additional cleanup after the rebase:
+
+- `src/components/layout/TopNav.test.tsx` now renders `TopNav` inside `MemoryRouter` (the `ui` commit introduced `useNavigate()` usage).
+- `src/services/websocketService.ts` removed an unused `WSCommand` type-only import (fixes `tsc --noEmit`).
