@@ -1,3 +1,14 @@
 node_modules
 .vite
 dist
+build
+.cache
+*.log
+*.local
+coverage
+.nyc_output
+*.tsbuildinfo
+.eslintcache
+.env
+.env.*
+!.env.example
