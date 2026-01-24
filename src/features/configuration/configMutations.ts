@@ -1,17 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { configKeys } from './configQueries';
 import type { CamillaConfig } from '../../types';
+import { websocketService } from '../../services/websocketService';
 
-interface SetConfigOptions {
-  unitId: string;
-  wsManager: { send: <T>(cmd: unknown) => Promise<T> };
-}
-
-export function useSetConfig({ unitId, wsManager }: SetConfigOptions) {
+export function useSetConfig(unitId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (config: string): Promise<void> => {
+      const wsManager = websocketService.getManager(unitId);
+      if (!wsManager) throw new Error('WebSocket not connected');
       await wsManager.send({ SetConfig: config });
     },
     onSuccess: () => {
@@ -21,11 +19,13 @@ export function useSetConfig({ unitId, wsManager }: SetConfigOptions) {
   });
 }
 
-export function useSetConfigJson({ unitId, wsManager }: SetConfigOptions) {
+export function useSetConfigJson(unitId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (config: CamillaConfig): Promise<void> => {
+      const wsManager = websocketService.getManager(unitId);
+      if (!wsManager) throw new Error('WebSocket not connected');
       const jsonString = JSON.stringify(config);
       await wsManager.send({ SetConfigJson: jsonString });
     },

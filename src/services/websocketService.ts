@@ -1,8 +1,13 @@
 import { WebSocketManager } from '../lib/websocket/WebSocketManager';
+import {
+  clearWebSocketManagers,
+  getWebSocketManager,
+  removeWebSocketManager,
+  setWebSocketManager,
+} from '../lib/websocket/managerRegistry';
 import type { ProcessingState, SignalLevels } from '../types';
 
 interface UnitWebSocketConnection {
-  manager: WebSocketManager;
   unitId: string;
   address: string;
   port: number;
@@ -12,9 +17,18 @@ class WebSocketService {
   private connections: Map<string, UnitWebSocketConnection> = new Map();
 
   async connect(unitId: string, address: string, port: number): Promise<void> {
-    const existing = this.connections.get(unitId);
-    if (existing?.manager.isConnected) {
-      return; // Already connected
+    const existingMeta = this.connections.get(unitId);
+    const existingManager = getWebSocketManager(unitId);
+    const isSameEndpoint =
+      existingMeta?.address === address && existingMeta?.port === port;
+
+    if (existingManager?.isConnected && isSameEndpoint) return;
+
+    // If we have a manager but it's not connected (or endpoint changed),
+    // dispose it to avoid leaking listeners/sockets.
+    if (existingManager) {
+      existingManager.disconnect();
+      removeWebSocketManager(unitId);
     }
 
     const url = `ws://${address}:${port}`;
@@ -22,29 +36,33 @@ class WebSocketService {
 
     try {
       await manager.connect();
-      this.connections.set(unitId, { manager, unitId, address, port });
+      setWebSocketManager(unitId, manager);
+      this.connections.set(unitId, { unitId, address, port });
     } catch (error) {
       throw new Error(`Failed to connect to ${address}:${port}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   disconnect(unitId: string): void {
-    const connection = this.connections.get(unitId);
-    if (connection) {
-      connection.manager.disconnect();
-      this.connections.delete(unitId);
+    const manager = getWebSocketManager(unitId);
+    if (manager) {
+      manager.disconnect();
+      removeWebSocketManager(unitId);
     }
+
+    this.connections.delete(unitId);
   }
 
   disconnectAll(): void {
-    this.connections.forEach(conn => {
-      conn.manager.disconnect();
+    Array.from(this.connections.keys()).forEach((unitId) => {
+      this.disconnect(unitId);
     });
     this.connections.clear();
+    clearWebSocketManagers();
   }
 
   getManager(unitId: string): WebSocketManager | undefined {
-    return this.connections.get(unitId)?.manager;
+    return getWebSocketManager(unitId);
   }
 
   isConnected(unitId: string): boolean {

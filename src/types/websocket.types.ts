@@ -44,15 +44,20 @@ export type WSCommand =
   | { SetFadersVolume: { fader: number; vol: number }[] }
   | { AdjustFadersVolume: { fader: number; vol: number }[] };
 
-// Response wrapper
-export interface WSResponse<T = unknown> {
+// Response wrappers
+// CamillaDSP v3 uses an externally-tagged response keyed by command name,
+// and an inner enum-like object with either `Ok` or `Error`.
+// Example: {"GetVersion": {"Ok": "3.0.0"}}
+//          {"GetVersion": {"Error": "Command failed"}}
+export type WSResponse<T = unknown> = { Ok: T } | { Error: unknown };
+
+// Back-compat: some implementations/older versions used a {result,value} wrapper.
+export interface WSLegacyResponse<T = unknown> {
   result: 'Ok' | 'Error';
   value?: T;
 }
 
-// CamillaDSP wraps responses under the command name.
-// Example: {"GetVersion": {"result": "Ok", "value": "1.0.0"}}
-export type WSWrappedResponse = Record<string, WSResponse>;
+export type WSWrappedResponse = Record<string, WSResponse | WSLegacyResponse>;
 
 // Processing state
 export type ProcessingState =

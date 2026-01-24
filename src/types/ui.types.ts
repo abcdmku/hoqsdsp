@@ -31,6 +31,7 @@ export type ViewType =
   | 'dashboard'
   | 'channels'
   | 'eq'
+  | 'signal-flow'
   | 'routing'
   | 'settings';
 

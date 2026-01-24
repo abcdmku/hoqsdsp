@@ -81,12 +81,18 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   connectUnit: async (unitId: string, address: string, port: number) => {
+    const { setConnection, updateStatus } = get();
+
+    // Ensure the unit exists in the store so status updates work reliably.
+    setConnection(unitId, { unitId, status: 'connecting' });
+
     try {
-      get().updateStatus(unitId, 'connecting');
+      updateStatus(unitId, 'connecting');
       await websocketService.connect(unitId, address, port);
 
       // Get version to confirm connection
       const version = await websocketService.getVersion(unitId);
+      setConnection(unitId, { version });
 
       // Subscribe to state changes
       websocketService.subscribeToStateChanges(unitId, (state) => {
@@ -99,11 +105,10 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         }
       });
 
-      get().updateStatus(unitId, 'connected');
-      get().setConnection(unitId, { version });
+      updateStatus(unitId, 'connected');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      get().updateStatus(unitId, 'error', errorMsg);
+      updateStatus(unitId, 'error', errorMsg);
       throw error;
     }
   },

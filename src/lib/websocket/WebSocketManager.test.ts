@@ -154,8 +154,7 @@ describe('WebSocketManager', () => {
       setTimeout(() => {
         ws.simulateMessage({
           GetVersion: {
-            result: 'Ok',
-            value: '1.0.0',
+            Ok: '1.0.0',
           },
         });
       }, 10);
@@ -165,7 +164,7 @@ describe('WebSocketManager', () => {
     });
 
     it('should send object command and receive response', async () => {
-      const responsePromise = manager.send<null>({ SetVolume: -10.5 });
+      const responsePromise = manager.send<void>({ SetVolume: -10.5 });
 
       const ws = (manager as any).ws as MockWebSocket;
       expect(JSON.parse(ws.lastSentMessage)).toEqual({ SetVolume: -10.5 });
@@ -173,14 +172,13 @@ describe('WebSocketManager', () => {
       setTimeout(() => {
         ws.simulateMessage({
           SetVolume: {
-            result: 'Ok',
-            value: null,
+            Ok: null,
           },
         });
       }, 10);
 
       const result = await responsePromise;
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
     it('should handle error response', async () => {
@@ -192,8 +190,7 @@ describe('WebSocketManager', () => {
       setTimeout(() => {
         ws.simulateMessage({
           GetVersion: {
-            result: 'Error',
-            value: 'Command failed',
+            Error: 'Command failed',
           },
         });
       }, 10);
@@ -210,7 +207,7 @@ describe('WebSocketManager', () => {
       setTimeout(() => {
         ws.simulateMessage({
           SetMute: {
-            result: 'Ok',
+            Ok: null,
           },
         });
       }, 10);
@@ -237,10 +234,7 @@ describe('WebSocketManager', () => {
       manager.on('message', (data) => messages.push(data));
 
       const ws = (manager as any).ws as MockWebSocket;
-      const testMessage: WSResponse = {
-        result: 'Ok',
-        value: 'test',
-      };
+      const testMessage: WSResponse = { Ok: 'test' };
 
       ws.simulateMessage(testMessage);
 

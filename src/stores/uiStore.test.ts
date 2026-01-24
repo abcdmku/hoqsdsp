@@ -102,7 +102,14 @@ describe('uiStore', () => {
     it('should support all view types', () => {
       const { setActiveView } = useUIStore.getState();
 
-      const views: ViewType[] = ['dashboard', 'channels', 'eq', 'routing', 'settings'];
+      const views: ViewType[] = [
+        'dashboard',
+        'channels',
+        'eq',
+        'signal-flow',
+        'routing',
+        'settings',
+      ];
 
       views.forEach(view => {
         setActiveView(view);

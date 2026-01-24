@@ -144,18 +144,19 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
       const wrapped = this.extractWrappedResponse(parsed);
       if (!wrapped) return;
 
-      const { commandName, response } = wrapped;
+      const { commandName, ok, value, error } = wrapped;
       const pending = this.shiftPendingRequest(commandName);
       if (!pending) return;
 
       clearTimeout(pending.timeout);
 
-      if (response.result === 'Ok') {
-        pending.resolve(response.value);
+      if (ok) {
+        // Treat `null` as “no value” to align with `Promise<void>` calls.
+        pending.resolve(value == null ? undefined : value);
         return;
       }
 
-      const errorMessage = response.value === undefined ? 'Unknown error' : String(response.value);
+      const errorMessage = error === undefined ? 'Unknown error' : String(error);
       pending.reject(new Error(errorMessage));
     } catch {
       // Non-JSON message or parsing error
@@ -240,7 +241,7 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
 
   private extractWrappedResponse(
     parsed: unknown
-  ): { commandName: string; response: { result: 'Ok' | 'Error'; value?: unknown } } | null {
+  ): { commandName: string; ok: boolean; value?: unknown; error?: unknown } | null {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return null;
     }
@@ -257,15 +258,27 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
       return null;
     }
 
-    const response = inner as { result?: unknown; value?: unknown };
-    if (response.result !== 'Ok' && response.result !== 'Error') {
-      return null;
+    const response = inner as Record<string, unknown>;
+
+    // CamillaDSP v3: {"Cmd": {"Ok": <value>}} or {"Cmd": {"Error": <message>}}
+    if (Object.prototype.hasOwnProperty.call(response, 'Ok')) {
+      return { commandName, ok: true, value: response.Ok };
     }
 
-    return {
-      commandName,
-      response: { result: response.result, value: response.value },
-    };
+    if (Object.prototype.hasOwnProperty.call(response, 'Error')) {
+      return { commandName, ok: false, error: response.Error };
+    }
+
+    // Back-compat: {"Cmd": {"result": "Ok"|"Error", "value": ...}}
+    if (response.result === 'Ok') {
+      return { commandName, ok: true, value: response.value };
+    }
+
+    if (response.result === 'Error') {
+      return { commandName, ok: false, error: response.value };
+    }
+
+    return null;
   }
 
   private shiftPendingRequest(commandName: string): PendingRequest | undefined {
