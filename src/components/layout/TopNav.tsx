@@ -3,7 +3,7 @@ import { Menu, Settings, Wifi, WifiOff, Upload, Download } from 'lucide-react';
 import { useUIStore } from '../../stores';
 import { useConnectionStore, selectActiveConnection } from '../../stores';
 import { cn } from '../../lib/utils';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../ui/Tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
 import { ConfigImportDialog } from '../config/ConfigImportDialog';
 import { ConfigExportDialog } from '../config/ConfigExportDialog';
 import type { CamillaConfig } from '../../types';
@@ -30,11 +30,10 @@ export function TopNav({ currentConfig, onConfigImport }: TopNavProps) {
   };
 
   return (
-    <TooltipProvider>
-      <header
-        className="h-14 bg-dsp-surface border-b border-dsp-primary/30 flex items-center px-4 gap-4"
-        role="banner"
-      >
+    <header
+      className="h-14 bg-dsp-surface border-b border-dsp-primary/30 flex items-center px-4 gap-4"
+      role="banner"
+    >
         <button
           onClick={toggleSidebar}
           className="p-2 hover:bg-dsp-primary/50 rounded-md transition-colors"
@@ -130,6 +129,5 @@ export function TopNav({ currentConfig, onConfigImport }: TopNavProps) {
           defaultFilename={currentConfig?.title ?? 'camilladsp-config'}
         />
       </header>
-    </TooltipProvider>
   );
 }

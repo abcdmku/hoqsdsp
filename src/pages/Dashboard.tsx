@@ -3,7 +3,7 @@ import { Plus, RefreshCw, Volume2, VolumeX } from 'lucide-react';
 import { useUnitStore, selectUnits, selectZones } from '../stores/unitStore';
 import { useConnectionStore, selectAllConnections } from '../stores/connectionStore';
 import { Button } from '../components/ui/Button';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../components/ui/Tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { UnitCard } from '../components/dashboard/UnitCard';
 import { AddUnitDialog } from '../components/dashboard/AddUnitDialog';
 import { ZoneGroup, UngroupedSection } from '../components/dashboard/ZoneGroup';
@@ -182,8 +182,7 @@ export function Dashboard() {
   );
 
   return (
-    <TooltipProvider>
-      <div className="h-full overflow-auto p-6">
+    <div className="h-full overflow-auto p-6">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -285,6 +284,5 @@ export function Dashboard() {
           editingUnit={editingUnit}
         />
       </div>
-    </TooltipProvider>
   );
 }

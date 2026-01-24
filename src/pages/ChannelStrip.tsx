@@ -3,7 +3,7 @@ import { Plus, Volume2, VolumeX, RefreshCw } from 'lucide-react';
 import { useUIStore } from '../stores/uiStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { Button } from '../components/ui/Button';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../components/ui/Tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { ChannelStrip } from '../components/channel-strip/ChannelStrip';
 import { QuickAddMenu } from '../components/channel-strip/QuickAddMenu';
 import type { FilterConfig, FilterType } from '../types';
@@ -285,8 +285,7 @@ export function ChannelStripPage() {
   }
 
   return (
-    <TooltipProvider>
-      <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-dsp-primary/30 px-6 py-4">
           <div>
@@ -370,7 +369,6 @@ export function ChannelStripPage() {
           onSelect={handleAddFilter}
         />
       </div>
-    </TooltipProvider>
   );
 }
 

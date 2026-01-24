@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '../../test/setup';
 import userEvent from '@testing-library/user-event';
 import { EQEditor } from './EQEditor';
 import { EQCanvas } from './EQCanvas';
@@ -447,7 +447,7 @@ describe('EQEditor', () => {
     );
 
     // Focus the container
-    const container = screen.getByText('Band Parameters').closest('div[tabindex="0"]') as HTMLElement | null;
+    const container = screen.getByText('Band Parameters').closest<HTMLElement>('div[tabindex="0"]');
     if (container) {
       container.focus();
       fireEvent.keyDown(container, { key: '1' });
@@ -466,7 +466,7 @@ describe('EQEditor', () => {
       />
     );
 
-    const container = screen.getByText('Band 1').closest('div[tabindex="0"]') as HTMLElement | null;
+    const container = screen.getByText('Band 1').closest<HTMLElement>('div[tabindex="0"]');
     if (container) {
       container.focus();
       fireEvent.keyDown(container, { key: 'Escape' });
@@ -486,7 +486,7 @@ describe('EQEditor', () => {
       />
     );
 
-    const container = screen.getByText('Band 1').closest('div[tabindex="0"]') as HTMLElement | null;
+    const container = screen.getByText('Band 1').closest<HTMLElement>('div[tabindex="0"]');
     if (container) {
       container.focus();
       fireEvent.keyDown(container, { key: 'Delete' });
@@ -506,12 +506,12 @@ describe('EQEditor', () => {
       />
     );
 
-    const container = screen.getByText('Band 1').closest('div[tabindex="0"]') as HTMLElement | null;
+    const container = screen.getByText('Band 1').closest<HTMLElement>('div[tabindex="0"]');
     if (container) {
       container.focus();
       fireEvent.keyDown(container, { key: 'b' });
       expect(onChange).toHaveBeenCalled();
-      const newBands = onChange.mock.calls[0]![0];
+      const newBands = onChange.mock.calls[0]![0] as { enabled: boolean }[];
       expect(newBands[0]!.enabled).toBe(false);
     }
   });

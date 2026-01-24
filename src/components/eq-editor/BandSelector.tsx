@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Plus, Trash2, Power } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../ui/Tooltip';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/Tooltip';
 import { type BandSelectorProps, getBandColor, getBandFrequency, getBandGain, hasGain } from './types';
 
 export const BandSelector = memo(function BandSelector({
@@ -15,8 +15,7 @@ export const BandSelector = memo(function BandSelector({
   disabled = false,
 }: BandSelectorProps) {
   return (
-    <TooltipProvider delayDuration={300}>
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
         {/* Band buttons */}
         {bands.map((band, index) => {
           const isSelected = selectedIndex === index;
@@ -126,6 +125,5 @@ export const BandSelector = memo(function BandSelector({
           </>
         )}
       </div>
-    </TooltipProvider>
   );
 });

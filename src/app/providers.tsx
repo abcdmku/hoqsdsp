@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TooltipProvider } from '../components/ui/Tooltip';
 import type { ReactNode } from 'react';
 
 const queryClient = new QueryClient({
@@ -21,7 +22,9 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps): ReactNode {
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <TooltipProvider delayDuration={300}>
+        {children}
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

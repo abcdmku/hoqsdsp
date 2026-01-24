@@ -265,7 +265,7 @@ export function RoutingMatrix({
     if (!grid) return;
 
     const cellId = `cell-${focusedCell.input}-${focusedCell.output}`;
-    const cell = grid.querySelector(`[data-cell-id="${cellId}"]`) as HTMLElement | null;
+    const cell = grid.querySelector<HTMLElement>(`[data-cell-id="${cellId}"]`);
     cell?.focus();
   }, [focusedCell]);
 
