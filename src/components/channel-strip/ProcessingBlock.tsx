@@ -262,103 +262,100 @@ export const ProcessingBlock = React.memo(function ProcessingBlock({
   );
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <div
-          className={cn(
-            'group relative flex cursor-pointer items-center gap-2 rounded border px-2 py-1.5 transition-all',
-            colors.bg,
-            colors.border,
-            isSelected && 'ring-1 ring-dsp-accent',
-            isDragging && 'opacity-50',
-            filter.bypassed && 'opacity-60',
-            className
-          )}
-          onClick={handleClick}
-          onKeyDown={handleKeyDown}
-          tabIndex={0}
-          role="button"
-          aria-label={`${filter.name}${filter.bypassed ? ' (bypassed)' : ''}`}
-          aria-pressed={isSelected}
-          draggable
-          onDragStart={handleDragStart}
-          onDragEnd={onDragEnd}
-        >
-          {/* Drag handle */}
-          <GripVertical className="h-3 w-3 cursor-grab text-dsp-text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+    <div
+      className={cn(
+        'group relative flex cursor-pointer items-center gap-2 rounded border px-2 py-1.5 transition-all',
+        colors.bg,
+        colors.border,
+        isSelected && 'ring-1 ring-dsp-accent',
+        isDragging && 'opacity-50',
+        filter.bypassed && 'opacity-60',
+        className
+      )}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="button"
+      aria-label={`${filter.name}${filter.bypassed ? ' (bypassed)' : ''}`}
+      aria-pressed={isSelected}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+    >
+      {/* Drag handle */}
+      <GripVertical className="h-3 w-3 cursor-grab text-dsp-text-muted opacity-0 transition-opacity group-hover:opacity-100" />
 
-          {/* Filter type label */}
-          <span className={cn('min-w-8 text-xs font-bold', colors.text)}>
-            {shortLabel}
-          </span>
+      {/* Filter type label */}
+      <span className={cn('min-w-8 text-xs font-bold', colors.text)}>
+        {shortLabel}
+      </span>
 
-          {/* Summary info */}
-          <span className="flex-1 truncate text-[10px] text-dsp-text-muted">
-            {summary}
-          </span>
+      {/* Summary info */}
+      <span className="flex-1 truncate text-[10px] text-dsp-text-muted">
+        {summary}
+      </span>
 
-          {/* Bypass indicator */}
-          {filter.bypassed && (
-            <span className="text-[10px] font-medium text-filter-bypassed">OFF</span>
-          )}
-
-          {/* Context menu trigger */}
-          <button
-            className="ml-auto rounded p-0.5 text-dsp-text-muted opacity-0 transition-opacity hover:bg-dsp-primary/50 hover:text-dsp-text group-hover:opacity-100"
-            onClick={(e) => { e.stopPropagation(); }}
-            aria-label="Filter options"
-          >
-            <MoreVertical className="h-3 w-3" />
-          </button>
-        </div>
-      </DropdownMenu.Trigger>
+      {/* Bypass indicator */}
+      {filter.bypassed && (
+        <span className="text-[10px] font-medium text-filter-bypassed">OFF</span>
+      )}
 
       {/* Context menu */}
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          className="min-w-[160px] rounded-md border border-dsp-primary/50 bg-dsp-surface p-1 shadow-lg"
-          sideOffset={5}
-          align="end"
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger
+          className="ml-auto rounded p-0.5 text-dsp-text-muted opacity-0 transition-opacity hover:bg-dsp-primary/50 hover:text-dsp-text group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); }}
+          aria-label="Filter options"
         >
-          <DropdownMenu.Item
-            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-dsp-text outline-none transition-colors hover:bg-dsp-primary/50"
-            onSelect={() => { onBypass?.(); }}
-          >
-            {filter.bypassed ? (
-              <>
-                <ToggleRight className="h-4 w-4" />
-                Enable
-              </>
-            ) : (
-              <>
-                <ToggleLeft className="h-4 w-4" />
-                Bypass
-              </>
-            )}
-            <span className="ml-auto text-xs text-dsp-text-muted">B</span>
-          </DropdownMenu.Item>
+          <MoreVertical className="h-3 w-3" />
+        </DropdownMenu.Trigger>
 
-          <DropdownMenu.Item
-            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-dsp-text outline-none transition-colors hover:bg-dsp-primary/50"
-            onSelect={() => { onCopy?.(); }}
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            className="min-w-[160px] rounded-md border border-dsp-primary/50 bg-dsp-surface p-1 shadow-lg"
+            sideOffset={5}
+            align="end"
           >
-            <Copy className="h-4 w-4" />
-            Copy
-            <span className="ml-auto text-xs text-dsp-text-muted">Ctrl+C</span>
-          </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-dsp-text outline-none transition-colors hover:bg-dsp-primary/50"
+              onSelect={() => { onBypass?.(); }}
+            >
+              {filter.bypassed ? (
+                <>
+                  <ToggleRight className="h-4 w-4" />
+                  Enable
+                </>
+              ) : (
+                <>
+                  <ToggleLeft className="h-4 w-4" />
+                  Bypass
+                </>
+              )}
+              <span className="ml-auto text-xs text-dsp-text-muted">B</span>
+            </DropdownMenu.Item>
 
-          <DropdownMenu.Separator className="my-1 h-px bg-dsp-primary/30" />
+            <DropdownMenu.Item
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-dsp-text outline-none transition-colors hover:bg-dsp-primary/50"
+              onSelect={() => { onCopy?.(); }}
+            >
+              <Copy className="h-4 w-4" />
+              Copy
+              <span className="ml-auto text-xs text-dsp-text-muted">Ctrl+C</span>
+            </DropdownMenu.Item>
 
-          <DropdownMenu.Item
-            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-meter-red outline-none transition-colors hover:bg-meter-red/20"
-            onSelect={() => { onDelete?.(); }}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-            <span className="ml-auto text-xs text-dsp-text-muted">Del</span>
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+            <DropdownMenu.Separator className="my-1 h-px bg-dsp-primary/30" />
+
+            <DropdownMenu.Item
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-meter-red outline-none transition-colors hover:bg-meter-red/20"
+              onSelect={() => { onDelete?.(); }}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+              <span className="ml-auto text-xs text-dsp-text-muted">Del</span>
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </div>
   );
 });
