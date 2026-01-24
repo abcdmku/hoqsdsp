@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+/// <reference types="node" />
 
 /**
  * CamillaDSP Frontend - Parallel Agent Orchestrator
@@ -34,7 +35,6 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as readline from 'readline';
 
 // Ensure we're running from project root (has .git folder)
 function ensureProjectRoot(): void {
@@ -258,6 +258,238 @@ function findTaskById(taskGraph: TaskGraph, taskId: string): { phase: Phase; gro
 }
 
 // ============================================================================
+// VSCode Terminal Integration
+// ============================================================================
+
+const TERMINALS_DIR = '.claude/orchestration/terminals';
+
+interface AgentSpawnOptions {
+  taskId: string;
+  command: string;
+  cwd: string;
+  logFile: string;
+  env?: Record<string, string>;
+  stdinContent?: string; // Content to pipe to stdin (for Claude Code)
+}
+
+/**
+ * Check if VSCode extension is available by looking for activation marker
+ */
+function isVSCodeExtensionActive(): boolean {
+  const terminalsDir = path.resolve(TERMINALS_DIR);
+  const activationFile = path.join(terminalsDir, '.extension-active');
+
+  if (!fs.existsSync(activationFile)) {
+    return false;
+  }
+
+  // Check if marker is recent (created within last 10 minutes)
+  try {
+    const stat = fs.statSync(activationFile);
+    const now = Date.now();
+    return (now - stat.mtimeMs) < 10 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Spawns an agent command - either in VSCode terminal (if extension active) or background.
+ * Output is written to log file and progress is shown in the main terminal.
+ * Returns a promise that resolves when the command completes.
+ */
+async function spawnAgent(options: AgentSpawnOptions): Promise<{ success: boolean; exitCode: number }> {
+  const { taskId, command, cwd, logFile, env, stdinContent } = options;
+
+  // Ensure terminals directory exists
+  const terminalsDir = path.resolve(TERMINALS_DIR);
+  ensureDir(terminalsDir);
+
+  // Check if VSCode extension is available
+  const useVSCodeTerminal = isVSCodeExtensionActive();
+
+  if (useVSCodeTerminal) {
+    return spawnInVSCodeTerminal(options, terminalsDir);
+  } else {
+    return spawnInBackground(options);
+  }
+}
+
+/**
+ * Spawn agent in VSCode integrated terminal via extension
+ */
+async function spawnInVSCodeTerminal(
+  options: AgentSpawnOptions,
+  terminalsDir: string
+): Promise<{ success: boolean; exitCode: number }> {
+  const { taskId, command, cwd, logFile, env, stdinContent } = options;
+
+  log('info', `  Opening VSCode terminal for task ${taskId}`);
+
+  // Verify worktree exists
+  if (!fs.existsSync(cwd)) {
+    log('warn', `  Worktree does not exist at ${cwd}, falling back to background`);
+    return spawnInBackground(options);
+  }
+
+  // Write stdin content to file if needed
+  let stdinFile: string | undefined;
+  if (stdinContent) {
+    stdinFile = path.join(terminalsDir, `${taskId}.stdin`);
+    fs.writeFileSync(stdinFile, stdinContent, 'utf-8');
+  }
+
+  // Convert relative paths to absolute for extension
+  const absoluteCwd = path.resolve(cwd);
+  const absoluteLogFile = path.resolve(logFile);
+  const absoluteStdinFile = stdinFile ? path.resolve(stdinFile) : undefined;
+
+  // Write command file for VSCode extension
+  const cmdFile = path.join(terminalsDir, `${taskId}.json`);
+  const cmdData = {
+    taskId,
+    command,
+    cwd: absoluteCwd,
+    logFile: absoluteLogFile,
+    env,
+    stdinFile: absoluteStdinFile,
+  };
+  fs.writeFileSync(cmdFile, JSON.stringify(cmdData, null, 2), 'utf-8');
+
+  // Wait for acknowledgment from extension
+  const ackFile = path.join(terminalsDir, `${taskId}.ack`);
+  const doneFile = path.join(terminalsDir, `${taskId}.done`);
+
+  // Poll for acknowledgment (extension picked up the command)
+  const startTime = Date.now();
+  while (!fs.existsSync(ackFile) && Date.now() - startTime < 10000) {
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  if (!fs.existsSync(ackFile)) {
+    log('warn', `  VSCode extension did not respond, falling back to background`);
+    // Clean up
+    try { fs.unlinkSync(cmdFile); } catch {}
+    if (stdinFile) try { fs.unlinkSync(stdinFile); } catch {}
+    return spawnInBackground(options);
+  }
+
+  log('success', `  VSCode terminal opened for task ${taskId}`);
+
+  // Poll for completion - look for exit code in done file or timeout
+  let lastLogSize = 0;
+  let lastProgressLog = Date.now();
+  const progressInterval = 5000; // Log progress every 5 seconds
+
+  while (Date.now() - startTime < CONFIG.commandTimeout) {
+    if (fs.existsSync(doneFile)) {
+      const result = JSON.parse(fs.readFileSync(doneFile, 'utf-8'));
+      // Cleanup
+      try { fs.unlinkSync(ackFile); } catch {}
+      try { fs.unlinkSync(doneFile); } catch {}
+      if (stdinFile) try { fs.unlinkSync(stdinFile); } catch {}
+
+      return { success: result.exitCode === 0, exitCode: result.exitCode };
+    }
+
+    // Show progress every 5 seconds
+    if (Date.now() - lastProgressLog > progressInterval) {
+      // Check log file size to show activity
+      try {
+        if (fs.existsSync(logFile)) {
+          const stat = fs.statSync(logFile);
+          const bytesWritten = stat.size;
+          const elapsedSecs = Math.round((Date.now() - startTime) / 1000);
+
+          if (bytesWritten > lastLogSize) {
+            // Read last line of log for context
+            const logContent = fs.readFileSync(logFile, 'utf-8');
+            const lastLine = logContent.split('\n').filter(l => l.trim()).pop() || 'processing...';
+            const lastLinePreview = lastLine.substring(0, 80);
+
+            log('info', `  [${elapsedSecs}s] Task ${taskId}: ${bytesWritten} bytes written | ${lastLinePreview}`);
+            lastLogSize = bytesWritten;
+          } else {
+            log('info', `  [${elapsedSecs}s] Task ${taskId}: waiting for output...`);
+          }
+        }
+      } catch {
+        // Ignore log read errors
+      }
+      lastProgressLog = Date.now();
+    }
+
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  log('warn', `  Task ${taskId} timed out in VSCode terminal`);
+  return { success: false, exitCode: -1 };
+}
+
+/**
+ * Spawn agent in background process (fallback when VSCode extension not available)
+ */
+async function spawnInBackground(options: AgentSpawnOptions): Promise<{ success: boolean; exitCode: number }> {
+  const { taskId, command, cwd, logFile, env, stdinContent } = options;
+
+  const logStream = fs.createWriteStream(logFile);
+
+  log('info', `  Running in background, output → ${logFile}`);
+
+  return new Promise((resolve) => {
+    const agent = spawn(command, [], {
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: true,
+      env: { ...process.env, ...env },
+    });
+
+    // Write to stdin if provided (for Claude Code)
+    if (stdinContent) {
+      agent.stdin?.write(stdinContent);
+      agent.stdin?.end();
+    }
+
+    // Capture output to log file
+    agent.stdout?.on('data', (data) => {
+      logStream.write(data);
+    });
+
+    agent.stderr?.on('data', (data) => {
+      logStream.write(data);
+    });
+
+    // Timeout handler
+    const timeout = setTimeout(() => {
+      log('warn', `Task ${taskId} timed out, killing agent`);
+      agent.kill('SIGTERM');
+      resolve({ success: false, exitCode: -1 });
+    }, CONFIG.commandTimeout);
+
+    agent.on('close', (code) => {
+      clearTimeout(timeout);
+      logStream.end();
+
+      const exitCode = code ?? 1;
+      if (exitCode === 0) {
+        log('success', `  Agent for task ${taskId} completed`);
+      } else {
+        log('error', `  Agent for task ${taskId} exited with code ${exitCode}`);
+      }
+
+      resolve({ success: exitCode === 0, exitCode });
+    });
+
+    agent.on('error', (err) => {
+      clearTimeout(timeout);
+      logStream.end();
+      log('error', `  Agent spawn error: ${err.message}`);
+      resolve({ success: false, exitCode: -1 });
+    });
+  });
+}
+
+// ============================================================================
 // State Management
 // ============================================================================
 
@@ -370,16 +602,31 @@ class WorktreeManager {
     const worktreePath = path.join(this.baseDir, `task-${taskId}`);
     const branchName = `agent/task-${taskId}`;
 
+    // Clean up any existing worktree first
     if (fs.existsSync(worktreePath)) {
       log('warn', `Worktree already exists for task ${taskId}, removing...`);
       this.remove(taskId);
     }
 
-    // Create branch from main
+    // Force delete branch if it exists (Windows-compatible)
     try {
-      exec(`git branch -D ${branchName} 2>/dev/null || true`);
+      execSync(`git branch -D ${branchName}`, {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      log('info', `Deleted existing branch ${branchName}`);
     } catch {
-      // Branch might not exist
+      // Branch doesn't exist, which is fine
+    }
+
+    // Also prune any stale worktree references
+    try {
+      execSync('git worktree prune', {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch {
+      // Ignore prune errors
     }
 
     exec(`git worktree add -b ${branchName} "${worktreePath}" main`);
@@ -474,7 +721,6 @@ class AgentRunner {
     const { taskId, taskName, model, contextFile, worktreePath, outputs } = config;
 
     const logFile = path.join(this.logDir, `task-${taskId}.log`);
-    const logStream = fs.createWriteStream(logFile);
 
     // Read context file
     let context = '';
@@ -535,83 +781,52 @@ class AgentRunner {
     log('info', `  CLI: ${isCodex ? 'Codex/GPT' : 'Claude Code'}`);
     log('info', `  Task type: ${config.taskType}`);
 
-    // Build command string to avoid Windows shell escaping issues
+    // Build command string for the terminal
     const cmdParts = [agentConfig.cli, ...cliArgs];
     const cmdString = cmdParts.map(arg =>
-      arg.includes(' ') ? `"${arg}"` : arg
+      arg.includes(' ') ? `"${arg.replace(/"/g, '\\"')}"` : arg
     ).join(' ');
 
     log('info', `  Command: ${cmdString.substring(0, 100)}...`);
 
-    return new Promise((resolve) => {
-      const agent = spawn(
-        cmdString,
-        [],
-        {
-          cwd: worktreePath,
-          stdio: ['pipe', 'pipe', 'pipe'],
-          shell: true, // Required for npx on Windows
-          env: {
-            ...process.env,
-            ...(isCodex ? {} : { CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' }),
-          },
-        }
+    // Spawn agent in background
+    const result = await spawnAgent({
+      taskId,
+      command: cmdString,
+      cwd: worktreePath,
+      logFile,
+      env: isCodex ? {} : { CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
+      stdinContent: isCodex ? undefined : fullPrompt,
+    });
+
+    if (result.success) {
+      // Verify outputs exist
+      const allOutputsExist = outputs.every((output) =>
+        fs.existsSync(path.join(worktreePath, output))
       );
 
-      // For Claude Code, write prompt to stdin
-      if (!isCodex) {
-        agent.stdin?.write(fullPrompt);
-        agent.stdin?.end();
-      }
-
-      agent.stdout?.on('data', (data) => {
-        logStream.write(data);
-      });
-
-      agent.stderr?.on('data', (data) => {
-        logStream.write(data);
-      });
-
-      const timeout = setTimeout(() => {
-        log('warn', `Task ${taskId} timed out, killing agent`);
-        agent.kill('SIGTERM');
-        resolve(false);
-      }, CONFIG.commandTimeout);
-
-      agent.on('close', (code) => {
-        clearTimeout(timeout);
-        logStream.end();
-
-        if (code === 0) {
-          // Verify outputs exist
-          const allOutputsExist = outputs.every((output) =>
-            fs.existsSync(path.join(worktreePath, output))
+      if (allOutputsExist) {
+        // Commit changes
+        try {
+          exec(`git add -A`, { cwd: worktreePath });
+          exec(
+            `git commit -m "Complete task ${taskId}: ${taskName}" --allow-empty`,
+            { cwd: worktreePath }
           );
-
-          if (allOutputsExist) {
-            // Commit changes
-            try {
-              exec(`git add -A`, { cwd: worktreePath });
-              exec(
-                `git commit -m "Complete task ${taskId}: ${taskName}" --allow-empty`,
-                { cwd: worktreePath }
-              );
-              log('success', `Task ${taskId} completed successfully`);
-              resolve(true);
-            } catch (error: any) {
-              log('error', `Failed to commit task ${taskId}: ${error.message}`);
-              resolve(false);
-            }
-          } else {
-            log('warn', `Task ${taskId} did not produce all expected outputs`);
-            resolve(false);
-          }
-        } else {
-          log('error', `Task ${taskId} failed with code ${code}`);
-          resolve(false);
+          log('success', `Task ${taskId} completed successfully`);
+          return true;
+        } catch (error: any) {
+          log('error', `Failed to commit task ${taskId}: ${error.message}`);
+          return false;
         }
-      });
-    });
+      } else {
+        log('warn', `Task ${taskId} did not produce all expected outputs`);
+        return false;
+      }
+    } else {
+      log('error', `Task ${taskId} failed with exit code ${result.exitCode}`);
+      return false;
+    }
   }
 
   /**
@@ -620,7 +835,6 @@ class AgentRunner {
    */
   async runReview(taskId: string, taskName: string, worktreePath: string, outputs: string[]): Promise<boolean> {
     const logFile = path.join(this.logDir, `task-${taskId}.review.log`);
-    const logStream = fs.createWriteStream(logFile);
 
     // Load standards context
     let standards = '';
@@ -644,71 +858,42 @@ class AgentRunner {
       '--model', agentConfig.model,
     ];
 
-    // Build command string to avoid Windows shell escaping issues
+    // Build command string
     const cmdParts = [agentConfig.cli, ...cliArgs];
     const cmdString = cmdParts.map(arg =>
-      arg.includes(' ') ? `"${arg}"` : arg
+      arg.includes(' ') ? `"${arg.replace(/"/g, '\\"')}"` : arg
     ).join(' ');
 
     log('info', `  Review command: ${cmdString}`);
 
-    return new Promise((resolve) => {
-      const agent = spawn(
-        cmdString,
-        [],
-        {
-          cwd: worktreePath,
-          stdio: ['pipe', 'pipe', 'pipe'],
-          shell: true, // Required for npx on Windows
-          env: {
-            ...process.env,
-            CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-          },
-        }
-      );
-
-      // Write prompt to stdin to avoid command-line length limits
-      agent.stdin?.write(prompt);
-      agent.stdin?.end();
-
-      agent.stdout?.on('data', (data) => {
-        logStream.write(data);
-      });
-
-      agent.stderr?.on('data', (data) => {
-        logStream.write(data);
-      });
-
-      const timeout = setTimeout(() => {
-        log('warn', `Review for task ${taskId} timed out, killing agent`);
-        agent.kill('SIGTERM');
-        resolve(false);
-      }, CONFIG.commandTimeout);
-
-      agent.on('close', (code) => {
-        clearTimeout(timeout);
-        logStream.end();
-
-        if (code === 0) {
-          // Commit review changes
-          try {
-            exec(`git add -A`, { cwd: worktreePath });
-            exec(
-              `git commit -m "Review task ${taskId}: code quality fixes" --allow-empty`,
-              { cwd: worktreePath }
-            );
-            log('success', `Review for task ${taskId} completed`);
-            resolve(true);
-          } catch (error: any) {
-            log('error', `Failed to commit review for task ${taskId}: ${error.message}`);
-            resolve(false);
-          }
-        } else {
-          log('error', `Review for task ${taskId} failed with code ${code}`);
-          resolve(false);
-        }
-      });
+    // Spawn review agent in background
+    const result = await spawnAgent({
+      taskId: `${taskId}-review`,
+      command: cmdString,
+      cwd: worktreePath,
+      logFile,
+      env: { CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
+      stdinContent: prompt,
     });
+
+    if (result.success) {
+      // Commit review changes
+      try {
+        exec(`git add -A`, { cwd: worktreePath });
+        exec(
+          `git commit -m "Review task ${taskId}: code quality fixes" --allow-empty`,
+          { cwd: worktreePath }
+        );
+        log('success', `Review for task ${taskId} completed`);
+        return true;
+      } catch (error: any) {
+        log('error', `Failed to commit review for task ${taskId}: ${error.message}`);
+        return false;
+      }
+    } else {
+      log('error', `Review for task ${taskId} failed with exit code ${result.exitCode}`);
+      return false;
+    }
   }
 
   private buildReviewPrompt(taskId: string, taskName: string, outputs: string[], standards: string): string {
@@ -1115,6 +1300,7 @@ class Orchestrator {
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
       log('info', `\nProcessing batch ${i + 1}/${batches.length} (${batch.length} tasks)`);
+      log('info', `Running: ${batch.map((t) => t.id).join(', ')}`);
 
       // Run batch in parallel
       const results = await Promise.all(
@@ -1125,6 +1311,8 @@ class Orchestrator {
       const failed = batch.filter((_, idx) => !results[idx]);
       if (failed.length > 0) {
         log('error', `Failed tasks: ${failed.map((t) => t.id).join(', ')}`);
+      } else {
+        log('success', `Batch ${i + 1} completed successfully`);
       }
     }
 

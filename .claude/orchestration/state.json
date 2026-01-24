@@ -1,16 +1,14 @@
 {
   "version": "1.0.0",
-  "startedAt": "2026-01-24T03:32:43.333Z",
-  "lastUpdated": "2026-01-24T03:32:43.450Z",
+  "startedAt": "2026-01-24T04:05:05.881Z",
+  "lastUpdated": "2026-01-24T04:05:06.046Z",
   "completedPhases": [],
   "completedGroups": [],
   "tasks": {
     "1.1.1": {
-      "status": "in_progress",
-      "worktree": ".worktrees\\task-1.1.1",
-      "branch": "agent/task-1.1.1",
-      "startedAt": "2026-01-24T03:32:43.449Z"
+      "status": "failed",
+      "error": "Command failed: git worktree add -b agent/task-1.1.1 \".worktrees\\task-1.1.1\" main\nPreparing worktree (new branch 'agent/task-1.1.1')\nfatal: a branch named 'agent/task-1.1.1' already exists\n"
     }
   },
-  "activeAgents": 1
+  "activeAgents": 0
 }
