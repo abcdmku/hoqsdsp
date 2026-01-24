@@ -4,8 +4,8 @@
   "project": "camilla-dsp-frontend",
   "models": {
     "ui": "gpt-5.2-max",
-    "code": "gpt-5.2-codex-max",
-    "review": "gpt-5.2-max"
+    "code": "opus",
+    "review": "opus"
   },
   "phases": [
     {
@@ -851,6 +851,33 @@
               "estimated_complexity": "medium",
               "outputs": ["src/components/connection/UnitDetail.tsx"],
               "dependencies": ["4.2.1", "2.2.2", "2.2.7"]
+            },
+            {
+              "id": "4.2.6",
+              "name": "Create NetworkDashboard container",
+              "type": "ui",
+              "context_file": "contexts/ui-dashboard.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/dashboard/NetworkDashboard.tsx"],
+              "dependencies": ["4.2.3"]
+            },
+            {
+              "id": "4.2.7",
+              "name": "Add level meter strips to unit cards",
+              "type": "ui",
+              "context_file": "contexts/ui-dashboard.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/dashboard/UnitCardMeters.tsx"],
+              "dependencies": ["4.2.3", "2.2.5"]
+            },
+            {
+              "id": "4.2.8",
+              "name": "Add quick volume control to unit cards",
+              "type": "ui",
+              "context_file": "contexts/ui-dashboard.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/dashboard/UnitCardVolume.tsx"],
+              "dependencies": ["4.2.3", "2.2.3"]
             }
           ]
         },
@@ -927,7 +954,7 @@
     },
     {
       "id": "P5",
-      "name": "UI Components - Audio Matrix & Pipeline",
+      "name": "UI Components - Channel Strip View & Routing",
       "depends_on_phases": ["P3", "P4"],
       "parallel_groups": [
         {
@@ -935,11 +962,11 @@
           "tasks": [
             {
               "id": "5.1.1",
-              "name": "Create matrix grid layout component",
+              "name": "Create ChannelStrip container component",
               "type": "ui",
-              "context_file": "contexts/ui-matrix.md",
+              "context_file": "contexts/ui-channel-strip.md",
               "estimated_complexity": "high",
-              "outputs": ["src/components/matrix/MatrixGrid.tsx"],
+              "outputs": ["src/components/channel-strip/ChannelStrip.tsx"],
               "dependencies": ["4.1.1", "3.3.1"]
             }
           ]
@@ -950,38 +977,38 @@
           "tasks": [
             {
               "id": "5.1.2",
-              "name": "Create input channel row components",
+              "name": "Create ChannelLabel with inline editing",
               "type": "ui",
-              "context_file": "contexts/ui-matrix.md",
+              "context_file": "contexts/ui-channel-strip.md",
               "estimated_complexity": "medium",
-              "outputs": ["src/components/matrix/InputChannelRow.tsx"],
+              "outputs": ["src/components/channel-strip/ChannelLabel.tsx"],
               "dependencies": ["5.1.1"]
             },
             {
               "id": "5.1.3",
-              "name": "Create output channel column components",
+              "name": "Create SourceSelector dropdown",
               "type": "ui",
-              "context_file": "contexts/ui-matrix.md",
+              "context_file": "contexts/ui-channel-strip.md",
               "estimated_complexity": "medium",
-              "outputs": ["src/components/matrix/OutputChannelColumn.tsx"],
+              "outputs": ["src/components/channel-strip/SourceSelector.tsx"],
               "dependencies": ["5.1.1"]
             },
             {
               "id": "5.1.4",
-              "name": "Create pipeline stage cell component",
+              "name": "Create FilterBlock base component with color coding",
               "type": "ui",
-              "context_file": "contexts/ui-matrix.md",
+              "context_file": "contexts/ui-channel-strip.md",
               "estimated_complexity": "high",
-              "outputs": ["src/components/matrix/StageCell.tsx"],
+              "outputs": ["src/components/channel-strip/FilterBlock.tsx"],
               "dependencies": ["5.1.1", "3.2.1"]
             },
             {
               "id": "5.1.5",
-              "name": "Create connection line visualization",
+              "name": "Create MuteButton component",
               "type": "ui",
-              "context_file": "contexts/ui-matrix.md",
-              "estimated_complexity": "medium",
-              "outputs": ["src/components/matrix/ConnectionLines.tsx"],
+              "context_file": "contexts/ui-channel-strip.md",
+              "estimated_complexity": "low",
+              "outputs": ["src/components/channel-strip/MuteButton.tsx"],
               "dependencies": ["5.1.1"]
             }
           ]
@@ -992,35 +1019,72 @@
           "tasks": [
             {
               "id": "5.1.6",
-              "name": "Implement click-to-edit for matrix cells",
+              "name": "Create EQBlock showing band count indicator",
               "type": "ui",
-              "context_file": "contexts/ui-matrix.md",
+              "context_file": "contexts/ui-channel-strip.md",
               "estimated_complexity": "medium",
-              "outputs": ["src/components/matrix/CellEditor.tsx"],
-              "dependencies": ["5.1.4", "4.1.5"]
+              "outputs": ["src/components/channel-strip/blocks/EQBlock.tsx"],
+              "dependencies": ["5.1.4"]
             },
             {
               "id": "5.1.7",
-              "name": "Create signal flow animation",
+              "name": "Create DynamicsBlock (CMP/GATE indicator)",
               "type": "ui",
-              "context_file": "contexts/ui-matrix.md",
+              "context_file": "contexts/ui-channel-strip.md",
               "estimated_complexity": "medium",
-              "outputs": ["src/components/matrix/SignalFlowAnimation.tsx"],
-              "dependencies": ["5.1.5", "1.3.5"]
+              "outputs": ["src/components/channel-strip/blocks/DynamicsBlock.tsx"],
+              "dependencies": ["5.1.4"]
+            },
+            {
+              "id": "5.1.8",
+              "name": "Create DelayBlock with time display",
+              "type": "ui",
+              "context_file": "contexts/ui-channel-strip.md",
+              "estimated_complexity": "low",
+              "outputs": ["src/components/channel-strip/blocks/DelayBlock.tsx"],
+              "dependencies": ["5.1.4"]
+            },
+            {
+              "id": "5.1.9",
+              "name": "Create FIRBlock with file indicator",
+              "type": "ui",
+              "context_file": "contexts/ui-channel-strip.md",
+              "estimated_complexity": "low",
+              "outputs": ["src/components/channel-strip/blocks/FIRBlock.tsx"],
+              "dependencies": ["5.1.4"]
+            },
+            {
+              "id": "5.1.10",
+              "name": "Create LimiterBlock with threshold display",
+              "type": "ui",
+              "context_file": "contexts/ui-channel-strip.md",
+              "estimated_complexity": "low",
+              "outputs": ["src/components/channel-strip/blocks/LimiterBlock.tsx"],
+              "dependencies": ["5.1.4"]
             }
           ]
         },
         {
           "group_id": "P5-AJ",
+          "depends_on_groups": ["P5-AI"],
           "tasks": [
             {
-              "id": "5.2.1",
-              "name": "Create pipeline canvas component",
+              "id": "5.1.11",
+              "name": "Create FilterBlockStrip with ordered blocks",
               "type": "ui",
-              "context_file": "contexts/ui-pipeline.md",
-              "estimated_complexity": "high",
-              "outputs": ["src/components/pipeline/PipelineCanvas.tsx"],
-              "dependencies": ["4.1.1", "3.3.1"]
+              "context_file": "contexts/ui-channel-strip.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/channel-strip/FilterBlockStrip.tsx"],
+              "dependencies": ["5.1.6", "5.1.7", "5.1.8", "5.1.9", "5.1.10"]
+            },
+            {
+              "id": "5.1.12",
+              "name": "Create QuickActionsBar for adding filters",
+              "type": "ui",
+              "context_file": "contexts/ui-channel-strip.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/channel-strip/QuickActionsBar.tsx"],
+              "dependencies": ["5.1.4"]
             }
           ]
         },
@@ -1029,70 +1093,60 @@
           "depends_on_groups": ["P5-AJ"],
           "tasks": [
             {
-              "id": "5.2.2",
-              "name": "Create draggable pipeline stage component",
+              "id": "5.1.13",
+              "name": "Create ChannelStripView with all strips",
               "type": "ui",
-              "context_file": "contexts/ui-pipeline.md",
-              "estimated_complexity": "high",
-              "outputs": ["src/components/pipeline/DraggableStage.tsx"],
-              "dependencies": ["5.2.1"]
+              "context_file": "contexts/ui-channel-strip.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/channel-strip/ChannelStripView.tsx"],
+              "dependencies": ["5.1.11", "5.1.12"]
             },
             {
-              "id": "5.2.4",
-              "name": "Create filter/mixer type selector",
-              "type": "ui",
-              "context_file": "contexts/ui-pipeline.md",
+              "id": "5.1.14",
+              "name": "Implement drag-to-reorder filter blocks",
+              "type": "code",
+              "context_file": "contexts/ui-channel-strip.md",
               "estimated_complexity": "medium",
-              "outputs": ["src/components/pipeline/TypePalette.tsx"],
-              "dependencies": ["5.2.1"]
-            },
-            {
-              "id": "5.2.5",
-              "name": "Create pipeline validation error display",
-              "type": "ui",
-              "context_file": "contexts/ui-pipeline.md",
-              "estimated_complexity": "medium",
-              "outputs": ["src/components/pipeline/ValidationErrors.tsx"],
-              "dependencies": ["5.2.1", "3.3.3"]
+              "outputs": ["src/hooks/useFilterDrag.ts"],
+              "dependencies": ["5.1.11"]
             }
           ]
         },
         {
           "group_id": "P5-AL",
-          "depends_on_groups": ["P5-AK"],
           "tasks": [
             {
-              "id": "5.2.3",
-              "name": "Implement drag-and-drop reordering",
+              "id": "5.2.1",
+              "name": "Create RoutingMatrix grid component",
               "type": "ui",
-              "context_file": "contexts/ui-pipeline.md",
+              "context_file": "contexts/ui-routing.md",
               "estimated_complexity": "high",
-              "outputs": ["src/components/pipeline/DragDropHandler.tsx"],
-              "dependencies": ["5.2.2"]
-            },
-            {
-              "id": "5.2.6",
-              "name": "Implement stage bypass toggle UI",
-              "type": "ui",
-              "context_file": "contexts/ui-pipeline.md",
-              "estimated_complexity": "low",
-              "outputs": ["src/components/pipeline/BypassToggle.tsx"],
-              "dependencies": ["5.2.2", "3.3.4"]
+              "outputs": ["src/components/routing/RoutingMatrix.tsx"],
+              "dependencies": ["4.1.1", "3.3.2"]
             }
           ]
         },
         {
           "group_id": "P5-AM",
-          "depends_on_groups": ["P5-AK"],
+          "depends_on_groups": ["P5-AL"],
           "tasks": [
             {
-              "id": "5.2.7",
-              "name": "Create pipeline flowchart visualization",
+              "id": "5.2.2",
+              "name": "Create CrosspointCell with toggle",
               "type": "ui",
-              "context_file": "contexts/ui-pipeline.md",
-              "estimated_complexity": "high",
-              "outputs": ["src/components/pipeline/FlowchartView.tsx"],
+              "context_file": "contexts/ui-routing.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/routing/CrosspointCell.tsx"],
               "dependencies": ["5.2.1"]
+            },
+            {
+              "id": "5.2.3",
+              "name": "Create CrosspointEditor panel",
+              "type": "ui",
+              "context_file": "contexts/ui-routing.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/routing/CrosspointEditor.tsx"],
+              "dependencies": ["5.2.1", "4.1.5"]
             }
           ]
         }
@@ -1467,11 +1521,11 @@
           "tasks": [
             {
               "id": "7.2.2",
-              "name": "Create frequency response graph",
+              "name": "Create EQCanvas with log frequency axis",
               "type": "ui",
-              "context_file": "contexts/ui-graphs.md",
+              "context_file": "contexts/ui-eq-editor.md",
               "estimated_complexity": "high",
-              "outputs": ["src/components/monitoring/FrequencyResponse.tsx"],
+              "outputs": ["src/components/eq-editor/EQCanvas.tsx"],
               "dependencies": ["7.2.1"]
             }
           ]
@@ -1484,27 +1538,36 @@
               "id": "7.2.3",
               "name": "Implement Biquad filter response calculation",
               "type": "code",
-              "context_file": "contexts/ui-graphs.md",
+              "context_file": "contexts/ui-eq-editor.md",
               "estimated_complexity": "high",
               "outputs": ["src/lib/dsp/response/biquad-response.ts"],
               "dependencies": ["7.2.2", "3.2.1"]
             },
             {
               "id": "7.2.5",
-              "name": "Create interactive graph controls",
+              "name": "Create draggable EQNode component",
               "type": "ui",
-              "context_file": "contexts/ui-graphs.md",
-              "estimated_complexity": "medium",
-              "outputs": ["src/components/monitoring/GraphControls.tsx"],
+              "context_file": "contexts/ui-eq-editor.md",
+              "estimated_complexity": "high",
+              "outputs": ["src/components/eq-editor/EQNode.tsx"],
               "dependencies": ["7.2.2"]
             },
             {
               "id": "7.2.6",
-              "name": "Create magnitude/phase display toggle",
+              "name": "Create BandSelector numbered buttons",
               "type": "ui",
-              "context_file": "contexts/ui-graphs.md",
-              "estimated_complexity": "low",
-              "outputs": ["src/components/monitoring/ResponseModeToggle.tsx"],
+              "context_file": "contexts/ui-eq-editor.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/eq-editor/BandSelector.tsx"],
+              "dependencies": ["7.2.2"]
+            },
+            {
+              "id": "7.2.7",
+              "name": "Create BandTypeSelector (HP, LP, Peak, etc.)",
+              "type": "ui",
+              "context_file": "contexts/ui-eq-editor.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/eq-editor/BandTypeSelector.tsx"],
               "dependencies": ["7.2.2"]
             }
           ]
@@ -1517,10 +1580,61 @@
               "id": "7.2.4",
               "name": "Implement filter chain response aggregation",
               "type": "code",
-              "context_file": "contexts/ui-graphs.md",
+              "context_file": "contexts/ui-eq-editor.md",
               "estimated_complexity": "medium",
               "outputs": ["src/lib/dsp/response/chain-response.ts"],
               "dependencies": ["7.2.3"]
+            },
+            {
+              "id": "7.2.8",
+              "name": "Implement node drag for frequency/gain",
+              "type": "code",
+              "context_file": "contexts/ui-eq-editor.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/hooks/useEQNodeDrag.ts"],
+              "dependencies": ["7.2.5"]
+            },
+            {
+              "id": "7.2.9",
+              "name": "Implement scroll-to-adjust-Q on nodes",
+              "type": "code",
+              "context_file": "contexts/ui-eq-editor.md",
+              "estimated_complexity": "low",
+              "outputs": ["src/hooks/useEQNodeScroll.ts"],
+              "dependencies": ["7.2.5"]
+            },
+            {
+              "id": "7.2.10",
+              "name": "Implement click-to-add-band on graph",
+              "type": "code",
+              "context_file": "contexts/ui-eq-editor.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/hooks/useEQAddBand.ts"],
+              "dependencies": ["7.2.2"]
+            }
+          ]
+        },
+        {
+          "group_id": "P7-BA2",
+          "depends_on_groups": ["P7-BA"],
+          "tasks": [
+            {
+              "id": "7.2.11",
+              "name": "Create BandParameters panel with sliders",
+              "type": "ui",
+              "context_file": "contexts/ui-eq-editor.md",
+              "estimated_complexity": "medium",
+              "outputs": ["src/components/eq-editor/BandParameters.tsx"],
+              "dependencies": ["7.2.6", "7.2.7"]
+            },
+            {
+              "id": "7.2.12",
+              "name": "Create EQEditor complete component",
+              "type": "ui",
+              "context_file": "contexts/ui-eq-editor.md",
+              "estimated_complexity": "high",
+              "outputs": ["src/components/eq-editor/EQEditor.tsx"],
+              "dependencies": ["7.2.4", "7.2.8", "7.2.9", "7.2.10"]
             }
           ]
         },
@@ -1584,6 +1698,6 @@
       ]
     }
   ],
-  "total_tasks": 120,
-  "estimated_parallel_groups": 45
+  "total_tasks": 133,
+  "estimated_parallel_groups": 48
 }

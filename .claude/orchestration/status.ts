@@ -79,9 +79,23 @@ function formatDuration(startDate: string, endDate?: string): string {
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 }
 
+// Find project root by looking for .git directory
+function findProjectRoot(): string {
+  let current = process.cwd();
+  while (current !== path.dirname(current)) {
+    if (fs.existsSync(path.join(current, '.git'))) {
+      return current;
+    }
+    current = path.dirname(current);
+  }
+  // Fallback to current directory
+  return process.cwd();
+}
+
 function main(): void {
-  const stateFile = '.claude/orchestration/state.json';
-  const graphFile = '.claude/orchestration/task-graph.json';
+  const projectRoot = findProjectRoot();
+  const stateFile = path.join(projectRoot, '.claude/orchestration/state.json');
+  const graphFile = path.join(projectRoot, '.claude/orchestration/task-graph.json');
 
   // Check if state exists
   if (!fs.existsSync(stateFile)) {
