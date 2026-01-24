@@ -195,29 +195,23 @@ export function Dashboard() {
 
           <div className="flex items-center gap-2">
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleRefreshAll}
-                  aria-label="Refresh all units"
-                >
-                  <RefreshCw className="h-5 w-5" />
-                </Button>
+              <TooltipTrigger
+                className="inline-flex items-center justify-center h-10 w-10 rounded-md hover:bg-dsp-primary/50"
+                onClick={handleRefreshAll}
+                aria-label="Refresh all units"
+              >
+                <RefreshCw className="h-5 w-5" />
               </TooltipTrigger>
               <TooltipContent>Refresh all</TooltipContent>
             </Tooltip>
 
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleMuteAll}
-                  aria-label="Mute all units"
-                >
-                  <VolumeX className="h-5 w-5" />
-                </Button>
+              <TooltipTrigger
+                className="inline-flex items-center justify-center h-10 w-10 rounded-md hover:bg-dsp-primary/50"
+                onClick={handleMuteAll}
+                aria-label="Mute all units"
+              >
+                <VolumeX className="h-5 w-5" />
               </TooltipTrigger>
               <TooltipContent>Mute all</TooltipContent>
             </Tooltip>

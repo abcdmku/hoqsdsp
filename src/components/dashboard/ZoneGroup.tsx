@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { ChevronDown, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Button } from '../ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
 
 export interface ZoneGroupProps {
@@ -60,20 +59,16 @@ export function ZoneGroup({
 
         {onMuteAll && (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-auto h-7 px-2"
-                onClick={onMuteAll}
-                aria-label={allMuted ? 'Unmute all in zone' : 'Mute all in zone'}
-              >
-                {allMuted ? (
-                  <VolumeX className="h-3.5 w-3.5 text-meter-red" />
-                ) : (
-                  <Volume2 className="h-3.5 w-3.5" />
-                )}
-              </Button>
+            <TooltipTrigger
+              className="ml-auto inline-flex items-center justify-center h-7 px-2 rounded-md hover:bg-dsp-primary/50"
+              onClick={onMuteAll}
+              aria-label={allMuted ? 'Unmute all in zone' : 'Mute all in zone'}
+            >
+              {allMuted ? (
+                <VolumeX className="h-3.5 w-3.5 text-meter-red" />
+              ) : (
+                <Volume2 className="h-3.5 w-3.5" />
+              )}
             </TooltipTrigger>
             <TooltipContent>
               {allMuted ? 'Unmute all in zone' : 'Mute all in zone'}

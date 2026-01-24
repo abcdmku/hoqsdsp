@@ -194,27 +194,36 @@ describe('UnitCard', () => {
   describe('Interactions', () => {
     it('should call onClick when card is clicked', () => {
       const onClick = vi.fn();
-      renderWithProvider(<UnitCard {...defaultProps} onClick={onClick} />);
+      const { container } = renderWithProvider(<UnitCard {...defaultProps} onClick={onClick} />);
 
-      fireEvent.click(screen.getByRole('button'));
+      // The card element has role="button" on the containing div
+      const card = container.querySelector('[role="button"]');
+      if (card) {
+        fireEvent.click(card);
+      }
 
       expect(onClick).toHaveBeenCalledTimes(1);
     });
 
     it('should call onClick on keyboard Enter', () => {
       const onClick = vi.fn();
-      renderWithProvider(<UnitCard {...defaultProps} onClick={onClick} />);
+      const { container } = renderWithProvider(<UnitCard {...defaultProps} onClick={onClick} />);
 
-      fireEvent.keyDown(screen.getByRole('button'), { key: 'Enter' });
+      const card = container.querySelector('[role="button"]');
+      if (card) {
+        fireEvent.keyDown(card, { key: 'Enter' });
+      }
 
       expect(onClick).toHaveBeenCalledTimes(1);
     });
 
     it('should have tabIndex when onClick is provided', () => {
       const onClick = vi.fn();
-      renderWithProvider(<UnitCard {...defaultProps} onClick={onClick} />);
+      const { container } = renderWithProvider(<UnitCard {...defaultProps} onClick={onClick} />);
 
-      expect(screen.getByRole('button')).toHaveAttribute('tabIndex', '0');
+      // The card itself is the clickable element with role="button"
+      const card = container.querySelector('[role="button"]');
+      expect(card).toHaveAttribute('tabIndex', '0');
     });
 
     it('should call onSettingsClick when settings button clicked', () => {

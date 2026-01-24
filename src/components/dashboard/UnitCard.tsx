@@ -142,14 +142,12 @@ export const UnitCard = React.memo(function UnitCard({
 
         {/* Status indicator */}
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-1.5">
-              <div className={cn('h-2.5 w-2.5 rounded-full', statusInfo.color)} />
-              <StatusIcon className={cn(
-                'h-4 w-4',
-                status === 'error' ? 'text-status-error' : 'text-dsp-text-muted'
-              )} />
-            </div>
+          <TooltipTrigger className="flex items-center gap-1.5">
+            <div className={cn('h-2.5 w-2.5 rounded-full', statusInfo.color)} />
+            <StatusIcon className={cn(
+              'h-4 w-4',
+              status === 'error' ? 'text-status-error' : 'text-dsp-text-muted'
+            )} />
           </TooltipTrigger>
           <TooltipContent>
             <p>{statusInfo.label}</p>
@@ -247,23 +245,19 @@ export const UnitCard = React.memo(function UnitCard({
       {isOnline && onVolumeChange && (
         <div className="mb-3 flex items-center gap-2">
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMuteToggle?.();
-                }}
-                aria-label={muted ? 'Unmute' : 'Mute'}
-              >
-                {muted ? (
-                  <VolumeX className="h-4 w-4 text-meter-red" />
-                ) : (
-                  <Volume2 className="h-4 w-4" />
-                )}
-              </Button>
+            <TooltipTrigger
+              className="inline-flex items-center justify-center h-8 w-8 shrink-0 rounded-md hover:bg-dsp-primary/50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMuteToggle?.();
+              }}
+              aria-label={muted ? 'Unmute' : 'Mute'}
+            >
+              {muted ? (
+                <VolumeX className="h-4 w-4 text-meter-red" />
+              ) : (
+                <Volume2 className="h-4 w-4" />
+              )}
             </TooltipTrigger>
             <TooltipContent>
               {muted ? 'Unmute' : 'Mute'}

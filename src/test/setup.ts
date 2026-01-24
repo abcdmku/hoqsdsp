@@ -27,7 +27,7 @@ afterEach(() => {
 
 // Custom render function that wraps components with TooltipProvider
 function AllProviders({ children }: { children: ReactNode }): ReactElement {
-  return createElement(TooltipProvider, { delayDuration: 0 }, children);
+  return createElement(TooltipProvider, { delayDuration: 0, children });
 }
 
 function customRender(

@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { Volume2, VolumeX, Headphones, GripVertical, Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Button } from '../ui/Button';
 import { Slider } from '../ui/Slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
 import { ProcessingBlock } from './ProcessingBlock';
@@ -246,43 +245,41 @@ export const ChannelStrip = React.memo(function ChannelStrip({
         {/* Mute/Solo controls */}
         <div className="flex items-center justify-center gap-2">
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={muted ? 'destructive' : 'ghost'}
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMuteToggle?.();
-                }}
-                aria-label={muted ? 'Unmute' : 'Mute'}
-                aria-pressed={muted}
-              >
-                {muted ? (
-                  <VolumeX className="h-4 w-4" />
-                ) : (
-                  <Volume2 className="h-4 w-4" />
-                )}
-              </Button>
+            <TooltipTrigger
+              className={cn(
+                'inline-flex items-center justify-center h-8 w-8 rounded-md text-sm font-medium transition-colors',
+                muted ? 'bg-meter-red text-white hover:bg-meter-red/90' : 'hover:bg-dsp-primary/50'
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMuteToggle?.();
+              }}
+              aria-label={muted ? 'Unmute' : 'Mute'}
+              aria-pressed={muted}
+            >
+              {muted ? (
+                <VolumeX className="h-4 w-4" />
+              ) : (
+                <Volume2 className="h-4 w-4" />
+              )}
             </TooltipTrigger>
             <TooltipContent>{muted ? 'Unmute' : 'Mute'}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={solo ? 'default' : 'ghost'}
-                size="sm"
-                className={cn('h-8 w-8 p-0', solo && 'bg-meter-yellow text-dsp-bg hover:bg-meter-yellow/80')}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSoloToggle?.();
-                }}
-                aria-label={solo ? 'Unsolo' : 'Solo'}
-                aria-pressed={solo}
-              >
-                <Headphones className="h-4 w-4" />
-              </Button>
+            <TooltipTrigger
+              className={cn(
+                'inline-flex items-center justify-center h-8 w-8 rounded-md text-sm font-medium transition-colors',
+                solo ? 'bg-meter-yellow text-dsp-bg hover:bg-meter-yellow/80' : 'hover:bg-dsp-primary/50'
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSoloToggle?.();
+              }}
+              aria-label={solo ? 'Unsolo' : 'Solo'}
+              aria-pressed={solo}
+            >
+              <Headphones className="h-4 w-4" />
             </TooltipTrigger>
             <TooltipContent>{solo ? 'Unsolo' : 'Solo'}</TooltipContent>
           </Tooltip>

@@ -51,33 +51,29 @@ export function TopNav({ currentConfig, onConfigImport }: TopNavProps) {
         {/* Import/Export buttons */}
         <div className="flex items-center gap-1">
           <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => { setImportDialogOpen(true); }}
-                className="p-2 hover:bg-dsp-primary/50 rounded-md transition-colors"
-                aria-label="Import configuration"
-              >
-                <Upload className="w-5 h-5" aria-hidden="true" />
-              </button>
+            <TooltipTrigger
+              onClick={() => { setImportDialogOpen(true); }}
+              className="p-2 hover:bg-dsp-primary/50 rounded-md transition-colors"
+              aria-label="Import configuration"
+            >
+              <Upload className="w-5 h-5" aria-hidden="true" />
             </TooltipTrigger>
             <TooltipContent>Import configuration</TooltipContent>
           </Tooltip>
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => { setExportDialogOpen(true); }}
-                className={cn(
-                  "p-2 rounded-md transition-colors",
-                  currentConfig
-                    ? "hover:bg-dsp-primary/50"
-                    : "opacity-50 cursor-not-allowed"
-                )}
-                aria-label="Export configuration"
-                disabled={!currentConfig}
-              >
-                <Download className="w-5 h-5" aria-hidden="true" />
-              </button>
+            <TooltipTrigger
+              onClick={() => { setExportDialogOpen(true); }}
+              className={cn(
+                "p-2 rounded-md transition-colors",
+                currentConfig
+                  ? "hover:bg-dsp-primary/50"
+                  : "opacity-50 cursor-not-allowed"
+              )}
+              aria-label="Export configuration"
+              disabled={!currentConfig}
+            >
+              <Download className="w-5 h-5" aria-hidden="true" />
             </TooltipTrigger>
             <TooltipContent>
               {currentConfig ? 'Export configuration' : 'No configuration to export'}
