@@ -1,6 +1,7 @@
 import { render, screen } from '../../test/setup';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { TopNav, type TopNavProps } from './TopNav';
 import type { CamillaConfig } from '../../types';
 
@@ -36,6 +37,14 @@ vi.mock('../config/ConfigExportDialog', () => ({
 
 const defaultProps: TopNavProps = {};
 
+function renderTopNav(props: TopNavProps = defaultProps) {
+  return render(
+    <MemoryRouter>
+      <TopNav {...props} />
+    </MemoryRouter>
+  );
+}
+
 describe('TopNav', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -43,13 +52,13 @@ describe('TopNav', () => {
 
   describe('Rendering', () => {
     it('should render the application title', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(screen.getByRole('heading', { name: /camilladsp/i })).toBeInTheDocument();
     });
 
     it('should render sidebar toggle button', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(
         screen.getByRole('button', { name: /collapse sidebar|expand sidebar/i })
@@ -57,25 +66,25 @@ describe('TopNav', () => {
     });
 
     it('should render import button', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(screen.getByRole('button', { name: /import configuration/i })).toBeInTheDocument();
     });
 
     it('should render export button', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(screen.getByRole('button', { name: /export configuration/i })).toBeInTheDocument();
     });
 
     it('should render settings button', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(screen.getByRole('button', { name: /open settings/i })).toBeInTheDocument();
     });
 
     it('should render connection status', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(screen.getByRole('status')).toBeInTheDocument();
     });
@@ -84,7 +93,7 @@ describe('TopNav', () => {
   describe('Sidebar Toggle', () => {
     it('should call toggleSidebar when button clicked', async () => {
       const user = userEvent.setup();
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       await user.click(screen.getByRole('button', { name: /collapse sidebar|expand sidebar/i }));
 
@@ -92,14 +101,14 @@ describe('TopNav', () => {
     });
 
     it('should have correct aria-expanded attribute', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       const button = screen.getByRole('button', { name: /collapse sidebar/i });
       expect(button).toHaveAttribute('aria-expanded', 'true');
     });
 
     it('should have aria-controls pointing to sidebar', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       const button = screen.getByRole('button', { name: /collapse sidebar/i });
       expect(button).toHaveAttribute('aria-controls', 'sidebar');
@@ -109,7 +118,7 @@ describe('TopNav', () => {
   describe('Import/Export', () => {
     it('should open import dialog when import button clicked', async () => {
       const user = userEvent.setup();
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       await user.click(screen.getByRole('button', { name: /import configuration/i }));
 
@@ -119,7 +128,7 @@ describe('TopNav', () => {
     it('should call onConfigImport when config is imported', async () => {
       const onConfigImport = vi.fn();
       const user = userEvent.setup();
-      render(<TopNav {...defaultProps} onConfigImport={onConfigImport} />);
+      renderTopNav({ ...defaultProps, onConfigImport });
 
       // Open dialog
       await user.click(screen.getByRole('button', { name: /import configuration/i }));
@@ -144,7 +153,7 @@ describe('TopNav', () => {
         pipeline: [],
       };
       const user = userEvent.setup();
-      render(<TopNav {...defaultProps} currentConfig={mockConfig} />);
+      renderTopNav({ ...defaultProps, currentConfig: mockConfig });
 
       await user.click(screen.getByRole('button', { name: /export configuration/i }));
 
@@ -152,7 +161,7 @@ describe('TopNav', () => {
     });
 
     it('should disable export button when no config available', () => {
-      render(<TopNav {...defaultProps} currentConfig={undefined} />);
+      renderTopNav({ ...defaultProps, currentConfig: undefined });
 
       const exportButton = screen.getByRole('button', { name: /export configuration/i });
       expect(exportButton).toBeDisabled();
@@ -171,7 +180,7 @@ describe('TopNav', () => {
         mixers: {},
         pipeline: [],
       };
-      render(<TopNav {...defaultProps} currentConfig={mockConfig} />);
+      renderTopNav({ ...defaultProps, currentConfig: mockConfig });
 
       const exportButton = screen.getByRole('button', { name: /export configuration/i });
       expect(exportButton).not.toBeDisabled();
@@ -180,13 +189,13 @@ describe('TopNav', () => {
 
   describe('Connection Status', () => {
     it('should show disconnected status', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(screen.getByText('Disconnected')).toBeInTheDocument();
     });
 
     it('should have correct aria-label for connection status', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(screen.getByRole('status')).toHaveAttribute(
         'aria-label',
@@ -197,19 +206,19 @@ describe('TopNav', () => {
 
   describe('Accessibility', () => {
     it('should have banner role on header', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(screen.getByRole('banner')).toBeInTheDocument();
     });
 
     it('should have aria-live on status for announcements', () => {
-      render(<TopNav {...defaultProps} />);
+      renderTopNav();
 
       expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
     });
 
     it('should have aria-hidden on decorative icons', () => {
-      const { container } = render(<TopNav {...defaultProps} />);
+      const { container } = renderTopNav();
 
       const icons = container.querySelectorAll('[aria-hidden="true"]');
       expect(icons.length).toBeGreaterThan(0);

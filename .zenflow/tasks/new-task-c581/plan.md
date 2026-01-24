@@ -36,3 +36,7 @@ Implement the bug fix.
 4. Update `{@artifacts_path}/investigation.md` with implementation notes and test results
 
 If blocked or uncertain, ask the user for direction.
+
+### [x] Step: Rebase and Merge
+
+Rebase the task branch onto latest `main`, resolve conflicts, and ensure tests/typecheck pass.

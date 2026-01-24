@@ -1,5 +1,5 @@
 import { WebSocketManager } from '../lib/websocket/WebSocketManager';
-import type { WSCommand, ProcessingState, SignalLevels } from '../types';
+import type { ProcessingState, SignalLevels } from '../types';
 
 interface UnitWebSocketConnection {
   manager: WebSocketManager;
