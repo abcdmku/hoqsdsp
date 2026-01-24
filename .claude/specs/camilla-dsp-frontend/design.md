@@ -14,7 +14,7 @@ The frontend architecture follows a modern web application pattern with a React-
 graph TB
     subgraph "Frontend Application"
         UI[React UI Components]
-        State[Redux State Management]
+        State[State Management]
         WS[WebSocket Manager]
         Config[Configuration Engine]
         Audio[Audio Analysis Engine]
@@ -51,7 +51,7 @@ graph TB
 The application follows a layered architecture:
 
 1. **Presentation Layer**: React components with Material-UI for consistent design
-2. **State Management Layer**: Redux with RTK Query for API state management
+2. **State Management Layer**: API state management
 3. **Communication Layer**: WebSocket managers for real-time DSP communication
 4. **Business Logic Layer**: Configuration engine, audio analysis, and validation
 5. **Data Layer**: Local storage, configuration persistence, and collaboration backend

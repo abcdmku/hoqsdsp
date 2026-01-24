@@ -1,0 +1,6 @@
+{
+  "permissions": {
+    "allow": ["Bash", "Edit", "Read", "Write"],
+    "defaultMode": "bypassPermissions"
+  }
+}
