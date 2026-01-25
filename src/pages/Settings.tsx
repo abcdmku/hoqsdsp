@@ -1,9 +1,17 @@
-import { Sliders } from 'lucide-react';
+import { Sliders, AlertCircle } from 'lucide-react';
+import { useConnectionStore } from '../stores/connectionStore';
+import { DeviceConfigSection } from '../components/devices/DeviceConfigSection';
+import { UnitConfigSection } from '../components/devices/UnitConfigSection';
 
 /**
  * Settings Page - Application settings and preferences
  */
 export function SettingsPage() {
+  const activeUnitId = useConnectionStore((state) => state.activeUnitId);
+  const connectionStatus = useConnectionStore(
+    (state) => activeUnitId ? state.connections.get(activeUnitId)?.status : undefined
+  );
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-dsp-bg">
       {/* Header */}
@@ -17,6 +25,38 @@ export function SettingsPage() {
       {/* Settings Content */}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-2xl space-y-6">
+          {/* No Unit Selected State */}
+          {!activeUnitId && (
+            <div className="flex items-center gap-3 rounded-lg border border-dsp-primary/30 bg-dsp-surface p-4">
+              <AlertCircle className="h-5 w-5 text-dsp-text-muted" />
+              <p className="text-sm text-dsp-text-muted">
+                Select a unit from the Dashboard to configure its settings.
+              </p>
+            </div>
+          )}
+
+          {/* Unit Configuration Section */}
+          {activeUnitId && <UnitConfigSection unitId={activeUnitId} />}
+
+          {/* Audio Devices Section - shown when unit is connected */}
+          {activeUnitId && connectionStatus === 'connected' && (
+            <DeviceConfigSection unitId={activeUnitId} />
+          )}
+
+          {/* Not Connected State for Audio Devices */}
+          {activeUnitId && connectionStatus !== 'connected' && (
+            <section>
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-dsp-text">
+                Audio Devices
+              </h2>
+              <div className="rounded-lg border border-dsp-primary/30 bg-dsp-surface p-4">
+                <p className="text-sm text-dsp-text-muted">
+                  Connect to the unit to configure audio devices.
+                </p>
+              </div>
+            </section>
+          )}
+
           {/* General Section */}
           <section>
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-dsp-text">

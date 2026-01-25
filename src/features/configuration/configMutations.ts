@@ -27,7 +27,10 @@ export function useSetConfigJson(unitId: string) {
       const wsManager = websocketService.getManager(unitId);
       if (!wsManager) throw new Error('WebSocket not connected');
       const jsonString = JSON.stringify(config);
+      // SetConfigJson validates and stages the config
       await wsManager.send({ SetConfigJson: jsonString });
+      // Reload with null loads the staged config without saving to file
+      await wsManager.send({ Reload: null });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: configKeys.json(unitId) });

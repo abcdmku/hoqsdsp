@@ -25,8 +25,8 @@ export type WSCommand =
   | 'GetVolume'
   | 'GetMute'
   | 'GetSupportedDeviceTypes'
-  | 'GetAvailableCaptureDevices'
-  | 'GetAvailablePlaybackDevices'
+  | { GetAvailableCaptureDevices: string }
+  | { GetAvailablePlaybackDevices: string }
   | 'Stop'
   | 'Exit'
   | { SetConfig: string }

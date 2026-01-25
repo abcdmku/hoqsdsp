@@ -7,3 +7,6 @@ export { useGlobalShortcuts, globalShortcutsList } from './useGlobalShortcuts';
 export { useAnnounce, useLiveRegion, AriaLiveRegion } from './useAnnounce';
 export { useFocusTrap } from './useFocusTrap';
 export { useConnectionAnnouncements } from './useConnectionAnnouncements';
+
+// Connection management
+export { useConnectionManager } from './useConnectionManager';

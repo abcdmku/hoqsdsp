@@ -17,3 +17,8 @@ export {
   type ParseResult,
   type StringifyOptions,
 } from './yaml';
+
+export {
+  createMinimalConfig,
+  type MinimalConfigOptions,
+} from './createConfig';

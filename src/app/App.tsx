@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Providers } from './providers';
 import { TopNav, Sidebar, StatusBar } from '../components/layout';
-import { useGlobalShortcuts, AriaLiveRegion, useConnectionAnnouncements } from '../hooks';
+import { useGlobalShortcuts, AriaLiveRegion, useConnectionAnnouncements, useConnectionManager } from '../hooks';
 import { ErrorBoundary, Toaster } from '../components/feedback';
 
 function AppLayout() {
@@ -10,6 +10,9 @@ function AppLayout() {
 
   // Announce connection status changes to screen readers
   useConnectionAnnouncements();
+
+  // Manage WebSocket connections at app level (persists across route changes)
+  useConnectionManager();
 
   return (
     <div className="h-screen flex flex-col bg-dsp-bg">

@@ -43,3 +43,23 @@ export function useConfigJson(unitId: string) {
     staleTime: 5000,
   });
 }
+
+export interface ConfigStatus {
+  hasConfig: boolean;
+  isLoading: boolean;
+  isError: boolean;
+  config: CamillaConfig | null;
+  dataUpdatedAt: number;
+}
+
+export function useConfigStatus(unitId: string): ConfigStatus {
+  const { data, isLoading, isError, dataUpdatedAt } = useConfigJson(unitId);
+
+  return {
+    hasConfig: !!data && !isError,
+    isLoading,
+    isError,
+    config: data ?? null,
+    dataUpdatedAt,
+  };
+}

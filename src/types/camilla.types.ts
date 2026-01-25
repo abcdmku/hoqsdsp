@@ -37,6 +37,11 @@ export interface PlaybackDevice {
 }
 
 export type SampleFormat = 'S16LE' | 'S24LE' | 'S24LE3' | 'S32LE' | 'FLOAT32LE' | 'FLOAT64LE';
+
+export interface DeviceInfo {
+  name: string | null;
+  device: string;
+}
 export type ResamplerType = 'Synchronous' | 'AsyncSinc' | 'AsyncPoly';
 
 export interface MixerConfig {

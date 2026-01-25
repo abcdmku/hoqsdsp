@@ -5,7 +5,7 @@ import {
   removeWebSocketManager,
   setWebSocketManager,
 } from '../lib/websocket/managerRegistry';
-import type { ProcessingState, SignalLevels } from '../types';
+import type { DeviceInfo, ProcessingState, SignalLevels } from '../types';
 
 interface UnitWebSocketConnection {
   unitId: string;
@@ -110,6 +110,24 @@ class WebSocketService {
     const manager = this.getManager(unitId);
     if (!manager) throw new Error(`Unit ${unitId} not connected`);
     return manager.send<number>('GetBufferLevel');
+  }
+
+  async getSupportedDeviceTypes(unitId: string): Promise<string[]> {
+    const manager = this.getManager(unitId);
+    if (!manager) throw new Error(`Unit ${unitId} not connected`);
+    return manager.send<string[]>('GetSupportedDeviceTypes');
+  }
+
+  async getAvailableCaptureDevices(unitId: string, backend: string): Promise<DeviceInfo[]> {
+    const manager = this.getManager(unitId);
+    if (!manager) throw new Error(`Unit ${unitId} not connected`);
+    return manager.send<DeviceInfo[]>({ GetAvailableCaptureDevices: backend });
+  }
+
+  async getAvailablePlaybackDevices(unitId: string, backend: string): Promise<DeviceInfo[]> {
+    const manager = this.getManager(unitId);
+    if (!manager) throw new Error(`Unit ${unitId} not connected`);
+    return manager.send<DeviceInfo[]>({ GetAvailablePlaybackDevices: backend });
   }
 
   // Control methods

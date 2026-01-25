@@ -1,14 +1,33 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Volume2, VolumeX } from 'lucide-react';
 import { useUnitStore, selectUnits, selectZones } from '../stores/unitStore';
 import { useConnectionStore, selectAllConnections } from '../stores/connectionStore';
 import { Button } from '../components/ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
-import { UnitCard } from '../components/dashboard/UnitCard';
+import { UnitCard, type UnitCardProps } from '../components/dashboard/UnitCard';
 import { AddUnitDialog } from '../components/dashboard/AddUnitDialog';
 import { ZoneGroup, UngroupedSection } from '../components/dashboard/ZoneGroup';
-import { useUnitWebSocket } from '../hooks/useUnitWebSocket';
+import { useConfigJson } from '../features/configuration';
 import type { DSPUnit, ConnectionStatus } from '../types';
+
+interface ConnectedUnitCardProps extends Omit<UnitCardProps, 'inputChannels' | 'outputChannels' | 'sampleRate'> {
+  unit: DSPUnit;
+}
+
+function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
+  const { data: config } = useConfigJson(unit.id);
+
+  return (
+    <UnitCard
+      {...props}
+      unit={unit}
+      sampleRate={config?.devices.samplerate}
+      inputChannels={config?.devices.capture.channels}
+      outputChannels={config?.devices.playback.channels}
+    />
+  );
+}
 
 type ZoneCollapsedState = Record<string, boolean>;
 
@@ -17,11 +36,11 @@ type ZoneCollapsedState = Record<string, boolean>;
  * Units are grouped by zone and show real-time status and metrics.
  */
 export function Dashboard() {
+  const navigate = useNavigate();
   const units = useUnitStore(selectUnits);
   const zones = useUnitStore(selectZones);
   const connections = useConnectionStore(selectAllConnections);
   const addUnit = useUnitStore((state) => state.addUnit);
-  const updateUnit = useUnitStore((state) => state.updateUnit);
   const setActiveUnit = useConnectionStore((state) => state.setActiveUnit);
   const activeUnitId = useConnectionStore((state) => state.activeUnitId);
   const disconnectUnit = useConnectionStore((state) => state.disconnectUnit);
@@ -30,18 +49,11 @@ export function Dashboard() {
   const connectUnit = useConnectionStore((state) => state.connectUnit);
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [editingUnit, setEditingUnit] = useState<DSPUnit | undefined>(undefined);
   const [collapsedZones, setCollapsedZones] = useState<ZoneCollapsedState>({});
   const [unitVolumes, setUnitVolumes] = useState<Record<string, number>>({});
   const [unitMuted, setUnitMuted] = useState<Record<string, boolean>>({});
   const [unitLoads, setUnitLoads] = useState<Record<string, number>>({});
   const [unitBuffers, setUnitBuffers] = useState<Record<string, number>>({});
-
-  // Get active unit
-  const activeUnit = units.find((u) => u.id === activeUnitId);
-
-  // Connect to active unit
-  useUnitWebSocket(activeUnit);
 
   // Get connection status for a unit
   const getConnectionStatus = useCallback(
@@ -90,14 +102,9 @@ export function Dashboard() {
   // Handle adding a new unit
   const handleAddUnit = useCallback(
     (unitData: Omit<DSPUnit, 'id'>) => {
-      if (editingUnit) {
-        updateUnit(editingUnit.id, unitData);
-        setEditingUnit(undefined);
-      } else {
-        addUnit(unitData);
-      }
+      addUnit(unitData);
     },
-    [addUnit, updateUnit, editingUnit]
+    [addUnit]
   );
 
   // Handle clicking on a unit card
@@ -108,13 +115,13 @@ export function Dashboard() {
     [setActiveUnit]
   );
 
-  // Handle settings click on a unit
+  // Handle settings click on a unit - navigate to settings page
   const handleUnitSettings = useCallback(
     (unit: DSPUnit) => {
-      setEditingUnit(unit);
-      setAddDialogOpen(true);
+      setActiveUnit(unit.id);
+      navigate('/settings');
     },
-    []
+    [setActiveUnit, navigate]
   );
 
   // Toggle zone collapse state
@@ -128,9 +135,6 @@ export function Dashboard() {
   // Handle dialog close
   const handleDialogClose = useCallback((open: boolean) => {
     setAddDialogOpen(open);
-    if (!open) {
-      setEditingUnit(undefined);
-    }
   }, []);
 
   // Poll for real-time data from connected unit
@@ -233,7 +237,7 @@ export function Dashboard() {
       const bufferLevel = unitBuffers[unit.id];
 
       return (
-        <UnitCard
+        <ConnectedUnitCard
           key={unit.id}
           unit={unit}
           status={conn.status}
@@ -246,9 +250,6 @@ export function Dashboard() {
           onMuteToggle={() => { handleMuteToggle(unit.id); }}
           volume={volume}
           muted={muted}
-          sampleRate={48000}
-          inputChannels={2}
-          outputChannels={2}
           processingLoad={conn.status === 'connected' ? processingLoad : undefined}
           bufferLevel={conn.status === 'connected' ? bufferLevel : undefined}
           inputLevels={conn.status === 'connected' ? [-18, -20] : undefined}
@@ -352,13 +353,12 @@ export function Dashboard() {
           </UngroupedSection>
         )}
 
-        {/* Add/Edit unit dialog */}
+        {/* Add unit dialog */}
         <AddUnitDialog
           open={addDialogOpen}
           onOpenChange={handleDialogClose}
           onSubmit={handleAddUnit}
           existingZones={zones}
-          editingUnit={editingUnit}
         />
       </div>
   );
