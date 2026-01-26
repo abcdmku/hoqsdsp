@@ -2,6 +2,20 @@
 
 import type { FilterConfig } from './filters.types';
 
+// Signal Flow UI metadata - preserved by CamillaDSP but ignored by DSP engine
+export interface SignalFlowUiMetadata {
+  channelColors?: Record<string, string>;  // key: "input:deviceId:0" or "output:deviceId:1"
+  channelNames?: Record<string, string>;   // custom display names
+  mirrorGroups?: {
+    input: { deviceId: string; channelIndex: number }[][];
+    output: { deviceId: string; channelIndex: number }[][];
+  };
+}
+
+export interface CamillaConfigUi {
+  signalFlow?: SignalFlowUiMetadata;
+}
+
 export interface CamillaConfig {
   devices: DevicesConfig;
   mixers?: Record<string, MixerConfig>;
@@ -9,6 +23,7 @@ export interface CamillaConfig {
   pipeline: PipelineStep[];
   title?: string;
   description?: string;
+  ui?: CamillaConfigUi;  // UI metadata - ignored by CamillaDSP, preserved for UI
 }
 
 export interface DevicesConfig {

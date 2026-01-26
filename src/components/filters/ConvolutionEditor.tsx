@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { FileAudio, Upload } from 'lucide-react';
 import type { ConvolutionFilter, ConvolutionParameters } from '../../types';
 import { convolutionHandler } from '../../lib/filters/convolution';
-import { FilterEditorModal, useFilterEditor } from './FilterEditorModal';
+import { FilterEditorModal, FilterEditorPanel, useFilterEditor } from './FilterEditorModal';
 import { NumericInput } from '../ui';
 import { Button } from '../ui/Button';
 import {
@@ -16,6 +16,13 @@ import { cn } from '../../lib/utils';
 
 interface ConvolutionEditorProps {
   open: boolean;
+  onClose: () => void;
+  filter: ConvolutionFilter;
+  onSave: (config: ConvolutionFilter) => void;
+  onApply?: (config: ConvolutionFilter) => void;
+}
+
+interface ConvolutionEditorPanelProps {
   onClose: () => void;
   filter: ConvolutionFilter;
   onSave: (config: ConvolutionFilter) => void;
@@ -322,5 +329,25 @@ export function ConvolutionEditor({
     >
       <ConvolutionEditorContent />
     </FilterEditorModal>
+  );
+}
+
+export function ConvolutionEditorPanel({
+  onClose,
+  filter,
+  onSave,
+  onApply,
+}: ConvolutionEditorPanelProps) {
+  return (
+    <FilterEditorPanel
+      onClose={onClose}
+      description="FIR filter using impulse response"
+      filter={filter}
+      onSave={onSave}
+      onApply={onApply}
+      validate={(config) => convolutionHandler.validate(config)}
+    >
+      <ConvolutionEditorContent />
+    </FilterEditorPanel>
   );
 }

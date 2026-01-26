@@ -2,13 +2,20 @@ import { useCallback, useState } from 'react';
 import { Plus, Minus } from 'lucide-react';
 import type { DiffEqFilter } from '../../types';
 import { diffeqHandler } from '../../lib/filters/diffeq';
-import { FilterEditorModal, useFilterEditor } from './FilterEditorModal';
+import { FilterEditorModal, FilterEditorPanel, useFilterEditor } from './FilterEditorModal';
 import { NumericInput } from '../ui';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
 
 interface DiffEqEditorProps {
   open: boolean;
+  onClose: () => void;
+  filter: DiffEqFilter;
+  onSave: (config: DiffEqFilter) => void;
+  onApply?: (config: DiffEqFilter) => void;
+}
+
+interface DiffEqEditorPanelProps {
   onClose: () => void;
   filter: DiffEqFilter;
   onSave: (config: DiffEqFilter) => void;
@@ -268,5 +275,25 @@ export function DiffEqEditor({
     >
       <DiffEqEditorContent />
     </FilterEditorModal>
+  );
+}
+
+export function DiffEqEditorPanel({
+  onClose,
+  filter,
+  onSave,
+  onApply,
+}: DiffEqEditorPanelProps) {
+  return (
+    <FilterEditorPanel
+      onClose={onClose}
+      description="Generic IIR/FIR filter by coefficients"
+      filter={filter}
+      onSave={onSave}
+      onApply={onApply}
+      validate={(config) => diffeqHandler.validate(config)}
+    >
+      <DiffEqEditorContent />
+    </FilterEditorPanel>
   );
 }

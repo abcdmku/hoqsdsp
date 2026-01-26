@@ -5,10 +5,16 @@ import { BaseFilterHandler } from './types';
 // Scale schema
 const scaleSchema = z.enum(['dB', 'linear']).optional();
 
+// Helper to handle null -> undefined conversion
+const nullableBoolean = z.preprocess(
+  (val) => (val === null ? undefined : val),
+  z.boolean().optional(),
+);
+
 // Gain parameters schema
 export const gainParametersSchema = z.object({
   gain: z.number(),
-  inverted: z.boolean().optional(),
+  inverted: nullableBoolean,
   scale: scaleSchema,
 });
 

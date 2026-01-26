@@ -1,11 +1,18 @@
 import { useCallback } from 'react';
 import type { LoudnessFilter } from '../../types';
 import { loudnessHandler } from '../../lib/filters/loudness';
-import { FilterEditorModal, useFilterEditor } from './FilterEditorModal';
+import { FilterEditorModal, FilterEditorPanel, useFilterEditor } from './FilterEditorModal';
 import { Slider } from '../ui/Slider';
 
 interface LoudnessEditorProps {
   open: boolean;
+  onClose: () => void;
+  filter: LoudnessFilter;
+  onSave: (config: LoudnessFilter) => void;
+  onApply?: (config: LoudnessFilter) => void;
+}
+
+interface LoudnessEditorPanelProps {
   onClose: () => void;
   filter: LoudnessFilter;
   onSave: (config: LoudnessFilter) => void;
@@ -207,5 +214,25 @@ export function LoudnessEditor({
     >
       <LoudnessEditorContent />
     </FilterEditorModal>
+  );
+}
+
+export function LoudnessEditorPanel({
+  onClose,
+  filter,
+  onSave,
+  onApply,
+}: LoudnessEditorPanelProps) {
+  return (
+    <FilterEditorPanel
+      onClose={onClose}
+      description="Fletcher-Munson loudness compensation"
+      filter={filter}
+      onSave={onSave}
+      onApply={onApply}
+      validate={(config) => loudnessHandler.validate(config)}
+    >
+      <LoudnessEditorContent />
+    </FilterEditorPanel>
   );
 }

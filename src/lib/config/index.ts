@@ -22,3 +22,8 @@ export {
   createMinimalConfig,
   type MinimalConfigOptions,
 } from './createConfig';
+
+export {
+  cleanNullValues,
+  stripUndefined,
+} from './cleanConfig';

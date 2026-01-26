@@ -1,4 +1,4 @@
-import type { CamillaConfig, MixerConfig, MixerMapping, MixerSource } from '../../types';
+import type { CamillaConfig, MixerConfig, MixerMapping, MixerSource, SignalFlowUiMetadata } from '../../types';
 import type { RouteEdge, SignalFlowModel, SignalFlowWarning, ToConfigResult } from './model';
 
 const ROUTING_MIXER_NAME = 'routing';
@@ -74,7 +74,11 @@ function getCanonicalDeviceIds(model: SignalFlowModel): { inputDeviceId: string;
   return { inputDeviceId, outputDeviceId };
 }
 
-export function toConfig(config: CamillaConfig, model: SignalFlowModel): ToConfigResult {
+export function toConfig(
+  config: CamillaConfig,
+  model: SignalFlowModel,
+  uiMetadata?: SignalFlowUiMetadata,
+): ToConfigResult {
   const warnings: SignalFlowWarning[] = [];
 
   const inputChannels = config.devices.capture.channels;
@@ -169,6 +173,7 @@ export function toConfig(config: CamillaConfig, model: SignalFlowModel): ToConfi
     mixers: baseMixers,
     filters: Object.keys(nextFilters).length > 0 ? nextFilters : undefined,
     pipeline: nextPipeline,
+    ui: uiMetadata ? { ...config.ui, signalFlow: uiMetadata } : config.ui,
   };
 
   const representable = hadRoutingStep && !otherMixers;

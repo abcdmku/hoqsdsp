@@ -26,50 +26,59 @@ export const NumericInput = forwardRef<HTMLInputElement, NumericInputProps>(
     disabled,
     ...props
   }, ref) => {
-    const [inputValue, setInputValue] = useState(value.toFixed(precision));
+    // Track editing state: null when not editing, string when editing
+    const [editingValue, setEditingValue] = useState<string | null>(null);
+
+    // Compute displayed value: use editing value if editing, otherwise format the prop value
+    const displayedValue = editingValue ?? value.toFixed(precision);
 
     const clamp = useCallback((val: number) => {
       return Math.min(max, Math.max(min, val));
     }, [min, max]);
 
+    const handleFocus = useCallback(() => {
+      // Start editing with the current displayed value
+      setEditingValue(value.toFixed(precision));
+    }, [value, precision]);
+
     const handleBlur = useCallback(() => {
-      const parsed = parseFloat(inputValue);
+      if (editingValue === null) return;
+      const parsed = parseFloat(editingValue);
       if (!isNaN(parsed)) {
         const clamped = clamp(parsed);
         onChange(clamped);
-        setInputValue(clamped.toFixed(precision));
-      } else {
-        setInputValue(value.toFixed(precision));
       }
-    }, [inputValue, clamp, onChange, value, precision]);
+      setEditingValue(null);
+    }, [editingValue, clamp, onChange]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         const newValue = clamp(value + step);
         onChange(newValue);
-        setInputValue(newValue.toFixed(precision));
+        setEditingValue(null);
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         const newValue = clamp(value - step);
         onChange(newValue);
-        setInputValue(newValue.toFixed(precision));
+        setEditingValue(null);
       } else if (e.key === 'Enter') {
         handleBlur();
+        (e.target as HTMLInputElement).blur();
       }
-    }, [value, step, clamp, onChange, precision, handleBlur]);
+    }, [value, step, clamp, onChange, handleBlur]);
 
     const increment = useCallback(() => {
       const newValue = clamp(value + step);
       onChange(newValue);
-      setInputValue(newValue.toFixed(precision));
-    }, [value, step, clamp, onChange, precision]);
+      setEditingValue(null);
+    }, [value, step, clamp, onChange]);
 
     const decrement = useCallback(() => {
       const newValue = clamp(value - step);
       onChange(newValue);
-      setInputValue(newValue.toFixed(precision));
-    }, [value, step, clamp, onChange, precision]);
+      setEditingValue(null);
+    }, [value, step, clamp, onChange]);
 
     return (
       <div className={cn("flex items-center gap-1", className)}>
@@ -77,10 +86,11 @@ export const NumericInput = forwardRef<HTMLInputElement, NumericInputProps>(
           ref={ref}
           type="text"
           inputMode="decimal"
-          value={inputValue}
+          value={displayedValue}
           onChange={(e) => {
-            setInputValue(e.target.value);
+            setEditingValue(e.target.value);
           }}
+          onFocus={handleFocus}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           disabled={disabled}

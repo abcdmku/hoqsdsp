@@ -1,4 +1,4 @@
-import type { CamillaConfig, PipelineStep } from '../../types';
+import type { CamillaConfig, PipelineStep, SignalFlowUiMetadata } from '../../types';
 import {
   emptyChannelProcessing,
   emptyProcessingSummary,
@@ -72,6 +72,10 @@ function channelLabel(side: 'input' | 'output', channelIndex: number): string {
   return side === 'input' ? `In ${channelIndex + 1}` : `Out ${channelIndex + 1}`;
 }
 
+function portKey(side: 'input' | 'output', deviceId: string, channelIndex: number): string {
+  return `${side}:${deviceId}:${channelIndex}`;
+}
+
 export function fromConfig(config: CamillaConfig): FromConfigResult {
   const warnings: SignalFlowWarning[] = [];
 
@@ -86,23 +90,35 @@ export function fromConfig(config: CamillaConfig): FromConfigResult {
   const inputChannels = config.devices.capture.channels;
   const outputChannels = config.devices.playback.channels;
 
-  const inputs: ChannelNode[] = Array.from({ length: inputChannels }, (_, idx) => ({
-    side: 'input',
-    deviceId: inputDeviceId,
-    channelIndex: idx,
-    label: channelLabel('input', idx),
-    processing: emptyChannelProcessing(),
-    processingSummary: emptyProcessingSummary(),
-  }));
+  // Read UI metadata from config
+  const uiMetadata: SignalFlowUiMetadata | undefined = config.ui?.signalFlow;
+  const channelNames = uiMetadata?.channelNames ?? {};
 
-  const outputs: ChannelNode[] = Array.from({ length: outputChannels }, (_, idx) => ({
-    side: 'output',
-    deviceId: outputDeviceId,
-    channelIndex: idx,
-    label: channelLabel('output', idx),
-    processing: emptyChannelProcessing(),
-    processingSummary: emptyProcessingSummary(),
-  }));
+  const inputs: ChannelNode[] = Array.from({ length: inputChannels }, (_, idx) => {
+    const key = portKey('input', inputDeviceId, idx);
+    const customName = channelNames[key];
+    return {
+      side: 'input' as const,
+      deviceId: inputDeviceId,
+      channelIndex: idx,
+      label: customName ?? channelLabel('input', idx),
+      processing: emptyChannelProcessing(),
+      processingSummary: emptyProcessingSummary(),
+    };
+  });
+
+  const outputs: ChannelNode[] = Array.from({ length: outputChannels }, (_, idx) => {
+    const key = portKey('output', outputDeviceId, idx);
+    const customName = channelNames[key];
+    return {
+      side: 'output' as const,
+      deviceId: outputDeviceId,
+      channelIndex: idx,
+      label: customName ?? channelLabel('output', idx),
+      processing: emptyChannelProcessing(),
+      processingSummary: emptyProcessingSummary(),
+    };
+  });
 
   const routingMixerStepIndex = config.pipeline.findIndex(
     (step) => step.type === 'Mixer' && step.name === ROUTING_MIXER_NAME,
@@ -229,5 +245,6 @@ export function fromConfig(config: CamillaConfig): FromConfigResult {
     },
     warnings,
     representable,
+    uiMetadata,
   };
 }

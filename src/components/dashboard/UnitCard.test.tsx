@@ -3,15 +3,25 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { UnitCard, type UnitCardProps } from './UnitCard';
 import { TooltipProvider } from '../ui/Tooltip';
 import type { DSPUnit } from '../../types';
+import type { ChannelLevelState } from '../../features/realtime';
 
-// Mock the MiniMeter component
-vi.mock('../monitoring/MiniMeter', () => ({
-  StereoMiniMeter: ({ leftLevel, rightLevel }: { leftLevel: number; rightLevel: number }) => (
-    <div data-testid="stereo-mini-meter">
+// Mock the VolumeMeter components
+vi.mock('../monitoring/VolumeMeter', () => ({
+  StereoVolumeMeter: ({ leftLevel, rightLevel }: { leftLevel: number; rightLevel: number }) => (
+    <div data-testid="stereo-volume-meter">
       L: {leftLevel} R: {rightLevel}
     </div>
   ),
+  MultiChannelVolumeMeter: ({ levels }: { levels: number[] }) => (
+    <div data-testid="multi-channel-meter">
+      Channels: {levels.length}
+    </div>
+  ),
 }));
+
+// Helper to create ChannelLevelState array from simple number array
+const createLevelState = (levels: number[]): ChannelLevelState[] =>
+  levels.map((level) => ({ peak: level, rms: level - 6, peakHold: level }));
 
 const mockUnit: DSPUnit = {
   id: 'unit-1',
@@ -138,19 +148,19 @@ describe('UnitCard', () => {
 
   describe('Level Meters', () => {
     it('should render input level meters when provided', () => {
-      renderWithProvider(<UnitCard {...defaultProps} inputLevels={[-20, -18]} />);
+      renderWithProvider(<UnitCard {...defaultProps} inputLevels={createLevelState([-20, -18])} />);
 
       expect(screen.getByText('IN')).toBeInTheDocument();
     });
 
     it('should render output level meters when provided', () => {
-      renderWithProvider(<UnitCard {...defaultProps} outputLevels={[-15, -12]} />);
+      renderWithProvider(<UnitCard {...defaultProps} outputLevels={createLevelState([-15, -12])} />);
 
       expect(screen.getByText('OUT')).toBeInTheDocument();
     });
 
     it('should not render meters when disconnected', () => {
-      renderWithProvider(<UnitCard {...defaultProps} status="disconnected" inputLevels={[-20, -18]} />);
+      renderWithProvider(<UnitCard {...defaultProps} status="disconnected" inputLevels={createLevelState([-20, -18])} />);
 
       expect(screen.queryByText('IN')).not.toBeInTheDocument();
     });

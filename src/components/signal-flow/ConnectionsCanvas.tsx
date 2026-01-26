@@ -2,7 +2,6 @@ import type { RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChannelNode, RouteEdge, RouteEndpoint } from '../../lib/signalflow';
 import { cn } from '../../lib/utils';
-import { ConnectionEditor } from './ConnectionEditor';
 
 export interface DragState {
   from: RouteEndpoint;
@@ -17,11 +16,11 @@ export interface ConnectionsCanvasProps {
   inputs: ChannelNode[];
   outputs: ChannelNode[];
   routes: RouteEdge[];
+  inputPortColors?: Record<string, string>;
   dragState: DragState | null;
   selectedRouteIndex: number | null;
   onSelectRoute: (index: number | null) => void;
-  onUpdateRoute: (index: number, updates: Partial<RouteEdge>, options?: { debounce?: boolean }) => void;
-  onDeleteRoute: (index: number) => void;
+  onRouteActivate?: (index: number, point: { x: number; y: number }) => void;
 }
 
 function portKey(side: 'input' | 'output', endpoint: RouteEndpoint): string {
@@ -39,14 +38,6 @@ function buildCurve(
   return `M ${from.x} ${from.y} C ${c1x} ${from.y}, ${c2x} ${to.y}, ${to.x} ${to.y}`;
 }
 
-function labelFor(nodes: ChannelNode[], endpoint: RouteEndpoint): string {
-  const node = nodes.find(
-    (candidate) =>
-      candidate.deviceId === endpoint.deviceId && candidate.channelIndex === endpoint.channelIndex,
-  );
-  return node?.label ?? `${endpoint.deviceId}:${endpoint.channelIndex + 1}`;
-}
-
 export function ConnectionsCanvas({
   canvasRef,
   inputBankRef,
@@ -54,21 +45,27 @@ export function ConnectionsCanvas({
   inputs,
   outputs,
   routes,
+  inputPortColors,
   dragState,
   selectedRouteIndex,
   onSelectRoute,
-  onUpdateRoute,
-  onDeleteRoute,
+  onRouteActivate,
 }: ConnectionsCanvasProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [layoutTick, setLayoutTick] = useState(0);
+  const [hoveredRouteIndex, setHoveredRouteIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const canvasEl = canvasRef.current;
     if (!canvasEl) return;
 
+    let rafId: number | null = null;
     const request = () => {
-      setLayoutTick((tick) => tick + 1);
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        setLayoutTick((tick) => tick + 1);
+      });
     };
 
     const resizeObserver =
@@ -77,9 +74,17 @@ export function ConnectionsCanvas({
         : new ResizeObserver(() => {
             request();
           });
-    resizeObserver?.observe(canvasEl);
 
     const banks = [inputBankRef.current, outputBankRef.current].filter(Boolean) as HTMLElement[];
+    const bankContents = banks
+      .map((bank) => bank.querySelector<HTMLElement>('[data-sf-bank-content]'))
+      .filter(Boolean) as HTMLElement[];
+
+    resizeObserver?.observe(canvasEl);
+    for (const content of bankContents) {
+      resizeObserver?.observe(content);
+    }
+
     for (const bank of banks) {
       bank.addEventListener('scroll', request, { passive: true });
     }
@@ -92,6 +97,9 @@ export function ConnectionsCanvas({
       window.removeEventListener('resize', request);
       for (const bank of banks) {
         bank.removeEventListener('scroll', request);
+      }
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
       }
     };
   }, [canvasRef, inputBankRef, outputBankRef]);
@@ -110,7 +118,7 @@ export function ConnectionsCanvas({
     const canvasRect = canvasEl.getBoundingClientRect();
     const width = Math.max(1, canvasRect.width);
     const height = Math.max(1, canvasRect.height);
-    const inset = 16;
+    const inset = 2;
 
     const portElements = Array.from(document.querySelectorAll<HTMLElement>('[data-port-key]'));
     const byKey = new Map<string, HTMLElement>();
@@ -141,14 +149,10 @@ export function ConnectionsCanvas({
     return { width, height, inputPorts, outputPorts };
   }, [canvasRef, inputs, outputs, layoutTick]);
 
-  const selectedRoute = selectedRouteIndex !== null ? routes[selectedRouteIndex] ?? null : null;
-  const selectedFromLabel = selectedRoute ? labelFor(inputs, selectedRoute.from) : '';
-  const selectedToLabel = selectedRoute ? labelFor(outputs, selectedRoute.to) : '';
-
   return (
     <section
       ref={canvasRef}
-      className="relative flex-1 overflow-hidden bg-dsp-bg"
+      className="relative min-w-40 w-40 shrink overflow-hidden bg-dsp-bg"
       aria-label="Connections"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] [background-size:24px_24px]" />
@@ -172,24 +176,55 @@ export function ConnectionsCanvas({
           if (!from || !to) return null;
 
           const selected = selectedRouteIndex === index;
-          const stroke = selected ? '#22d3ee' : 'rgba(34,211,238,0.55)';
-          const strokeWidth = selected ? 3 : 2;
+          const hovered = hoveredRouteIndex === index;
+          const baseColor = inputPortColors?.[portKey('input', route.from)] ?? '#22d3ee';
+          const stroke = baseColor;
+          const strokeWidth = selected ? 3.5 : hovered ? 3 : 2;
+          const pathD = buildCurve(from, to, layout.width);
 
           return (
-            <path
-              key={`${route.from.deviceId}:${route.from.channelIndex}->${route.to.deviceId}:${route.to.channelIndex}`}
-              d={buildCurve(from, to, layout.width)}
-              fill="none"
-              stroke={stroke}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              className={cn('drop-shadow-sm', route.mute && 'opacity-25')}
-              style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelectRoute(index);
-              }}
-            />
+            <g key={`${route.from.deviceId}:${route.from.channelIndex}->${route.to.deviceId}:${route.to.channelIndex}`}>
+              {/* Invisible wider path for easier clicking */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={16}
+                strokeLinecap="round"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => { setHoveredRouteIndex(index); }}
+                onMouseLeave={() => { setHoveredRouteIndex(null); }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectRoute(index);
+                  onRouteActivate?.(index, { x: event.clientX, y: event.clientY });
+                }}
+              />
+              {/* Glow effect on hover/select */}
+              {(selected || hovered) && (
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke={stroke}
+                  strokeOpacity={0.3}
+                  strokeWidth={selected ? 8 : 6}
+                  strokeLinecap="round"
+                  className={cn(route.mute && 'opacity-25')}
+                  style={{ pointerEvents: 'none' }}
+                />
+              )}
+              {/* Visible path */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke={stroke}
+                strokeOpacity={selected || hovered ? 1 : 0.55}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                className={cn('drop-shadow-sm transition-all', route.mute && 'opacity-25')}
+                style={{ pointerEvents: 'none' }}
+              />
+            </g>
           );
         })}
 
@@ -202,11 +237,13 @@ export function ConnectionsCanvas({
             : dragState.point;
           if (!target) return null;
 
+          const stroke = inputPortColors?.[portKey('input', dragState.from)] ?? '#22d3ee';
+
           return (
             <path
               d={buildCurve(from, target, layout.width)}
               fill="none"
-              stroke="#22d3ee"
+              stroke={stroke}
               strokeWidth={3}
               strokeLinecap="round"
               opacity={0.9}
@@ -226,22 +263,6 @@ export function ConnectionsCanvas({
         )}
       </div>
 
-      {selectedRoute && (
-        <ConnectionEditor
-          className="absolute bottom-6 left-1/2 w-[360px] -translate-x-1/2"
-          route={selectedRoute}
-          fromLabel={selectedFromLabel}
-          toLabel={selectedToLabel}
-          onChange={(updates, options) => {
-            if (selectedRouteIndex === null) return;
-            onUpdateRoute(selectedRouteIndex, updates, options);
-          }}
-          onDelete={() => {
-            if (selectedRouteIndex === null) return;
-            onDeleteRoute(selectedRouteIndex);
-          }}
-        />
-      )}
     </section>
   );
 }

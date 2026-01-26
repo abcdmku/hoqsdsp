@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import type { DelayFilter, DelayParameters } from '../../types';
 import { delayHandler } from '../../lib/filters/delay';
-import { FilterEditorModal, useFilterEditor } from './FilterEditorModal';
+import { FilterEditorModal, FilterEditorPanel, useFilterEditor } from './FilterEditorModal';
 import { NumericInput } from '../ui';
 import { Switch } from '../ui/Switch';
 import {
@@ -14,6 +14,14 @@ import {
 
 interface DelayEditorProps {
   open: boolean;
+  onClose: () => void;
+  filter: DelayFilter;
+  onSave: (config: DelayFilter) => void;
+  onApply?: (config: DelayFilter) => void;
+  sampleRate?: number;
+}
+
+interface DelayEditorPanelProps {
   onClose: () => void;
   filter: DelayFilter;
   onSave: (config: DelayFilter) => void;
@@ -121,25 +129,9 @@ function DelayEditorContent({ sampleRate }: { sampleRate: number }) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Delay Unit Selection */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-dsp-text">Unit</label>
-        <Select value={params.unit} onValueChange={(v) => { updateUnit(v as DelayUnit); }}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ms">Milliseconds (ms)</SelectItem>
-            <SelectItem value="samples">Samples</SelectItem>
-            <SelectItem value="mm">Millimeters (mm)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Delay Value */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-dsp-text">Delay</label>
+    <div className="space-y-3">
+      {/* Compact row: Value + Unit + Subsample toggle */}
+      <div className="flex items-center gap-3">
         <NumericInput
           value={params.delay}
           onChange={updateDelay}
@@ -147,53 +139,47 @@ function DelayEditorContent({ sampleRate }: { sampleRate: number }) {
           max={params.unit === 'samples' ? 1000000 : params.unit === 'mm' ? 100000 : 10000}
           step={getStepForUnit()}
           precision={getPrecisionForUnit()}
-          unit={params.unit}
+          className="flex-1"
         />
+
+        <Select value={params.unit} onValueChange={(v) => { updateUnit(v as DelayUnit); }}>
+          <SelectTrigger className="w-28">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ms">ms</SelectItem>
+            <SelectItem value="samples">samples</SelectItem>
+            <SelectItem value="mm">mm</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <label className="flex items-center gap-2 text-sm text-dsp-text-muted whitespace-nowrap">
+          <Switch
+            checked={params.subsample}
+            onCheckedChange={toggleSubsample}
+            aria-label="Enable subsample interpolation"
+          />
+          <span>Subsample</span>
+        </label>
       </div>
 
-      {/* Equivalent Values Display */}
-      <div className="bg-dsp-bg rounded-md p-3 space-y-1">
-        <p className="text-xs text-dsp-text-muted uppercase tracking-wide mb-2">Equivalent</p>
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          {params.unit !== 'ms' && (
-            <div>
-              <span className="text-dsp-text-muted">Time: </span>
-              <span className="text-dsp-text font-mono">{equivalentMs.toFixed(3)} ms</span>
-            </div>
-          )}
-          {params.unit !== 'samples' && (
-            <div>
-              <span className="text-dsp-text-muted">Samples: </span>
-              <span className="text-dsp-text font-mono">{equivalentSamples.toFixed(1)}</span>
-            </div>
-          )}
-          {params.unit !== 'mm' && (
-            <div>
-              <span className="text-dsp-text-muted">Distance: </span>
-              <span className="text-dsp-text font-mono">{equivalentMm.toFixed(1)} mm</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Subsample Toggle */}
-      <div className="flex items-center justify-between">
-        <div>
-          <label className="text-sm font-medium text-dsp-text">Subsample Interpolation</label>
-          <p className="text-xs text-dsp-text-muted">
-            Enable for fractional sample delays (higher CPU usage)
-          </p>
-        </div>
-        <Switch
-          checked={params.subsample}
-          onCheckedChange={toggleSubsample}
-          aria-label="Enable subsample interpolation"
-        />
-      </div>
-
-      {/* Sample rate info */}
-      <div className="text-xs text-dsp-text-muted border-t border-dsp-primary/30 pt-4">
-        Sample rate: {sampleRate.toLocaleString()} Hz
+      {/* Compact equivalent values display */}
+      <div className="flex gap-4 text-xs text-dsp-text-muted">
+        {params.unit !== 'ms' && (
+          <span>
+            <span className="text-dsp-text font-mono">{equivalentMs.toFixed(3)}</span> ms
+          </span>
+        )}
+        {params.unit !== 'samples' && (
+          <span>
+            <span className="text-dsp-text font-mono">{equivalentSamples.toFixed(1)}</span> samples
+          </span>
+        )}
+        {params.unit !== 'mm' && (
+          <span>
+            <span className="text-dsp-text font-mono">{equivalentMm.toFixed(1)}</span> mm
+          </span>
+        )}
       </div>
     </div>
   );
@@ -220,5 +206,26 @@ export function DelayEditor({
     >
       <DelayEditorContent sampleRate={sampleRate} />
     </FilterEditorModal>
+  );
+}
+
+export function DelayEditorPanel({
+  onClose,
+  filter,
+  onSave,
+  onApply,
+  sampleRate = 48000,
+}: DelayEditorPanelProps) {
+  return (
+    <FilterEditorPanel
+      onClose={onClose}
+      description="Time alignment delay"
+      filter={filter}
+      onSave={onSave}
+      onApply={onApply}
+      validate={(config) => delayHandler.validate(config)}
+    >
+      <DelayEditorContent sampleRate={sampleRate} />
+    </FilterEditorPanel>
   );
 }

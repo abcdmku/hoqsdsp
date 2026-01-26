@@ -67,7 +67,15 @@ export type ProcessingState =
   | 'Starting'
   | 'Stalled';
 
-// Signal levels
+// Signal levels - raw response from CamillaDSP API
+export interface SignalLevelsRaw {
+  capture_peak: number[];
+  capture_rms: number[];
+  playback_peak: number[];
+  playback_rms: number[];
+}
+
+// Signal levels - normalized format for the app
 export interface SignalLevels {
   capture: ChannelLevels[];
   playback: ChannelLevels[];
@@ -76,6 +84,30 @@ export interface SignalLevels {
 export interface ChannelLevels {
   peak: number;
   rms: number;
+}
+
+/** Transform raw CamillaDSP signal levels to normalized format */
+export function normalizeSignalLevels(raw: SignalLevelsRaw): SignalLevels {
+  const captureCount = Math.max(raw.capture_peak?.length ?? 0, raw.capture_rms?.length ?? 0);
+  const playbackCount = Math.max(raw.playback_peak?.length ?? 0, raw.playback_rms?.length ?? 0);
+
+  const capture: ChannelLevels[] = [];
+  for (let i = 0; i < captureCount; i++) {
+    capture.push({
+      peak: raw.capture_peak?.[i] ?? -100,
+      rms: raw.capture_rms?.[i] ?? -100,
+    });
+  }
+
+  const playback: ChannelLevels[] = [];
+  for (let i = 0; i < playbackCount; i++) {
+    playback.push({
+      peak: raw.playback_peak?.[i] ?? -100,
+      rms: raw.playback_rms?.[i] ?? -100,
+    });
+  }
+
+  return { capture, playback };
 }
 
 // Signal range (min/max since last query)

@@ -42,8 +42,15 @@ const devicesConfigSchema = z.object({
 const mixerSourceSchema = z.object({
   channel: z.number().int().min(0),
   gain: z.number(),
-  inverted: z.boolean().optional(),
-  mute: z.boolean().optional(),
+  // Use preprocess to handle null values that might come from some sources
+  inverted: z.preprocess(
+    (val) => (val === null ? undefined : val),
+    z.boolean().optional(),
+  ),
+  mute: z.preprocess(
+    (val) => (val === null ? undefined : val),
+    z.boolean().optional(),
+  ),
 });
 
 const mixerMappingSchema = z.object({
@@ -86,6 +93,26 @@ const pipelineStepSchema = z.object({
   channels: z.array(z.number().int().min(0)).optional(),
 });
 
+// UI metadata schemas (preserved by CamillaDSP but ignored by DSP engine)
+const signalFlowUiMetadataSchema = z.object({
+  channelColors: z.record(z.string(), z.string()).optional(),
+  channelNames: z.record(z.string(), z.string()).optional(),
+  mirrorGroups: z.object({
+    input: z.array(z.array(z.object({
+      deviceId: z.string(),
+      channelIndex: z.number(),
+    }))),
+    output: z.array(z.array(z.object({
+      deviceId: z.string(),
+      channelIndex: z.number(),
+    }))),
+  }).optional(),
+}).optional();
+
+const uiConfigSchema = z.object({
+  signalFlow: signalFlowUiMetadataSchema,
+}).optional();
+
 // Complete CamillaDSP configuration schema
 export const camillaConfigSchema = z.object({
   devices: devicesConfigSchema,
@@ -94,6 +121,7 @@ export const camillaConfigSchema = z.object({
   pipeline: z.array(pipelineStepSchema),
   title: z.string().optional(),
   description: z.string().optional(),
+  ui: uiConfigSchema,
 });
 
 export interface ConfigValidationResult {

@@ -7,6 +7,16 @@ export {
 } from './useLevels';
 
 export {
+  useUnitLevels,
+  getStereoInputLevels,
+  getStereoOutputLevels,
+  getStereoInputPeaks,
+  getStereoOutputPeaks,
+  type UseUnitLevelsOptions,
+  type UseUnitLevelsResult,
+} from './useUnitLevels';
+
+export {
   useProcessingLoad,
   useFormattedProcessingMetrics,
   type ProcessingLoadState,

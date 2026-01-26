@@ -1,12 +1,19 @@
 import { useCallback } from 'react';
 import type { NoiseGateFilter } from '../../types';
 import { noisegateHandler } from '../../lib/filters/noisegate';
-import { FilterEditorModal, useFilterEditor } from './FilterEditorModal';
+import { FilterEditorModal, FilterEditorPanel, useFilterEditor } from './FilterEditorModal';
 import { NumericInput } from '../ui';
 import { Slider } from '../ui/Slider';
 
 interface NoiseGateEditorProps {
   open: boolean;
+  onClose: () => void;
+  filter: NoiseGateFilter;
+  onSave: (config: NoiseGateFilter) => void;
+  onApply?: (config: NoiseGateFilter) => void;
+}
+
+interface NoiseGateEditorPanelProps {
   onClose: () => void;
   filter: NoiseGateFilter;
   onSave: (config: NoiseGateFilter) => void;
@@ -235,5 +242,25 @@ export function NoiseGateEditor({
     >
       <NoiseGateEditorContent />
     </FilterEditorModal>
+  );
+}
+
+export function NoiseGateEditorPanel({
+  onClose,
+  filter,
+  onSave,
+  onApply,
+}: NoiseGateEditorPanelProps) {
+  return (
+    <FilterEditorPanel
+      onClose={onClose}
+      description="Silence signals below threshold"
+      filter={filter}
+      onSave={onSave}
+      onApply={onApply}
+      validate={(config) => noisegateHandler.validate(config)}
+    >
+      <NoiseGateEditorContent />
+    </FilterEditorPanel>
   );
 }

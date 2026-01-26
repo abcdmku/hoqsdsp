@@ -9,14 +9,33 @@ import { UnitCard, type UnitCardProps } from '../components/dashboard/UnitCard';
 import { AddUnitDialog } from '../components/dashboard/AddUnitDialog';
 import { ZoneGroup, UngroupedSection } from '../components/dashboard/ZoneGroup';
 import { useConfigJson } from '../features/configuration';
+import { useUnitLevels, type ChannelLevelState } from '../features/realtime';
 import type { DSPUnit, ConnectionStatus } from '../types';
 
-interface ConnectedUnitCardProps extends Omit<UnitCardProps, 'inputChannels' | 'outputChannels' | 'sampleRate'> {
+interface ConnectedUnitCardProps extends Omit<UnitCardProps, 'inputChannels' | 'outputChannels' | 'sampleRate' | 'inputLevels' | 'outputLevels' | 'inputPeaks' | 'outputPeaks' | 'clipping'> {
   unit: DSPUnit;
 }
 
 function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
   const { data: config } = useConfigJson(unit.id);
+  const isConnected = props.status === 'connected';
+
+  // Get real-time levels for this unit
+  const { capture, playback, clippedSamples } = useUnitLevels(
+    isConnected ? unit.id : null,
+    { enabled: isConnected }
+  );
+
+  // Extract level arrays for the UnitCard
+  const inputLevels = useMemo<ChannelLevelState[] | undefined>(() => {
+    if (!isConnected || capture.length === 0) return undefined;
+    return capture;
+  }, [isConnected, capture]);
+
+  const outputLevels = useMemo<ChannelLevelState[] | undefined>(() => {
+    if (!isConnected || playback.length === 0) return undefined;
+    return playback;
+  }, [isConnected, playback]);
 
   return (
     <UnitCard
@@ -25,6 +44,9 @@ function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
       sampleRate={config?.devices.samplerate}
       inputChannels={config?.devices.capture.channels}
       outputChannels={config?.devices.playback.channels}
+      inputLevels={inputLevels}
+      outputLevels={outputLevels}
+      clipping={clippedSamples > 0}
     />
   );
 }
@@ -252,8 +274,6 @@ export function Dashboard() {
           muted={muted}
           processingLoad={conn.status === 'connected' ? processingLoad : undefined}
           bufferLevel={conn.status === 'connected' ? bufferLevel : undefined}
-          inputLevels={conn.status === 'connected' ? [-18, -20] : undefined}
-          outputLevels={conn.status === 'connected' ? [-12, -14] : undefined}
         />
       );
     },

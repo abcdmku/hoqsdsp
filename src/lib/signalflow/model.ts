@@ -1,4 +1,4 @@
-import type { CamillaConfig, FilterConfig } from '../../types';
+import type { CamillaConfig, FilterConfig, SignalFlowUiMetadata } from '../../types';
 
 export type ChannelSide = 'input' | 'output';
 
@@ -77,6 +77,7 @@ export interface FromConfigResult {
   model: SignalFlowModel;
   warnings: SignalFlowWarning[];
   representable: boolean;
+  uiMetadata?: SignalFlowUiMetadata;
 }
 
 export interface ToConfigResult {

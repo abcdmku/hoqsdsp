@@ -4,7 +4,8 @@ import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import { Slider } from '../ui/Slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
-import { StereoMiniMeter } from '../monitoring/MiniMeter';
+import { StereoVolumeMeter, MultiChannelVolumeMeter } from '../monitoring/VolumeMeter';
+import type { ChannelLevelState } from '../../features/realtime';
 import type { DSPUnit, ConnectionStatus } from '../../types';
 
 export interface UnitCardProps {
@@ -28,9 +29,12 @@ export interface UnitCardProps {
   inputChannels?: number;
   /** Output channel count */
   outputChannels?: number;
-  /** Signal levels for mini meters [left, right] in dB */
-  inputLevels?: [number, number];
-  outputLevels?: [number, number];
+  /** Signal levels for all input channels */
+  inputLevels?: ChannelLevelState[];
+  /** Signal levels for all output channels */
+  outputLevels?: ChannelLevelState[];
+  /** Whether clipping has been detected */
+  clipping?: boolean;
   /** Whether this unit is currently selected */
   isSelected?: boolean;
   /** Callback when unit card is clicked */
@@ -85,6 +89,7 @@ export const UnitCard = React.memo(function UnitCard({
   outputChannels,
   inputLevels,
   outputLevels,
+  clipping = false,
   isSelected = false,
   onClick,
   onVolumeChange,
@@ -215,27 +220,57 @@ export const UnitCard = React.memo(function UnitCard({
 
       {/* Level meters */}
       {isOnline && (inputLevels ?? outputLevels) && (
-        <div className="mb-3 flex items-center gap-3">
-          {inputLevels && (
+        <div className="mb-3 flex items-center gap-4">
+          {inputLevels && inputLevels.length > 0 && (
             <div className="flex flex-col items-center gap-1">
               <span className="text-[10px] text-dsp-text-muted">IN</span>
-              <StereoMiniMeter
-                leftLevel={inputLevels[0]}
-                rightLevel={inputLevels[1]}
-                orientation="vertical"
-                className="h-8"
-              />
+              {inputLevels.length <= 2 ? (
+                <StereoVolumeMeter
+                  leftLevel={inputLevels[0]?.peak ?? -60}
+                  rightLevel={inputLevels[1]?.peak ?? inputLevels[0]?.peak ?? -60}
+                  leftPeak={inputLevels[0]?.peakHold}
+                  rightPeak={inputLevels[1]?.peakHold ?? inputLevels[0]?.peakHold}
+                  size="xs"
+                  orientation="vertical"
+                  mode="gradient"
+                  clipping={clipping}
+                />
+              ) : (
+                <MultiChannelVolumeMeter
+                  levels={inputLevels.map((l) => l.peak)}
+                  peaks={inputLevels.map((l) => l.peakHold)}
+                  size="xs"
+                  orientation="vertical"
+                  mode="gradient"
+                  clippingChannels={inputLevels.map(() => clipping)}
+                />
+              )}
             </div>
           )}
-          {outputLevels && (
+          {outputLevels && outputLevels.length > 0 && (
             <div className="flex flex-col items-center gap-1">
               <span className="text-[10px] text-dsp-text-muted">OUT</span>
-              <StereoMiniMeter
-                leftLevel={outputLevels[0]}
-                rightLevel={outputLevels[1]}
-                orientation="vertical"
-                className="h-8"
-              />
+              {outputLevels.length <= 2 ? (
+                <StereoVolumeMeter
+                  leftLevel={outputLevels[0]?.peak ?? -60}
+                  rightLevel={outputLevels[1]?.peak ?? outputLevels[0]?.peak ?? -60}
+                  leftPeak={outputLevels[0]?.peakHold}
+                  rightPeak={outputLevels[1]?.peakHold ?? outputLevels[0]?.peakHold}
+                  size="xs"
+                  orientation="vertical"
+                  mode="gradient"
+                  clipping={clipping}
+                />
+              ) : (
+                <MultiChannelVolumeMeter
+                  levels={outputLevels.map((l) => l.peak)}
+                  peaks={outputLevels.map((l) => l.peakHold)}
+                  size="xs"
+                  orientation="vertical"
+                  mode="gradient"
+                  clippingChannels={outputLevels.map(() => clipping)}
+                />
+              )}
             </div>
           )}
         </div>

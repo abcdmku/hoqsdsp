@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { CamillaConfig } from '../../types';
 import { websocketService } from '../../services/websocketService';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { cleanNullValues } from '../../lib/config/cleanConfig';
 
 export const configKeys = {
   all: ['config'] as const,
@@ -37,7 +38,9 @@ export function useConfigJson(unitId: string) {
     queryFn: async (): Promise<CamillaConfig> => {
       if (!wsManager) throw new Error('WebSocket not connected');
       const jsonString = await wsManager.send<string>('GetConfigJson');
-      return JSON.parse(jsonString) as CamillaConfig;
+      const rawConfig = JSON.parse(jsonString) as CamillaConfig;
+      // Clean null values that CamillaDSP sends for optional fields
+      return cleanNullValues(rawConfig);
     },
     enabled: status === 'connected' && !!wsManager,
     staleTime: 5000,

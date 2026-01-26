@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import type { SignalLevels, ChannelLevels } from '../../types';
+import type { SignalLevels, SignalLevelsRaw, ChannelLevels } from '../../types';
+import { normalizeSignalLevels } from '../../types';
 
 export interface LevelState {
   /** Capture (input) channel levels */
@@ -90,8 +91,9 @@ export function useLevels(options: UseLevelsOptions = {}): {
     if (!wsManager) return null;
 
     try {
-      const result = await wsManager.send<SignalLevels>('GetSignalLevelsSinceLast');
-      return result;
+      const raw = await wsManager.send<SignalLevelsRaw>('GetSignalLevelsSinceLast');
+      // Transform the raw response (with flat arrays) to our normalized format
+      return normalizeSignalLevels(raw);
     } catch {
       // Connection error - return null to indicate failure
       return null;
@@ -179,7 +181,7 @@ export function useLevels(options: UseLevelsOptions = {}): {
           fetchClippedSamples(),
         ]);
 
-        if (newLevels) {
+        if (newLevels && newLevels.capture && newLevels.playback) {
           setLevels((prev) => ({
             capture: updatePeakHold(
               prev.capture,

@@ -1,13 +1,20 @@
 import { useCallback } from 'react';
 import type { CompressorFilter } from '../../types';
 import { compressorHandler } from '../../lib/filters/compressor';
-import { FilterEditorModal, useFilterEditor } from './FilterEditorModal';
+import { FilterEditorModal, FilterEditorPanel, useFilterEditor } from './FilterEditorModal';
 import { NumericInput, GainInput } from '../ui';
 import { Switch } from '../ui/Switch';
 import { Slider } from '../ui/Slider';
 
 interface CompressorEditorProps {
   open: boolean;
+  onClose: () => void;
+  filter: CompressorFilter;
+  onSave: (config: CompressorFilter) => void;
+  onApply?: (config: CompressorFilter) => void;
+}
+
+interface CompressorEditorPanelProps {
   onClose: () => void;
   filter: CompressorFilter;
   onSave: (config: CompressorFilter) => void;
@@ -275,5 +282,25 @@ export function CompressorEditor({
     >
       <CompressorEditorContent />
     </FilterEditorModal>
+  );
+}
+
+export function CompressorEditorPanel({
+  onClose,
+  filter,
+  onSave,
+  onApply,
+}: CompressorEditorPanelProps) {
+  return (
+    <FilterEditorPanel
+      onClose={onClose}
+      description="Dynamic range compression"
+      filter={filter}
+      onSave={onSave}
+      onApply={onApply}
+      validate={(config) => compressorHandler.validate(config)}
+    >
+      <CompressorEditorContent />
+    </FilterEditorPanel>
   );
 }

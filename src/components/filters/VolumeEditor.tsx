@@ -1,12 +1,19 @@
 import { useCallback } from 'react';
 import type { VolumeFilter } from '../../types';
 import { volumeHandler } from '../../lib/filters/volume';
-import { FilterEditorModal, useFilterEditor } from './FilterEditorModal';
+import { FilterEditorModal, FilterEditorPanel, useFilterEditor } from './FilterEditorModal';
 import { NumericInput } from '../ui';
 import { Slider } from '../ui/Slider';
 
 interface VolumeEditorProps {
   open: boolean;
+  onClose: () => void;
+  filter: VolumeFilter;
+  onSave: (config: VolumeFilter) => void;
+  onApply?: (config: VolumeFilter) => void;
+}
+
+interface VolumeEditorPanelProps {
   onClose: () => void;
   filter: VolumeFilter;
   onSave: (config: VolumeFilter) => void;
@@ -181,5 +188,25 @@ export function VolumeEditor({
     >
       <VolumeEditorContent />
     </FilterEditorModal>
+  );
+}
+
+export function VolumeEditorPanel({
+  onClose,
+  filter,
+  onSave,
+  onApply,
+}: VolumeEditorPanelProps) {
+  return (
+    <FilterEditorPanel
+      onClose={onClose}
+      description="Fader-linked volume control"
+      filter={filter}
+      onSave={onSave}
+      onApply={onApply}
+      validate={(config) => volumeHandler.validate(config)}
+    >
+      <VolumeEditorContent />
+    </FilterEditorPanel>
   );
 }

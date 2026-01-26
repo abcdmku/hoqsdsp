@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import type { DitherFilter, DitherParameters } from '../../types';
 import { ditherHandler } from '../../lib/filters/dither';
-import { FilterEditorModal, useFilterEditor } from './FilterEditorModal';
+import { FilterEditorModal, FilterEditorPanel, useFilterEditor } from './FilterEditorModal';
 import { NumericInput } from '../ui';
 import {
   Select,
@@ -13,6 +13,13 @@ import {
 
 interface DitherEditorProps {
   open: boolean;
+  onClose: () => void;
+  filter: DitherFilter;
+  onSave: (config: DitherFilter) => void;
+  onApply?: (config: DitherFilter) => void;
+}
+
+interface DitherEditorPanelProps {
   onClose: () => void;
   filter: DitherFilter;
   onSave: (config: DitherFilter) => void;
@@ -188,5 +195,25 @@ export function DitherEditor({
     >
       <DitherEditorContent />
     </FilterEditorModal>
+  );
+}
+
+export function DitherEditorPanel({
+  onClose,
+  filter,
+  onSave,
+  onApply,
+}: DitherEditorPanelProps) {
+  return (
+    <FilterEditorPanel
+      onClose={onClose}
+      description="Bit depth reduction with noise shaping"
+      filter={filter}
+      onSave={onSave}
+      onApply={onApply}
+      validate={(config) => ditherHandler.validate(config)}
+    >
+      <DitherEditorContent />
+    </FilterEditorPanel>
   );
 }

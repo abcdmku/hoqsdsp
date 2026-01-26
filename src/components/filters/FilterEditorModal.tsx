@@ -27,6 +27,21 @@ interface FilterEditorModalProps<T extends FilterConfig> {
   sampleRate?: number;
 }
 
+export interface FilterEditorPanelProps<T extends FilterConfig> {
+  onClose: () => void;
+  title?: string;
+  description?: string;
+  filter: T;
+  onSave: (config: T) => void;
+  onApply?: (config: T) => void;
+  validate: (config: unknown) => ValidationResult;
+  children: React.ReactNode;
+  showFrequencyResponse?: boolean;
+  sampleRate?: number;
+  className?: string;
+  showHeader?: boolean;
+}
+
 // Frequency response graph for biquad filters
 function FrequencyResponseGraph({
   params,
@@ -152,8 +167,7 @@ function FrequencyResponseGraph({
   );
 }
 
-export function FilterEditorModal<T extends FilterConfig>({
-  open,
+function FilterEditorCore<T extends FilterConfig>({
   onClose,
   title,
   description,
@@ -164,7 +178,9 @@ export function FilterEditorModal<T extends FilterConfig>({
   children,
   showFrequencyResponse = false,
   sampleRate = 48000,
-}: FilterEditorModalProps<T>) {
+  className,
+  showHeader = true,
+}: Omit<FilterEditorPanelProps<T>, 'title'> & { title?: string }) {
   const [localFilter, setLocalFilter] = useState<T>(filter);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isDirty, setIsDirty] = useState(false);
@@ -175,7 +191,7 @@ export function FilterEditorModal<T extends FilterConfig>({
     setLocalFilter(filter);
     setValidationErrors([]);
     setIsDirty(false);
-  }, [filter, open]);
+  }, [filter]);
 
   const handleValidate = useCallback(
     (config: T): boolean => {
@@ -226,73 +242,142 @@ export function FilterEditorModal<T extends FilterConfig>({
   );
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) onClose();
-    }}>
-      <DialogContent
-        className="max-w-lg max-h-[85vh] flex flex-col"
-        onKeyDown={handleKeyDown}
-      >
-        <DialogHeader>
+    <div className={cn('flex flex-col', className)} onKeyDown={handleKeyDown}>
+      {showHeader && title && (
+        <DialogHeader className="pb-3">
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+      )}
 
-        {/* Frequency Response Graph (for biquad filters) */}
-        {showFrequencyResponse && localFilter.type === 'Biquad' && (
-          <div className="flex justify-center py-2 border-b border-dsp-primary/30">
-            <FrequencyResponseGraph
-              params={(localFilter as { type: 'Biquad'; parameters: BiquadParameters }).parameters}
-              sampleRate={sampleRate}
-            />
-          </div>
-        )}
+      {!showHeader && description && (
+        <div className="pb-3 text-xs text-dsp-text-muted">{description}</div>
+      )}
 
-        {/* Parameters Section */}
-        <div className="flex-1 overflow-auto py-4">
-          <FilterEditorContext.Provider
-            value={{
-              filter: localFilter,
-              updateFilter: updateFilter as (updates: Partial<FilterConfig> | ((prev: FilterConfig) => FilterConfig)) => void,
-            }}
-          >
-            {children}
-          </FilterEditorContext.Provider>
+      {/* Frequency Response Graph (for biquad filters) */}
+      {showFrequencyResponse && localFilter.type === 'Biquad' && (
+        <div className="flex justify-center py-2 border-b border-dsp-primary/30">
+          <FrequencyResponseGraph
+            params={(localFilter as { type: 'Biquad'; parameters: BiquadParameters }).parameters}
+            sampleRate={sampleRate}
+          />
         </div>
+      )}
 
-        {/* Validation Errors */}
-        {validationErrors.length > 0 && (
-          <div className="bg-meter-red/10 border border-meter-red/30 rounded p-3 space-y-1">
-            {validationErrors.map((error, i) => (
-              <p key={i} className="text-sm text-meter-red flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {error}
-              </p>
-            ))}
-          </div>
-        )}
+      {/* Parameters Section */}
+      <div className="flex-1 overflow-auto py-4">
+        <FilterEditorContext.Provider
+          value={{
+            filter: localFilter,
+            updateFilter: updateFilter as (updates: Partial<FilterConfig> | ((prev: FilterConfig) => FilterConfig)) => void,
+          }}
+        >
+          {children}
+        </FilterEditorContext.Provider>
+      </div>
 
-        {/* Footer Actions */}
-        <div className="flex justify-end gap-2 pt-4 border-t border-dsp-primary/30">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          {onApply && (
-            <Button
-              variant="secondary"
-              onClick={handleApply}
-              disabled={validationErrors.length > 0}
-            >
-              Apply
-            </Button>
-          )}
+      {/* Validation Errors */}
+      {validationErrors.length > 0 && (
+        <div className="bg-meter-red/10 border border-meter-red/30 rounded p-3 space-y-1">
+          {validationErrors.map((error, i) => (
+            <p key={i} className="text-sm text-meter-red flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {error}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Footer Actions */}
+      <div className="flex justify-end gap-2 pt-4 border-t border-dsp-primary/30">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        {onApply && (
           <Button
-            onClick={handleSave}
-            disabled={validationErrors.length > 0 || !isDirty}
+            variant="secondary"
+            onClick={handleApply}
+            disabled={validationErrors.length > 0}
           >
-            Save
+            Apply
           </Button>
-        </div>
+        )}
+        <Button
+          onClick={handleSave}
+          disabled={validationErrors.length > 0 || !isDirty}
+        >
+          Save
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function FilterEditorPanel<T extends FilterConfig>({
+  onClose,
+  title,
+  description,
+  filter,
+  onSave,
+  onApply,
+  validate,
+  children,
+  showFrequencyResponse = false,
+  sampleRate = 48000,
+  className,
+  showHeader = false,
+}: FilterEditorPanelProps<T>) {
+  return (
+    <FilterEditorCore
+      onClose={onClose}
+      title={title}
+      description={description}
+      filter={filter}
+      onSave={onSave}
+      onApply={onApply}
+      validate={validate}
+      showFrequencyResponse={showFrequencyResponse}
+      sampleRate={sampleRate}
+      className={className}
+      showHeader={showHeader}
+    >
+      {children}
+    </FilterEditorCore>
+  );
+}
+
+export function FilterEditorModal<T extends FilterConfig>({
+  open,
+  onClose,
+  title,
+  description,
+  filter,
+  onSave,
+  onApply,
+  validate,
+  children,
+  showFrequencyResponse = false,
+  sampleRate = 48000,
+}: FilterEditorModalProps<T>) {
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) onClose();
+    }}>
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <FilterEditorCore
+          onClose={onClose}
+          title={title}
+          description={description}
+          filter={filter}
+          onSave={onSave}
+          onApply={onApply}
+          validate={validate}
+          showFrequencyResponse={showFrequencyResponse}
+          sampleRate={sampleRate}
+          showHeader={true}
+        >
+          {children}
+        </FilterEditorCore>
       </DialogContent>
     </Dialog>
   );
@@ -311,7 +396,7 @@ const FilterEditorContext = createContext<FilterEditorContextValue | null>(null)
 export function useFilterEditor<T extends FilterConfig>(): FilterEditorContextValue<T> {
   const context = useContext(FilterEditorContext);
   if (!context) {
-    throw new Error('useFilterEditor must be used within a FilterEditorModal');
+    throw new Error('useFilterEditor must be used within a FilterEditorModal or FilterEditorPanel');
   }
   return context as unknown as FilterEditorContextValue<T>;
 }
