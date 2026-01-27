@@ -98,7 +98,11 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
     this.emit('disconnected', 1000, 'Client disconnect');
   }
 
-  async send<T>(command: WSCommand, priority: MessagePriority = 'normal'): Promise<T> {
+  async send<T>(
+    command: WSCommand,
+    priority: MessagePriority = 'normal',
+    options?: { timeout?: number }
+  ): Promise<T> {
     if (!this.isConnected) {
       // Queue message if not connected
       this.queueMessage(command, priority);
@@ -106,6 +110,18 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
     }
 
     const commandName = this.formatCommand(command);
+    const message = this.formatMessage(command);
+    const timeout = options?.timeout ?? this.requestTimeout;
+
+    // Debug logging for config-related commands
+    if (commandName === 'SetConfigJson' || commandName === 'Reload') {
+      console.debug(`[WebSocket] Sending ${commandName}:`, message.slice(0, 200) + (message.length > 200 ? '...' : ''));
+    }
+
+    // Debug logging for device enumeration
+    if (commandName.includes('Available') || commandName.includes('Device')) {
+      console.debug(`[WebSocket] Sending device query: "${commandName}"`, message);
+    }
 
     return new Promise<T>((resolve, reject) => {
       const pending: PendingRequest = {
@@ -117,14 +133,14 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
 
       pending.timeout = setTimeout(() => {
         this.removePendingRequest(commandName, pending);
+        console.error(`[WebSocket] Request timeout for ${commandName}`);
         reject(new Error(`Request timeout: ${this.formatCommand(command)}`));
-      }, this.requestTimeout);
+      }, timeout);
 
       const queue = this.pendingRequests.get(commandName) ?? [];
       queue.push(pending);
       this.pendingRequests.set(commandName, queue);
 
-      const message = this.formatMessage(command);
       this.ws?.send(message);
     });
   }
@@ -141,22 +157,64 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
       const parsed = JSON.parse(data) as unknown;
       this.emit('message', parsed);
 
+      // Log raw response for config-related commands to help debug errors
+      if (data.includes('SetConfigJson') || data.includes('Reload')) {
+        console.debug('[WebSocket] Raw response:', data);
+      }
+
+      // Debug logging for device enumeration
+      if (data.includes('Available') || data.includes('Device')) {
+        console.debug('[WebSocket] Device response:', data.slice(0, 500));
+        console.debug('[WebSocket] Pending requests:', Array.from(this.pendingRequests.keys()));
+      }
+
       const wrapped = this.extractWrappedResponse(parsed);
-      if (!wrapped) return;
+      if (!wrapped) {
+        // Log unrecognized responses for debugging
+        console.debug('[WebSocket] Unrecognized response format:', data.slice(0, 500));
+        return;
+      }
 
       const { commandName, ok, value, error } = wrapped;
+
+      // Debug logging for device enumeration
+      if (commandName.includes('Available') || commandName.includes('Device')) {
+        console.debug(`[WebSocket] Extracted command: "${commandName}", ok: ${ok}`);
+      }
+
+      // Debug logging for config-related responses
+      if (commandName === 'SetConfigJson' || commandName === 'Reload') {
+        console.debug(`[WebSocket] ${commandName} response:`, ok ? 'OK' : 'Error', ok ? '' : error);
+      }
       const pending = this.shiftPendingRequest(commandName);
       if (!pending) return;
 
       clearTimeout(pending.timeout);
 
       if (ok) {
-        // Treat `null` as “no value” to align with `Promise<void>` calls.
+        // Treat `null` as "no value" to align with `Promise<void>` calls.
         pending.resolve(value == null ? undefined : value);
         return;
       }
 
-      const errorMessage = error === undefined ? 'Unknown error' : String(error);
+      // Extract a meaningful error message from the response
+      let errorMessage: string;
+      if (error === undefined || error === null) {
+        console.error('[WebSocket] Full response with empty error:', parsed);
+        errorMessage = 'Server returned an error without details';
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (typeof error === 'object') {
+        // Handle object errors (e.g., { message: "..." } or nested structures)
+        const errorObj = error as Record<string, unknown>;
+        errorMessage = errorObj.message as string
+          ?? errorObj.reason as string
+          ?? JSON.stringify(error);
+      } else {
+        errorMessage = String(error);
+      }
+
+      console.error(`[WebSocket] ${commandName} error:`, error);
       pending.reject(new Error(errorMessage));
     } catch {
       // Non-JSON message or parsing error
@@ -267,6 +325,15 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
 
     if (Object.prototype.hasOwnProperty.call(response, 'Error')) {
       return { commandName, ok: false, error: response.Error };
+    }
+
+    // Handle lowercase variants (some server versions may differ)
+    if (Object.prototype.hasOwnProperty.call(response, 'ok')) {
+      return { commandName, ok: true, value: response.ok };
+    }
+
+    if (Object.prototype.hasOwnProperty.call(response, 'error')) {
+      return { commandName, ok: false, error: response.error };
     }
 
     // Back-compat: {"Cmd": {"result": "Ok"|"Error", "value": ...}}

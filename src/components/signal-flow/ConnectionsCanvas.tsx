@@ -38,6 +38,29 @@ function buildCurve(
   return `M ${from.x} ${from.y} C ${c1x} ${from.y}, ${c2x} ${to.y}, ${to.x} ${to.y}`;
 }
 
+function getCurveMidpoint(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  width: number,
+): { x: number; y: number } {
+  // Approximate midpoint of cubic bezier at t=0.5
+  const tension = Math.max(80, Math.min(260, width * 0.35));
+  const c1x = from.x + tension;
+  const c2x = to.x - tension;
+  // Cubic bezier at t=0.5: B(0.5) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
+  const t = 0.5;
+  const mt = 1 - t;
+  const x = mt * mt * mt * from.x + 3 * mt * mt * t * c1x + 3 * mt * t * t * c2x + t * t * t * to.x;
+  const y = mt * mt * mt * from.y + 3 * mt * mt * t * from.y + 3 * mt * t * t * to.y + t * t * t * to.y;
+  return { x, y };
+}
+
+function formatGain(gain: number): string {
+  if (Math.abs(gain) < 0.05) return '0';
+  const sign = gain > 0 ? '+' : '';
+  return `${sign}${gain.toFixed(1)}`;
+}
+
 export function ConnectionsCanvas({
   canvasRef,
   inputBankRef,
@@ -224,6 +247,36 @@ export function ConnectionsCanvas({
                 className={cn('drop-shadow-sm transition-all', route.mute && 'opacity-25')}
                 style={{ pointerEvents: 'none' }}
               />
+              {/* Gain label - shown when route has non-zero gain or is selected/hovered */}
+              {(route.gain !== 0 || selected || hovered) && (() => {
+                const mid = getCurveMidpoint(from, to, layout.width);
+                const showLabel = route.gain !== 0 || selected || hovered;
+                if (!showLabel) return null;
+                return (
+                  <g style={{ pointerEvents: 'none' }}>
+                    <rect
+                      x={mid.x - 18}
+                      y={mid.y - 9}
+                      width={36}
+                      height={18}
+                      rx={4}
+                      fill="rgba(0,0,0,0.75)"
+                      className={cn(route.mute && 'opacity-50')}
+                    />
+                    <text
+                      x={mid.x}
+                      y={mid.y + 4}
+                      textAnchor="middle"
+                      fontSize={11}
+                      fontFamily="monospace"
+                      fill={route.gain === 0 ? '#888' : route.gain > 0 ? '#4ade80' : '#f87171'}
+                      className={cn(route.mute && 'opacity-50')}
+                    >
+                      {formatGain(route.gain)}dB
+                    </text>
+                  </g>
+                );
+              })()}
             </g>
           );
         })}

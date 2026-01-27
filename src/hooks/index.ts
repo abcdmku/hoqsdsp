@@ -10,3 +10,8 @@ export { useConnectionAnnouncements } from './useConnectionAnnouncements';
 
 // Connection management
 export { useConnectionManager } from './useConnectionManager';
+
+// Auto setup
+export { useAutoSetup } from './useAutoSetup';
+export type { AutoSetupResult, AutoSetupState } from './useAutoSetup';
+export { useAutoSetupPrompt } from './useAutoSetupPrompt';

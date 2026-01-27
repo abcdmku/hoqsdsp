@@ -27,15 +27,18 @@ const AUTO_CONFIG_DEFAULTS = {
 };
 
 /**
- * Classify a device into a category based on its identifier
+ * Classify a device into a category based on its identifier and backend
  */
-export function classifyDevice(device: DeviceInfo): ClassifiedDevice {
-  const deviceId = device.device.toLowerCase();
+export function classifyDevice(device: DeviceInfo, backend?: string): ClassifiedDevice {
+  const deviceId = (device.device ?? '').toLowerCase();
   const name = (device.name ?? '').toLowerCase();
+  const backendLower = (backend ?? '').toLowerCase();
+
+  console.log('[classifyDevice] Input:', { device, backend, deviceId, name, backendLower });
 
   let category: DeviceCategory = 'unknown';
 
-  // Check for loopback devices
+  // Check for loopback devices (all backends)
   if (deviceId.includes('loopback') || name.includes('loopback')) {
     category = 'loopback';
   }
@@ -43,73 +46,128 @@ export function classifyDevice(device: DeviceInfo): ClassifiedDevice {
   else if (deviceId === 'null') {
     category = 'null';
   }
-  // Check for virtual/software devices
+  // ALSA-specific virtual devices (Linux)
   else if (
-    deviceId.includes('pulse') ||
-    deviceId.includes('pipewire') ||
-    deviceId.includes('dsnoop') ||
-    deviceId.includes('dmix') ||
-    deviceId === 'default' ||
-    deviceId === 'sysdefault'
+    backendLower === 'alsa' && (
+      deviceId.includes('pulse') ||
+      deviceId.includes('pipewire') ||
+      deviceId.includes('dsnoop') ||
+      deviceId.includes('dmix') ||
+      deviceId === 'default' ||
+      deviceId === 'sysdefault'
+    )
   ) {
     category = 'virtual';
   }
-  // Check for hardware devices
+  // ALSA hardware devices (Linux)
   else if (
-    deviceId.startsWith('hw:') ||
-    deviceId.startsWith('plughw:')
+    backendLower === 'alsa' && (
+      deviceId.startsWith('hw:') ||
+      deviceId.startsWith('plughw:')
+    )
   ) {
     category = 'hardware';
   }
+  // WASAPI (Windows) - most devices are hardware
+  else if (backendLower === 'wasapi') {
+    // Filter out virtual audio cable / software devices
+    if (
+      name.includes('virtual') ||
+      name.includes('cable') ||
+      name.includes('voicemeeter') ||
+      deviceId.includes('virtual')
+    ) {
+      category = 'virtual';
+    } else {
+      category = 'hardware';
+    }
+  }
+  // CoreAudio (macOS) - most devices are hardware
+  else if (backendLower === 'coreaudio') {
+    // Filter out aggregate/virtual devices
+    if (
+      name.includes('aggregate') ||
+      name.includes('virtual') ||
+      name.includes('soundflower') ||
+      name.includes('blackhole')
+    ) {
+      category = 'virtual';
+    } else {
+      category = 'hardware';
+    }
+  }
+  // For unknown backends, assume hardware if we have a valid device ID
+  else if (deviceId && deviceId !== 'null') {
+    category = 'hardware';
+  }
 
-  return {
+  const result = {
     device,
     category,
     isHardware: category === 'hardware',
   };
+  console.log('[classifyDevice] Result:', { deviceId, category, isHardware: result.isHardware });
+  return result;
 }
 
 /**
  * Classify a list of devices
  */
-export function classifyDevices(devices: DeviceInfo[]): ClassifiedDevice[] {
-  return devices.map(classifyDevice);
+export function classifyDevices(devices: DeviceInfo[], backend?: string): ClassifiedDevice[] {
+  return devices.map(d => classifyDevice(d, backend));
 }
 
 /**
  * Find the best hardware device from a list of devices
  *
- * Priority:
+ * For ALSA (Linux):
  * 1. Prefer hw:CARD=X,DEV=0 format (explicit card reference with DEV=0)
  * 2. Prefer hw:CARD=X format (explicit card reference)
  * 3. Any other hw: device
+ *
+ * For WASAPI/CoreAudio:
+ * - Returns the first non-virtual device (typically USB audio interfaces)
  */
-export function findBestHardwareDevice(devices: DeviceInfo[]): DeviceInfo | null {
-  const classified = classifyDevices(devices);
+export function findBestHardwareDevice(devices: DeviceInfo[], backend?: string): DeviceInfo | null {
+  const classified = classifyDevices(devices, backend);
   const hardwareDevices = classified.filter((d) => d.isHardware);
 
   if (hardwareDevices.length === 0) {
     return null;
   }
 
+  const backendLower = (backend ?? '').toLowerCase();
+
   // Sort by priority
   hardwareDevices.sort((a, b) => {
-    const aDevice = a.device.device;
-    const bDevice = b.device.device;
+    const aDevice = a.device.device ?? '';
+    const bDevice = b.device.device ?? '';
+    const aName = (a.device.name ?? '').toLowerCase();
+    const bName = (b.device.name ?? '').toLowerCase();
 
-    // Prefer hw:CARD= format over generic hw:X format
-    const aHasCard = aDevice.includes('CARD=');
-    const bHasCard = bDevice.includes('CARD=');
+    // ALSA-specific sorting
+    if (backendLower === 'alsa') {
+      // Prefer hw:CARD= format over generic hw:X format
+      const aHasCard = aDevice.includes('CARD=');
+      const bHasCard = bDevice.includes('CARD=');
 
-    if (aHasCard && !bHasCard) return -1;
-    if (!aHasCard && bHasCard) return 1;
+      if (aHasCard && !bHasCard) return -1;
+      if (!aHasCard && bHasCard) return 1;
 
-    // Prefer DEV=0 (primary device)
-    const aHasDev0 = aDevice.includes('DEV=0');
-    const bHasDev0 = bDevice.includes('DEV=0');
+      // Prefer DEV=0 (primary device)
+      const aHasDev0 = aDevice.includes('DEV=0');
+      const bHasDev0 = bDevice.includes('DEV=0');
 
-    if (aHasDev0 && !bHasDev0) return -1;
-    if (!aHasDev0 && bHasDev0) return 1;
+      if (aHasDev0 && !bHasDev0) return -1;
+      if (!aHasDev0 && bHasDev0) return 1;
+    }
+
+    // For all backends: prefer USB audio interfaces
+    const aIsUSB = aName.includes('usb') || aDevice.toLowerCase().includes('usb');
+    const bIsUSB = bName.includes('usb') || bDevice.toLowerCase().includes('usb');
+
+    if (aIsUSB && !bIsUSB) return -1;
+    if (!aIsUSB && bIsUSB) return 1;
 
     return 0;
   });
@@ -140,9 +198,17 @@ export function generateAutoConfig(
   device: DeviceInfo,
   backend: string,
 ): AutoConfigResult {
+  const deviceId = device.device ?? '';
+  const backendLower = backend.toLowerCase();
+
+  // Only convert to plughw: for ALSA backend (Linux)
+  const deviceForConfig = backendLower === 'alsa'
+    ? convertToPlugHw(deviceId)
+    : deviceId;
+
   return {
     device,
-    deviceForConfig: convertToPlugHw(device.device),
+    deviceForConfig,
     backend,
     channels: AUTO_CONFIG_DEFAULTS.channels,
     sampleRate: AUTO_CONFIG_DEFAULTS.sampleRate,
@@ -164,7 +230,7 @@ export function getDeviceDisplayName(device: DeviceInfo): string {
     }
     return device.name;
   }
-  return device.device;
+  return device.device ?? 'Unknown device';
 }
 
 /**

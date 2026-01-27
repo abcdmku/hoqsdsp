@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Providers } from './providers';
 import { TopNav, Sidebar, StatusBar } from '../components/layout';
-import { useGlobalShortcuts, AriaLiveRegion, useConnectionAnnouncements, useConnectionManager } from '../hooks';
+import { useGlobalShortcuts, AriaLiveRegion, useConnectionAnnouncements, useConnectionManager, useAutoSetupPrompt } from '../hooks';
 import { ErrorBoundary, Toaster } from '../components/feedback';
 
 function AppLayout() {
@@ -13,6 +13,9 @@ function AppLayout() {
 
   // Manage WebSocket connections at app level (persists across route changes)
   useConnectionManager();
+
+  // Prompt for auto setup when units connect without configuration
+  useAutoSetupPrompt();
 
   return (
     <div className="h-screen flex flex-col bg-dsp-bg">

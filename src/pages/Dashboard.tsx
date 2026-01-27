@@ -7,18 +7,32 @@ import { Button } from '../components/ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { UnitCard, type UnitCardProps } from '../components/dashboard/UnitCard';
 import { AddUnitDialog } from '../components/dashboard/AddUnitDialog';
+import { AutoSetupDialog } from '../components/devices/AutoSetupDialog';
 import { ZoneGroup, UngroupedSection } from '../components/dashboard/ZoneGroup';
 import { useConfigJson } from '../features/configuration';
 import { useUnitLevels, type ChannelLevelState } from '../features/realtime';
-import type { DSPUnit, ConnectionStatus } from '../types';
+import { useAutoSetup } from '../hooks';
+import { useAutoSetupStore } from '../stores/autoSetupStore';
+import { showToast } from '../components/feedback';
+import type { DSPUnit, ConnectionStatus, DeviceInfo } from '../types';
 
-interface ConnectedUnitCardProps extends Omit<UnitCardProps, 'inputChannels' | 'outputChannels' | 'sampleRate' | 'inputLevels' | 'outputLevels' | 'inputPeaks' | 'outputPeaks' | 'clipping'> {
+interface ConnectedUnitCardProps extends Omit<UnitCardProps, 'inputChannels' | 'outputChannels' | 'sampleRate' | 'inputLevels' | 'outputLevels' | 'inputPeaks' | 'outputPeaks' | 'clipping' | 'hasConfig' | 'onAutoSetup' | 'isAutoSetupRunning'> {
   unit: DSPUnit;
 }
 
 function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
-  const { data: config } = useConfigJson(unit.id);
+  const { data: config, isLoading: configLoading } = useConfigJson(unit.id);
   const isConnected = props.status === 'connected';
+
+  // Auto setup hook for this unit
+  const autoSetup = useAutoSetup(unit.id);
+
+  // Auto setup dialog state
+  const [autoSetupDialogOpen, setAutoSetupDialogOpen] = useState(false);
+
+  // Watch for pending auto setup requests from the prompt toast
+  const pendingUnitId = useAutoSetupStore((state) => state.pendingUnitId);
+  const clearPendingRequest = useAutoSetupStore((state) => state.clearPendingRequest);
 
   // Get real-time levels for this unit
   const { capture, playback, clippedSamples } = useUnitLevels(
@@ -37,17 +51,60 @@ function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
     return playback;
   }, [isConnected, playback]);
 
+  // Determine if we have a config (only after loading completes)
+  const hasConfig = configLoading ? undefined : !!config;
+
+  // Open the auto setup dialog
+  const handleAutoSetupClick = useCallback(() => {
+    console.log('[Dashboard] Auto Setup clicked for unit:', unit.id);
+    setAutoSetupDialogOpen(true);
+  }, [unit.id]);
+
+  // Handle device selection from dialog
+  const handleDeviceConfirm = useCallback(async (
+    captureDevice: DeviceInfo,
+    playbackDevice: DeviceInfo,
+    backend: string
+  ) => {
+    const result = await autoSetup.applyWithDevices(captureDevice, playbackDevice, backend);
+    if (result.success) {
+      const deviceName = captureDevice.name ?? captureDevice.device ?? 'unknown device';
+      showToast.success('Auto Setup Complete', `Configured: ${deviceName}`);
+    } else {
+      showToast.error('Auto Setup Failed', result.error ?? 'Unknown error');
+    }
+  }, [autoSetup]);
+
+  // Trigger auto setup dialog when this unit is requested via the toast action
+  useEffect(() => {
+    if (pendingUnitId === unit.id && isConnected && !autoSetup.isRunning) {
+      clearPendingRequest();
+      setAutoSetupDialogOpen(true);
+    }
+  }, [pendingUnitId, unit.id, isConnected, autoSetup.isRunning, clearPendingRequest]);
+
   return (
-    <UnitCard
-      {...props}
-      unit={unit}
-      sampleRate={config?.devices.samplerate}
-      inputChannels={config?.devices.capture.channels}
-      outputChannels={config?.devices.playback.channels}
-      inputLevels={inputLevels}
-      outputLevels={outputLevels}
-      clipping={clippedSamples > 0}
-    />
+    <>
+      <UnitCard
+        {...props}
+        unit={unit}
+        sampleRate={config?.devices.samplerate}
+        inputChannels={config?.devices.capture.channels}
+        outputChannels={config?.devices.playback.channels}
+        inputLevels={inputLevels}
+        outputLevels={outputLevels}
+        clipping={clippedSamples > 0}
+        hasConfig={hasConfig}
+        onAutoSetup={handleAutoSetupClick}
+        isAutoSetupRunning={autoSetup.isRunning}
+      />
+      <AutoSetupDialog
+        open={autoSetupDialogOpen}
+        onOpenChange={setAutoSetupDialogOpen}
+        unitId={unit.id}
+        onConfirm={handleDeviceConfirm}
+      />
+    </>
   );
 }
 

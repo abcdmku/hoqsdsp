@@ -10,6 +10,9 @@ export interface SignalFlowUiMetadata {
     input: { deviceId: string; channelIndex: number }[][];
     output: { deviceId: string; channelIndex: number }[][];
   };
+  // Per-channel gains (stored separately since Gain filters are merged into mixer sources)
+  // key: "input:channelIndex" or "output:channelIndex"
+  channelGains?: Record<string, { gain: number; inverted: boolean }>;
 }
 
 export interface CamillaConfigUi {

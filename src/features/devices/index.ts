@@ -48,7 +48,7 @@ export function useSupportedDeviceTypes(unitId: string) {
 // Parse device info from CamillaDSP response
 // CamillaDSP returns devices as arrays: [device_id, description]
 // We convert to our DeviceInfo format: { device: string, name: string | null }
-function parseDeviceList(rawDevices: unknown): DeviceInfo[] {
+export function parseDeviceList(rawDevices: unknown): DeviceInfo[] {
   if (!Array.isArray(rawDevices)) return [];
 
   return rawDevices.map((item): DeviceInfo => {

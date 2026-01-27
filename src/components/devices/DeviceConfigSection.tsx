@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Headphones, Volume2, Settings2, AlertCircle, Plus, Zap, Cog } from 'lucide-react';
 import { Button } from '../ui/Button';
 import {
@@ -14,6 +14,8 @@ import {
   useAvailableCaptureDevices,
   useAvailablePlaybackDevices,
 } from '../../features/devices';
+import { useAutoSetup } from '../../hooks';
+import { showToast } from '../feedback';
 import { createMinimalConfig } from '../../lib/config/createConfig';
 import {
   findBestHardwareDevice,
@@ -21,6 +23,7 @@ import {
   formatAutoConfigSummary,
   type AutoConfigResult,
 } from '../../lib/devices';
+import { AutoSetupDialog } from './AutoSetupDialog';
 import type { SampleFormat, DeviceInfo, CamillaConfig } from '../../types';
 
 const SAMPLE_FORMATS: SampleFormat[] = [
@@ -86,6 +89,7 @@ export function DeviceConfigSection({ unitId }: DeviceConfigSectionProps) {
   const { hasConfig, isLoading: configLoading, config, dataUpdatedAt } = useConfigStatus(unitId);
   const { data: deviceTypes, isLoading: typesLoading, isError: typesError } = useSupportedDeviceTypes(unitId);
   const setConfigJson = useSetConfigJson(unitId);
+  const autoSetup = useAutoSetup(unitId);
 
   // Config creation mode: 'selection' = choose Quick/Manual, 'manual' = show full form
   const [configMode, setConfigMode] = useState<ConfigMode>(null);
@@ -95,6 +99,8 @@ export function DeviceConfigSection({ unitId }: DeviceConfigSectionProps) {
   const [selectedBackend, setSelectedBackend] = useState<string | null>(null);
   // Track when Quick Setup found no hardware device
   const [noHardwareFound, setNoHardwareFound] = useState(false);
+  // Auto Setup dialog state
+  const [autoSetupDialogOpen, setAutoSetupDialogOpen] = useState(false);
 
   // Track local edits as an overlay on top of config (or defaults when no config)
   const [localEdits, setLocalEdits] = useState<Partial<DeviceFormState>>({});
@@ -264,6 +270,26 @@ export function DeviceConfigSection({ unitId }: DeviceConfigSectionProps) {
     setNoHardwareFound(false);
   };
 
+  // Open auto setup dialog
+  const handleAutoSetupClick = useCallback(() => {
+    setAutoSetupDialogOpen(true);
+  }, []);
+
+  // Handle device selection from auto setup dialog
+  const handleAutoSetupConfirm = useCallback(async (
+    captureDevice: DeviceInfo,
+    playbackDevice: DeviceInfo,
+    backend: string
+  ) => {
+    const result = await autoSetup.applyWithDevices(captureDevice, playbackDevice, backend);
+    if (result.success) {
+      const deviceName = captureDevice.name ?? captureDevice.device ?? 'unknown device';
+      showToast.success('Auto Setup Complete', `Configured: ${deviceName}`);
+    } else {
+      showToast.error('Auto Setup Failed', result.error ?? 'Unknown error');
+    }
+  }, [autoSetup]);
+
   const getDeviceLabel = (device: DeviceInfo) => {
     return device.name ?? device.device;
   };
@@ -296,10 +322,34 @@ export function DeviceConfigSection({ unitId }: DeviceConfigSectionProps) {
 
   return (
     <section>
-      <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-dsp-text">
-        <Settings2 className="h-5 w-5" />
-        Audio Devices
-      </h2>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-dsp-text">
+          <Settings2 className="h-5 w-5" />
+          Audio Devices
+        </h2>
+
+        {/* Auto Setup button - always available when connected */}
+        <Button
+          variant={hasConfig ? 'outline' : 'default'}
+          size="sm"
+          disabled={autoSetup.isRunning}
+          onClick={handleAutoSetupClick}
+          className="flex items-center gap-2"
+        >
+          <Zap className="h-4 w-4" />
+          {autoSetup.isRunning ? 'Setting up...' : 'Auto Setup'}
+        </Button>
+      </div>
+
+      {/* Auto Setup Status */}
+      {autoSetup.isRunning && autoSetup.message && (
+        <div className="mb-4 rounded-lg border border-dsp-accent/30 bg-dsp-accent/10 p-3 text-sm text-dsp-text">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 animate-pulse text-dsp-accent" />
+            <span>{autoSetup.message}</span>
+          </div>
+        </div>
+      )}
 
       {/* Mode Selection UI */}
       {showModeSelection && (
@@ -735,6 +785,14 @@ export function DeviceConfigSection({ unitId }: DeviceConfigSectionProps) {
       </div>
         </>
       )}
+
+      {/* Auto Setup Dialog */}
+      <AutoSetupDialog
+        open={autoSetupDialogOpen}
+        onOpenChange={setAutoSetupDialogOpen}
+        unitId={unitId}
+        onConfirm={handleAutoSetupConfirm}
+      />
     </section>
   );
 }

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Volume2, VolumeX, Settings, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { Volume2, VolumeX, Settings, Wifi, WifiOff, AlertCircle, Zap } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import { Slider } from '../ui/Slider';
@@ -45,6 +45,12 @@ export interface UnitCardProps {
   onMuteToggle?: () => void;
   /** Callback when settings button is clicked */
   onSettingsClick?: () => void;
+  /** Whether the unit has a loaded configuration */
+  hasConfig?: boolean;
+  /** Callback when auto setup button is clicked */
+  onAutoSetup?: () => void;
+  /** Whether auto setup is currently running */
+  isAutoSetupRunning?: boolean;
   className?: string;
 }
 
@@ -95,6 +101,9 @@ export const UnitCard = React.memo(function UnitCard({
   onVolumeChange,
   onMuteToggle,
   onSettingsClick,
+  hasConfig,
+  onAutoSetup,
+  isAutoSetupRunning = false,
   className,
 }: UnitCardProps) {
   const statusInfo = statusConfig[status];
@@ -325,6 +334,23 @@ export const UnitCard = React.memo(function UnitCard({
         <p className="mb-2 text-[10px] text-dsp-text-muted">
           CamillaDSP {version}
         </p>
+      )}
+
+      {/* Auto Setup button - always shown when connected */}
+      {isOnline && onAutoSetup && (
+        <Button
+          variant={hasConfig === false ? 'default' : 'outline'}
+          size="sm"
+          className="mt-2 w-full"
+          disabled={isAutoSetupRunning}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAutoSetup();
+          }}
+        >
+          <Zap className="mr-2 h-4 w-4" />
+          {isAutoSetupRunning ? 'Setting up...' : 'Auto Setup'}
+        </Button>
       )}
 
       {/* Settings button */}

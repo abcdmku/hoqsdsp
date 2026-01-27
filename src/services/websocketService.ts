@@ -5,7 +5,7 @@ import {
   removeWebSocketManager,
   setWebSocketManager,
 } from '../lib/websocket/managerRegistry';
-import type { DeviceInfo, ProcessingState, SignalLevels } from '../types';
+import type { ProcessingState, SignalLevels } from '../types';
 
 interface UnitWebSocketConnection {
   unitId: string;
@@ -115,19 +115,33 @@ class WebSocketService {
   async getSupportedDeviceTypes(unitId: string): Promise<string[]> {
     const manager = this.getManager(unitId);
     if (!manager) throw new Error(`Unit ${unitId} not connected`);
-    return manager.send<string[]>('GetSupportedDeviceTypes');
+    // Device enumeration can be slow, use longer timeout (30s)
+    const result = await manager.send<string[] | string[][]>('GetSupportedDeviceTypes', 'normal', { timeout: 30000 });
+
+    // CamillaDSP returns nested arrays: [[playback backends], [capture backends]]
+    // Flatten and deduplicate to get a single list of supported backends
+    if (Array.isArray(result) && result.length > 0 && Array.isArray(result[0])) {
+      const flattened = (result as string[][]).flat();
+      return [...new Set(flattened)];
+    }
+
+    return result as string[];
   }
 
-  async getAvailableCaptureDevices(unitId: string, backend: string): Promise<DeviceInfo[]> {
+  async getAvailableCaptureDevices(unitId: string, backend: string): Promise<unknown[]> {
     const manager = this.getManager(unitId);
     if (!manager) throw new Error(`Unit ${unitId} not connected`);
-    return manager.send<DeviceInfo[]>({ GetAvailableCaptureDevices: backend });
+    // Device enumeration can be slow, use longer timeout (30s)
+    // Returns raw arrays: [device_id, description][] - use parseDeviceList to convert
+    return manager.send<unknown[]>({ GetAvailableCaptureDevices: backend }, 'normal', { timeout: 30000 });
   }
 
-  async getAvailablePlaybackDevices(unitId: string, backend: string): Promise<DeviceInfo[]> {
+  async getAvailablePlaybackDevices(unitId: string, backend: string): Promise<unknown[]> {
     const manager = this.getManager(unitId);
     if (!manager) throw new Error(`Unit ${unitId} not connected`);
-    return manager.send<DeviceInfo[]>({ GetAvailablePlaybackDevices: backend });
+    // Device enumeration can be slow, use longer timeout (30s)
+    // Returns raw arrays: [device_id, description][] - use parseDeviceList to convert
+    return manager.send<unknown[]>({ GetAvailablePlaybackDevices: backend }, 'normal', { timeout: 30000 });
   }
 
   // Control methods

@@ -203,6 +203,15 @@ export function SignalFlowPage() {
     return fromConfig(config);
   }, [config]);
 
+  // Refs to hold the latest config and flow values for use in debounced callbacks.
+  // This prevents stale closure issues where a debounced send() uses outdated values.
+  const configRef = useRef(config);
+  const flowRef = useRef(flow);
+  useEffect(() => {
+    configRef.current = config;
+    flowRef.current = flow;
+  }, [config, flow]);
+
   const inputBankRef = useRef<HTMLElement | null>(null);
   const outputBankRef = useRef<HTMLElement | null>(null);
   const canvasRef = useRef<HTMLElement | null>(null);
@@ -227,6 +236,8 @@ export function SignalFlowPage() {
   const [routes, setRoutes] = useState<RouteEdge[]>([]);
   const [inputs, setInputs] = useState<ChannelNode[]>([]);
   const [outputs, setOutputs] = useState<ChannelNode[]>([]);
+  // Track if there are pending local changes that shouldn't be overwritten by server sync
+  const pendingChangesRef = useRef(false);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number | null>(null);
   const [selectedChannelKey, setSelectedChannelKey] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -300,18 +311,35 @@ export function SignalFlowPage() {
   const setConfigJson = useSetConfigJson(unitId);
   const sendTimeoutRef = useRef<number | null>(null);
 
+  // Track the previous unit to detect when we're switching units vs just refreshing data
+  const prevUnitIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!flow) return;
 
+    const isUnitSwitch = prevUnitIdRef.current !== activeUnitId;
+    prevUnitIdRef.current = activeUnitId;
+
     // Defer state sync to avoid cascading renders flagged by lint rules.
     queueMicrotask(() => {
+      // Skip data sync if we have pending local changes (to avoid overwriting them).
+      // Only force sync when switching units.
+      if (!isUnitSwitch && pendingChangesRef.current) {
+        return;
+      }
+
+      // Sync data from server
       setRoutes(flow.model.routes);
       setInputs(flow.model.inputs);
       setOutputs(flow.model.outputs);
-      setSelectedRouteIndex(null);
-      setSelectedChannelKey(null);
-      setWindows([]);
-      setDockedFilterEditor(null);
+
+      // Only reset UI state (selections, windows) when switching units, not on every refresh
+      if (isUnitSwitch) {
+        setSelectedRouteIndex(null);
+        setSelectedChannelKey(null);
+        setWindows([]);
+        setDockedFilterEditor(null);
+      }
 
       // Sync UI metadata from config
       const uiMeta = flow.uiMetadata;
@@ -433,12 +461,27 @@ export function SignalFlowPage() {
         mirrorGroups: next.uiMetadata?.mirrorGroups ?? mirrorGroups,
       };
 
+      // Mark that we have pending changes - prevents useEffect from overwriting local state
+      pendingChangesRef.current = true;
+
       const send = async () => {
+        // Use refs to get the LATEST config and flow values, not stale closure values.
+        // This is critical for debounced sends where config may have changed since the
+        // debounce was initiated (e.g., due to a query refetch from a previous mutation).
+        const currentConfig = configRef.current;
+        const currentFlow = flowRef.current;
+
+        if (!currentConfig || !currentFlow) {
+          pendingChangesRef.current = false;
+          showToast.error('Cannot save', 'Connection lost or config not loaded');
+          return;
+        }
+
         const patched = toConfig(
-          config,
+          currentConfig,
           {
-            inputGroups: flow.model.inputGroups,
-            outputGroups: flow.model.outputGroups,
+            inputGroups: currentFlow.model.inputGroups,
+            outputGroups: currentFlow.model.outputGroups,
             inputs: nextInputs,
             outputs: nextOutputs,
             routes: nextRoutes,
@@ -447,13 +490,19 @@ export function SignalFlowPage() {
         );
         const validation = validateConfig(patched.config);
         if (!validation.valid || !validation.config) {
+          pendingChangesRef.current = false;
           showToast.error('Invalid config', validation.errors[0]?.message);
           return;
         }
 
         try {
           await setConfigJson.mutateAsync(validation.config);
+          // Clear pending flag BEFORE invalidating queries to avoid race condition
+          // where the refetch completes before pendingChangesRef is cleared
+          pendingChangesRef.current = false;
+          setConfigJson.invalidate();
         } catch (error) {
+          pendingChangesRef.current = false;
           showToast.error(
             'Failed to send config',
             error instanceof Error ? error.message : String(error),

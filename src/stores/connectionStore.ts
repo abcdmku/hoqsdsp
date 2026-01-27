@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ConnectionStatus, UnitConnection } from '../types';
 import { websocketService } from '../services/websocketService';
 
@@ -27,9 +28,11 @@ interface ConnectionActions {
 
 type ConnectionStore = ConnectionState & ConnectionActions;
 
-export const useConnectionStore = create<ConnectionStore>((set, get) => ({
-  connections: new Map(),
-  activeUnitId: null,
+export const useConnectionStore = create<ConnectionStore>()(
+  persist(
+    (set, get) => ({
+      connections: new Map(),
+      activeUnitId: null,
 
   setConnection: (unitId, connection) => {
     set((state) => {
@@ -149,7 +152,15 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   getVersion: async (unitId: string) => {
     return websocketService.getVersion(unitId);
   },
-}));
+    }),
+    {
+      name: 'camilladsp-connection',
+      storage: createJSONStorage(() => localStorage),
+      // Only persist activeUnitId, not runtime connection state
+      partialize: (state) => ({ activeUnitId: state.activeUnitId }),
+    }
+  )
+);
 
 // Selectors
 export const selectActiveConnection = (state: ConnectionStore): UnitConnection | undefined => {

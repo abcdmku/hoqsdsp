@@ -38,7 +38,9 @@ export function useConfigJson(unitId: string) {
     queryFn: async (): Promise<CamillaConfig> => {
       if (!wsManager) throw new Error('WebSocket not connected');
       const jsonString = await wsManager.send<string>('GetConfigJson');
+      console.debug('[GetConfigJson] Raw config from server:', jsonString);
       const rawConfig = JSON.parse(jsonString) as CamillaConfig;
+      console.debug('[GetConfigJson] Parsed config:', rawConfig);
       // Clean null values that CamillaDSP sends for optional fields
       return cleanNullValues(rawConfig);
     },

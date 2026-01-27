@@ -53,4 +53,23 @@ export const showToast = {
   ) => {
     return toast.promise(promise, messages);
   },
+  /** Show an actionable toast with a button */
+  action: (
+    message: string,
+    options: {
+      description?: string;
+      actionLabel: string;
+      onAction: () => void;
+      duration?: number;
+    }
+  ) => {
+    return toast(message, {
+      description: options.description,
+      duration: options.duration ?? 10000,
+      action: {
+        label: options.actionLabel,
+        onClick: options.onAction,
+      },
+    });
+  },
 };
