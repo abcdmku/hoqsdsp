@@ -14,6 +14,8 @@ export interface ChannelCardProps {
   portKey: string;
   selected?: boolean;
   portHighlighted?: boolean;
+  /** Highlighted because a route connected to this channel is selected/hovered */
+  routeHighlighted?: boolean;
   portDisabled?: boolean;
   channelColor?: string;
   connectionCount?: number;
@@ -168,6 +170,7 @@ export function ChannelCard({
   portKey,
   selected = false,
   portHighlighted = false,
+  routeHighlighted = false,
   portDisabled = false,
   channelColor,
   connectionCount = 0,
@@ -291,10 +294,16 @@ export function ChannelCard({
           : [
               ...current,
               {
-                name: `sf-${node.side}-ch${String(node.channelIndex + 1)}-${type.toLowerCase()}-${String(Date.now())}`,
+                // Use shorter filter names - CamillaDSP may have issues with very long names
+                name: `${node.side[0]}${node.channelIndex}_${type.toLowerCase()}`,
                 config,
               },
             ];
+      // Debug logging
+      console.log('[upsertSingleFilterOfType] channel:', node.side, node.channelIndex);
+      console.log('[upsertSingleFilterOfType] current filters:', current.map(f => ({ name: f.name, type: f.config.type })));
+      console.log('[upsertSingleFilterOfType] new filters:', next.map(f => ({ name: f.name, type: f.config.type })));
+      console.log('[upsertSingleFilterOfType] onUpdateFilters defined:', !!onUpdateFilters);
       onUpdateFilters?.(next, options);
     },
     [node.channelIndex, node.processing.filters, node.side, onUpdateFilters],
@@ -354,9 +363,13 @@ export function ChannelCard({
         return;
       }
 
+      // CamillaDSP 3.0 Gain filter - no scale parameter (always dB)
       const config: GainFilter = {
         type: 'Gain',
-        parameters: { gain: nextGainDb, scale: 'dB', inverted: nextInverted },
+        parameters: {
+          gain: nextGainDb,
+          ...(nextInverted ? { inverted: true } : {}),
+        },
       };
       upsertSingleFilterOfType(config, options);
     },
@@ -392,7 +405,9 @@ export function ChannelCard({
         'text-left text-sm text-dsp-text outline-none transition-colors',
         selected
           ? 'border-dsp-accent/70 ring-2 ring-dsp-accent/30'
-          : 'border-dsp-primary/20 hover:border-dsp-primary/40',
+          : routeHighlighted
+            ? 'border-dsp-accent/50 bg-dsp-accent/5 ring-1 ring-dsp-accent/20'
+            : 'border-dsp-primary/20 hover:border-dsp-primary/40',
       )}
       role="button"
       tabIndex={0}
@@ -505,8 +520,8 @@ export function ChannelCard({
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-dsp-text-muted">Gain</span>
+          <div className="flex items-center gap-2" title={side === 'input' ? 'Input channel gain - affects all routes from this input' : 'Output channel gain - affects total output after all routes are summed'}>
+            <span className="text-dsp-text-muted">{side === 'input' ? 'In' : 'Out'} Gain</span>
             <div
               className={cn(
                 'flex h-7 items-center overflow-hidden rounded-md border bg-dsp-surface',
@@ -525,7 +540,7 @@ export function ChannelCard({
                 onCommit={(next) => {
                   applyGain(next, phaseInverted, { debounce: true });
                 }}
-                className="h-full w-16 bg-transparent px-2 text-right font-mono text-xs text-dsp-text outline-none"
+                className="h-full w-14 bg-transparent px-1.5 text-right font-mono text-xs text-dsp-text outline-none focus:bg-dsp-bg/50 selection:bg-dsp-accent/30"
               />
               <span className="pr-2 text-[10px] text-dsp-text-muted">dB</span>
             </div>
@@ -626,7 +641,7 @@ export function ChannelCard({
                 key={type}
                 type="button"
                 className={cn(
-                  'relative inline-flex h-7 min-w-12 items-center justify-center rounded-md border px-2 font-mono text-[10px] font-semibold tracking-wide transition-colors',
+                  'relative inline-flex h-7 items-center justify-center rounded-md border px-2 font-mono text-[10px] font-semibold tracking-wide transition-colors',
                   active ? colors.active : colors.inactive,
                   'hover:border-dsp-accent/50 hover:text-dsp-text focus-visible:ring-2 focus-visible:ring-dsp-accent/50',
                 )}

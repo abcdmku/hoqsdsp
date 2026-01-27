@@ -85,13 +85,26 @@ const filterConfigSchema = z.object({
   parameters: z.any(),
 });
 
-// Pipeline step schema
-const pipelineStepSchema = z.object({
-  type: z.enum(['Mixer', 'Filter']),
+// Pipeline step schemas - Mixer and Filter have different formats
+const mixerPipelineStepSchema = z.object({
+  type: z.literal('Mixer'),
   name: z.string(),
-  channel: z.number().int().min(0).optional(),
-  channels: z.array(z.number().int().min(0)).optional(),
+  description: z.string().optional(),
+  bypassed: z.boolean().optional(),
 });
+
+const filterPipelineStepSchema = z.object({
+  type: z.literal('Filter'),
+  names: z.array(z.string()),
+  channels: z.array(z.number().int().min(0)).optional(),
+  description: z.string().optional(),
+  bypassed: z.boolean().optional(),
+});
+
+const pipelineStepSchema = z.discriminatedUnion('type', [
+  mixerPipelineStepSchema,
+  filterPipelineStepSchema,
+]);
 
 // UI metadata schemas (preserved by CamillaDSP but ignored by DSP engine)
 const signalFlowUiMetadataSchema = z.object({
@@ -200,12 +213,15 @@ function validateSemantics(
         });
       }
     } else if (step.type === 'Filter') {
-      if (!config.filters || !(step.name in config.filters)) {
-        errors.push({
-          path: `pipeline[${i}].name`,
-          message: `Filter "${step.name}" is not defined in filters`,
-          code: 'undefined_filter',
-        });
+      // CamillaDSP Filter steps use 'names' (plural array)
+      for (const filterName of step.names) {
+        if (!config.filters || !(filterName in config.filters)) {
+          errors.push({
+            path: `pipeline[${i}].names`,
+            message: `Filter "${filterName}" is not defined in filters`,
+            code: 'undefined_filter',
+          });
+        }
       }
     }
   }
@@ -214,8 +230,8 @@ function validateSemantics(
   if (config.filters) {
     const usedFilters = new Set(
       config.pipeline
-        .filter((step) => step.type === 'Filter')
-        .map((step) => step.name),
+        .filter((step): step is { type: 'Filter'; names: string[]; channels: number[] } => step.type === 'Filter')
+        .flatMap((step) => step.names),
     );
 
     for (const filterName of Object.keys(config.filters)) {

@@ -239,9 +239,24 @@ export function SignalFlowPage() {
   // Track if there are pending local changes that shouldn't be overwritten by server sync
   const pendingChangesRef = useRef(false);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number | null>(null);
+  const [hoveredRouteIndex, setHoveredRouteIndex] = useState<number | null>(null);
   const [selectedChannelKey, setSelectedChannelKey] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [highlightedPortKey, setHighlightedPortKey] = useState<string | null>(null);
+
+  // Compute highlighted channel keys based on selected or hovered route
+  const routeHighlightedChannelKeys = useMemo(() => {
+    const activeRouteIndex = selectedRouteIndex ?? hoveredRouteIndex;
+    if (activeRouteIndex === null) return new Set<string>();
+
+    const route = routes[activeRouteIndex];
+    if (!route) return new Set<string>();
+
+    return new Set([
+      portKey('input', route.from),
+      portKey('output', route.to),
+    ]);
+  }, [selectedRouteIndex, hoveredRouteIndex, routes]);
 
   interface ConnectionWindow {
     id: string;
@@ -325,8 +340,20 @@ export function SignalFlowPage() {
       // Skip data sync if we have pending local changes (to avoid overwriting them).
       // Only force sync when switching units.
       if (!isUnitSwitch && pendingChangesRef.current) {
+        console.log('[useEffect] Skipping sync - pending changes');
         return;
       }
+
+      // Debug logging
+      console.log('[useEffect] Syncing from flow, isUnitSwitch:', isUnitSwitch);
+      console.log('[useEffect] flow.model.inputs filters:', flow.model.inputs.map(n => ({
+        ch: n.channelIndex,
+        filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
+      })));
+      console.log('[useEffect] flow.model.outputs filters:', flow.model.outputs.map(n => ({
+        ch: n.channelIndex,
+        filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
+      })));
 
       // Sync data from server
       setRoutes(flow.model.routes);
@@ -454,6 +481,10 @@ export function SignalFlowPage() {
       const nextInputs = next.inputs ?? inputs;
       const nextOutputs = next.outputs ?? outputs;
 
+      // Debug - check if routes is stale
+      console.log('[commitModel] routes from closure:', routes.length, 'routes');
+      console.log('[commitModel] next.routes passed:', next.routes?.length ?? 'not passed');
+
       // Merge UI metadata updates with current state
       const nextUiMetadata: SignalFlowUiMetadata = {
         channelColors: next.uiMetadata?.channelColors ?? channelColors,
@@ -476,6 +507,17 @@ export function SignalFlowPage() {
           showToast.error('Cannot save', 'Connection lost or config not loaded');
           return;
         }
+
+        // Debug logging for commitModel
+        console.log('[commitModel.send] nextInputs filters:', nextInputs.map(n => ({
+          ch: n.channelIndex,
+          filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
+        })));
+        console.log('[commitModel.send] nextOutputs filters:', nextOutputs.map(n => ({
+          ch: n.channelIndex,
+          filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
+        })));
+        console.log('[commitModel.send] nextRoutes:', nextRoutes.length, 'routes');
 
         const patched = toConfig(
           currentConfig,
@@ -698,6 +740,10 @@ export function SignalFlowPage() {
       filters: ChannelNode['processing']['filters'],
       options?: { debounce?: boolean },
     ) => {
+      // Debug logging
+      console.log('[updateChannelFilters] side:', side, 'endpoint:', endpoint);
+      console.log('[updateChannelFilters] new filters:', filters.map(f => ({ name: f.name, type: f.config.type })));
+
       const groups = mirrorGroups[side] ?? [];
       const mirroredGroup = groups.find((group) => group.some((member) => sameEndpoint(member, endpoint))) ?? null;
       const targets = mirroredGroup ?? [endpoint];
@@ -1304,6 +1350,7 @@ export function SignalFlowPage() {
           channels={inputs}
           selectedChannelKey={selectedChannelKey}
           highlightedPortKey={highlightedPortKey}
+          routeHighlightedKeys={routeHighlightedChannelKeys}
           channelColors={channelColors}
           connectionCounts={connectionCounts}
           sampleRate={sampleRate}
@@ -1330,19 +1377,7 @@ export function SignalFlowPage() {
             const endpoint = { deviceId: channel.deviceId, channelIndex: channel.channelIndex };
             setSelectedChannelKey(portKey('input', endpoint));
             scrollChannelIntoView('input', endpoint);
-
-            const route = routes.find(
-              (edge) =>
-                edge.from.deviceId === channel.deviceId &&
-                edge.from.channelIndex === channel.channelIndex,
-            );
-            if (!route) {
-              openConnectionsWindow(channel);
-              return;
-            }
-            const index = routes.indexOf(route);
-            if (index >= 0) setSelectedRouteIndex(index);
-            openConnectionWindow(route);
+            // Don't auto-open connection window - user should click route lines to edit routes
           }}
           onPortPointerDown={handlePortPointerDown}
         />
@@ -1363,6 +1398,7 @@ export function SignalFlowPage() {
             if (!route) return;
             openConnectionWindow(route, point);
           }}
+          onRouteHover={setHoveredRouteIndex}
         />
 
         <ChannelBank
@@ -1372,6 +1408,7 @@ export function SignalFlowPage() {
           channels={outputs}
           selectedChannelKey={selectedChannelKey}
           highlightedPortKey={highlightedPortKey}
+          routeHighlightedKeys={routeHighlightedChannelKeys}
           channelColors={channelColors}
           connectionCounts={connectionCounts}
           sampleRate={sampleRate}
@@ -1398,19 +1435,7 @@ export function SignalFlowPage() {
             const endpoint = { deviceId: channel.deviceId, channelIndex: channel.channelIndex };
             setSelectedChannelKey(portKey('output', endpoint));
             scrollChannelIntoView('output', endpoint);
-
-            const route = routes.find(
-              (edge) =>
-                edge.to.deviceId === channel.deviceId &&
-                edge.to.channelIndex === channel.channelIndex,
-            );
-            if (!route) {
-              openConnectionsWindow(channel);
-              return;
-            }
-            const index = routes.indexOf(route);
-            if (index >= 0) setSelectedRouteIndex(index);
-            openConnectionWindow(route);
+            // Don't auto-open connection window - user should click route lines to edit routes
           }}
           onPortPointerDown={handlePortPointerDown}
         />

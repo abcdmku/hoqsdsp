@@ -33,10 +33,10 @@ describe('signalflow/fromConfig', () => {
         outConv: { type: 'Conv', parameters: { type: 'Values', values: [0.5] } },
       },
       pipeline: [
-        { type: 'Filter', name: 'inEq', channel: 0 },
+        { type: 'Filter', names: ['inEq'], channels: [0] },
         { type: 'Mixer', name: 'routing' },
-        { type: 'Filter', name: 'outGain', channel: 1 },
-        { type: 'Filter', name: 'outConv', channel: 1 },
+        { type: 'Filter', names: ['outGain'], channels: [1] },
+        { type: 'Filter', names: ['outConv'], channels: [1] },
       ],
     });
 
@@ -71,7 +71,7 @@ describe('signalflow/fromConfig', () => {
         inDelay: { type: 'Delay', parameters: { delay: 1, unit: 'ms', subsample: false } },
       },
       pipeline: [
-        { type: 'Filter', name: 'inDelay' },
+        { type: 'Filter', names: ['inDelay'] },  // No channels = global filter
         { type: 'Mixer', name: 'routing' },
       ],
     });

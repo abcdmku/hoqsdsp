@@ -52,7 +52,10 @@ export function ConnectionEditor({
       <div className="mt-4 space-y-4">
         <div>
           <div className="mb-2 text-xs font-medium uppercase tracking-wide text-dsp-text-muted">
-            Gain
+            Route Gain
+          </div>
+          <div className="mb-2 text-xs text-dsp-text-muted">
+            Adjusts gain for this specific route only
           </div>
           <GainInput
             value={route.gain}

@@ -21,6 +21,7 @@ export interface ConnectionsCanvasProps {
   selectedRouteIndex: number | null;
   onSelectRoute: (index: number | null) => void;
   onRouteActivate?: (index: number, point: { x: number; y: number }) => void;
+  onRouteHover?: (index: number | null) => void;
 }
 
 function portKey(side: 'input' | 'output', endpoint: RouteEndpoint): string {
@@ -73,6 +74,7 @@ export function ConnectionsCanvas({
   selectedRouteIndex,
   onSelectRoute,
   onRouteActivate,
+  onRouteHover,
 }: ConnectionsCanvasProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [layoutTick, setLayoutTick] = useState(0);
@@ -202,7 +204,7 @@ export function ConnectionsCanvas({
           const hovered = hoveredRouteIndex === index;
           const baseColor = inputPortColors?.[portKey('input', route.from)] ?? '#22d3ee';
           const stroke = baseColor;
-          const strokeWidth = selected ? 3.5 : hovered ? 3 : 2;
+          const strokeWidth = selected ? 4 : hovered ? 3.5 : 2;
           const pathD = buildCurve(from, to, layout.width);
 
           return (
@@ -212,11 +214,17 @@ export function ConnectionsCanvas({
                 d={pathD}
                 fill="none"
                 stroke="transparent"
-                strokeWidth={16}
+                strokeWidth={20}
                 strokeLinecap="round"
                 style={{ cursor: 'pointer' }}
-                onMouseEnter={() => { setHoveredRouteIndex(index); }}
-                onMouseLeave={() => { setHoveredRouteIndex(null); }}
+                onMouseEnter={() => {
+                  setHoveredRouteIndex(index);
+                  onRouteHover?.(index);
+                }}
+                onMouseLeave={() => {
+                  setHoveredRouteIndex(null);
+                  onRouteHover?.(null);
+                }}
                 onClick={(event) => {
                   event.stopPropagation();
                   onSelectRoute(index);
@@ -229,8 +237,8 @@ export function ConnectionsCanvas({
                   d={pathD}
                   fill="none"
                   stroke={stroke}
-                  strokeOpacity={0.3}
-                  strokeWidth={selected ? 8 : 6}
+                  strokeOpacity={selected ? 0.4 : 0.35}
+                  strokeWidth={selected ? 12 : 10}
                   strokeLinecap="round"
                   className={cn(route.mute && 'opacity-25')}
                   style={{ pointerEvents: 'none' }}
@@ -255,19 +263,20 @@ export function ConnectionsCanvas({
                 return (
                   <g style={{ pointerEvents: 'none' }}>
                     <rect
-                      x={mid.x - 18}
-                      y={mid.y - 9}
-                      width={36}
-                      height={18}
+                      x={mid.x - 22}
+                      y={mid.y - 10}
+                      width={44}
+                      height={20}
                       rx={4}
-                      fill="rgba(0,0,0,0.75)"
+                      fill="rgba(0,0,0,0.85)"
                       className={cn(route.mute && 'opacity-50')}
                     />
                     <text
                       x={mid.x}
-                      y={mid.y + 4}
+                      y={mid.y + 5}
                       textAnchor="middle"
-                      fontSize={11}
+                      fontSize={12}
+                      fontWeight={500}
                       fontFamily="monospace"
                       fill={route.gain === 0 ? '#888' : route.gain > 0 ? '#4ade80' : '#f87171'}
                       className={cn(route.mute && 'opacity-50')}
@@ -305,13 +314,18 @@ export function ConnectionsCanvas({
         })()}
       </svg>
 
-      <div className="relative flex h-full flex-col items-center justify-center p-6">
+      <div className="pointer-events-none relative flex h-full flex-col items-center justify-center p-6">
         {routes.length === 0 && !dragState && (
           <div className="text-center">
             <div className="text-sm font-medium text-dsp-text">No connections</div>
             <div className="mt-1 max-w-sm text-xs text-dsp-text-muted">
               Drag from an input port to an output port to create a route.
             </div>
+          </div>
+        )}
+        {routes.length > 0 && selectedRouteIndex === null && hoveredRouteIndex === null && !dragState && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-dsp-bg/90 px-3 py-1.5 text-center text-xs text-dsp-text-muted shadow-sm">
+            Click a route line to adjust its gain
           </div>
         )}
       </div>

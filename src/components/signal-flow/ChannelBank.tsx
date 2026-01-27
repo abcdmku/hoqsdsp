@@ -11,7 +11,10 @@ export interface ChannelBankProps {
   groups: DeviceGroup[];
   channels: ChannelNode[];
   selectedChannelKey?: string | null;
+  /** Single highlighted port (e.g., during drag) */
   highlightedPortKey?: string | null;
+  /** Set of highlighted channel keys (e.g., when route is selected/hovered) */
+  routeHighlightedKeys?: Set<string>;
   channelColors?: Record<string, string>;
   connectionCounts?: Record<string, number>;
   sampleRate?: number;
@@ -43,6 +46,7 @@ export function ChannelBank({
   channels,
   selectedChannelKey,
   highlightedPortKey,
+  routeHighlightedKeys,
   channelColors,
   connectionCounts,
   sampleRate,
@@ -118,6 +122,7 @@ export function ChannelBank({
                       peakHold={levelData?.peakHold}
                       selected={selectedChannelKey === key}
                       portHighlighted={highlightedPortKey === key}
+                      routeHighlighted={routeHighlightedKeys?.has(key) ?? false}
                       onSelect={() => {
                         onSelectChannel?.(channel);
                       }}

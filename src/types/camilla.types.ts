@@ -79,11 +79,24 @@ export interface MixerSource {
   mute?: boolean;
 }
 
-export interface PipelineStep {
-  type: 'Mixer' | 'Filter';
+// CamillaDSP pipeline steps have different formats:
+// - Mixer: { type: 'Mixer', name: 'mixername' }
+// - Filter: { type: 'Filter', names: ['filter1', 'filter2'], channels: [0, 1] }
+export type PipelineStep = MixerPipelineStep | FilterPipelineStep;
+
+export interface MixerPipelineStep {
+  type: 'Mixer';
   name: string;
-  channel?: number;
-  channels?: number[];
+  description?: string;
+  bypassed?: boolean;
+}
+
+export interface FilterPipelineStep {
+  type: 'Filter';
+  names: string[];
+  channels?: number[];  // Optional - if omitted, applies to all channels
+  description?: string;
+  bypassed?: boolean;
 }
 
 // Re-export FilterConfig for convenience

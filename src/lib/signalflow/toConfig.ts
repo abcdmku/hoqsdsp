@@ -1,27 +1,16 @@
-import type { CamillaConfig, GainFilter, MixerConfig, MixerMapping, MixerSource, SignalFlowUiMetadata } from '../../types';
-import type { ChannelNode, RouteEdge, SignalFlowModel, SignalFlowWarning, ToConfigResult } from './model';
+import type { CamillaConfig, MixerConfig, MixerMapping, MixerSource, SignalFlowUiMetadata } from '../../types';
+import type { RouteEdge, SignalFlowModel, SignalFlowWarning, ToConfigResult } from './model';
 
 const ROUTING_MIXER_NAME = 'routing';
 
-/**
- * Extract gain value from a channel's Gain filter (if any).
- * Returns gain in dB (0 if no Gain filter).
- */
-function extractChannelGainDb(node: ChannelNode): { gainDb: number; inverted: boolean } {
-  const gainFilter = node.processing.filters.find((f) => f.config.type === 'Gain');
-  if (!gainFilter) return { gainDb: 0, inverted: false };
-  const params = (gainFilter.config as GainFilter).parameters;
-  return { gainDb: params.gain, inverted: params.inverted ?? false };
-}
-
 function isSingleChannelFilterStep(step: CamillaConfig['pipeline'][number]): boolean {
   if (step.type !== 'Filter') return false;
-  if (typeof step.channel === 'number') return true;
+  // CamillaDSP Filter steps use 'channels' (plural array)
   return Array.isArray(step.channels) && step.channels.length === 1;
 }
 
 function normalizeSingleChannel(step: CamillaConfig['pipeline'][number]): number | null {
-  if (typeof step.channel === 'number') return step.channel;
+  if (step.type !== 'Filter') return null;
   if (Array.isArray(step.channels) && step.channels.length === 1) return step.channels[0] ?? null;
   return null;
 }
@@ -32,8 +21,6 @@ function buildRoutingMixer(
   outputDeviceId: string,
   inputChannels: number,
   outputChannels: number,
-  inputChannelGains: Map<number, { gainDb: number; inverted: boolean }>,
-  outputChannelGains: Map<number, { gainDb: number; inverted: boolean }>,
   warnings: SignalFlowWarning[],
 ): MixerConfig {
   const mappingByDest = new Map<number, MixerSource[]>();
@@ -61,22 +48,16 @@ function buildRoutingMixer(
       continue;
     }
 
-    // Combine route gain with input channel gain and output channel gain
-    // All gains are in dB, so we add them
-    const inputGain = inputChannelGains.get(inCh);
-    const outputGain = outputChannelGains.get(outCh);
-    const combinedGainDb = route.gain + (inputGain?.gainDb ?? 0) + (outputGain?.gainDb ?? 0);
-
-    // XOR the inverted flags: route.inverted ^ inputGain.inverted ^ outputGain.inverted
-    const combinedInverted = (route.inverted !== (inputGain?.inverted ?? false)) !== (outputGain?.inverted ?? false);
-
+    // Route gain ONLY - input/output channel gains are handled by separate Gain filters in the pipeline
+    // Only include optional fields if they differ from defaults
     const sources = mappingByDest.get(outCh) ?? [];
-    sources.push({
+    const mixerSource: MixerSource = {
       channel: inCh,
-      gain: combinedGainDb,
-      inverted: combinedInverted,
-      mute: route.mute,
-    });
+      gain: route.gain,
+      ...(route.inverted ? { inverted: true } : {}),
+      ...(route.mute ? { mute: true } : {}),
+    };
+    sources.push(mixerSource);
     mappingByDest.set(outCh, sources);
   }
 
@@ -103,46 +84,28 @@ export function toConfig(
 ): ToConfigResult {
   const warnings: SignalFlowWarning[] = [];
 
+  // Debug logging for filter issues
+  console.log('[toConfig] Input channels with filters:', model.inputs.map(n => ({
+    ch: n.channelIndex,
+    filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
+  })));
+  console.log('[toConfig] Output channels with filters:', model.outputs.map(n => ({
+    ch: n.channelIndex,
+    filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
+  })));
+
   const inputChannels = config.devices.capture.channels;
   const outputChannels = config.devices.playback.channels;
   const { inputDeviceId, outputDeviceId } = getCanonicalDeviceIds(model);
 
-  // Extract channel gains from Gain filters to apply to mixer sources
-  // (CamillaDSP may not support Filter pipeline steps, so we merge gains into the mixer)
-  const inputChannelGains = new Map<number, { gainDb: number; inverted: boolean }>();
-  for (const node of model.inputs) {
-    const gain = extractChannelGainDb(node);
-    if (gain.gainDb !== 0 || gain.inverted) {
-      inputChannelGains.set(node.channelIndex, gain);
-    }
-  }
-
-  const outputChannelGains = new Map<number, { gainDb: number; inverted: boolean }>();
-  for (const node of model.outputs) {
-    const gain = extractChannelGainDb(node);
-    if (gain.gainDb !== 0 || gain.inverted) {
-      outputChannelGains.set(node.channelIndex, gain);
-    }
-  }
-
-  // Build channelGains metadata to persist channel gains across round-trips
-  // (since Gain filters are merged into mixer sources and not stored in pipeline)
-  const channelGainsMetadata: Record<string, { gain: number; inverted: boolean }> = {};
-  for (const [channelIndex, { gainDb, inverted }] of inputChannelGains) {
-    channelGainsMetadata[`input:${channelIndex}`] = { gain: gainDb, inverted };
-  }
-  for (const [channelIndex, { gainDb, inverted }] of outputChannelGains) {
-    channelGainsMetadata[`output:${channelIndex}`] = { gain: gainDb, inverted };
-  }
-
+  // Build routing mixer with route gains ONLY
+  // Input/output channel gains are handled by separate Gain filters in the pipeline
   const routingMixer = buildRoutingMixer(
     model.routes,
     inputDeviceId,
     outputDeviceId,
     inputChannels,
     outputChannels,
-    inputChannelGains,
-    outputChannelGains,
     warnings,
   );
 
@@ -186,23 +149,23 @@ export function toConfig(
 
   const nextFilters: NonNullable<CamillaConfig['filters']> = { ...(config.filters ?? {}) };
 
-  // Skip Gain filters - they're applied via mixer source gains instead of pipeline steps
-  // (some CamillaDSP configurations don't support Filter pipeline steps)
+  // Add all channel filters to the pipeline, including Gain filters
+  // Input channel filters (including Gain) run BEFORE the mixer
+  // Output channel filters (including Gain) run AFTER the mixer
+  // CamillaDSP expects: { type: 'Filter', names: ['filterName'], channels: [0] }
   const nextInputSteps: CamillaConfig['pipeline'] = [];
   for (const node of model.inputs) {
     for (const filter of node.processing.filters) {
-      if (filter.config.type === 'Gain') continue; // Gain is handled by mixer source
       nextFilters[filter.name] = filter.config;
-      nextInputSteps.push({ type: 'Filter', name: filter.name, channel: node.channelIndex });
+      nextInputSteps.push({ type: 'Filter', names: [filter.name], channels: [node.channelIndex] });
     }
   }
 
   const nextOutputSteps: CamillaConfig['pipeline'] = [];
   for (const node of model.outputs) {
     for (const filter of node.processing.filters) {
-      if (filter.config.type === 'Gain') continue; // Gain is handled by mixer source
       nextFilters[filter.name] = filter.config;
-      nextOutputSteps.push({ type: 'Filter', name: filter.name, channel: node.channelIndex });
+      nextOutputSteps.push({ type: 'Filter', names: [filter.name], channels: [node.channelIndex] });
     }
   }
 
@@ -214,9 +177,17 @@ export function toConfig(
     ...nextOutputSteps,
   ];
 
+  // Debug logging for pipeline
+  console.log('[toConfig] nextInputSteps:', nextInputSteps);
+  console.log('[toConfig] nextOutputSteps:', nextOutputSteps);
+  console.log('[toConfig] Final pipeline filter steps:', nextPipeline.filter(s => s.type === 'Filter'));
+  console.log('[toConfig] Filter definitions:', Object.keys(nextFilters));
+
   // Drop filter definitions that are no longer referenced by any pipeline step.
   const usedFilters = new Set(
-    nextPipeline.filter((step) => step.type === 'Filter').map((step) => step.name),
+    nextPipeline
+      .filter((step): step is { type: 'Filter'; names: string[]; channels: number[] } => step.type === 'Filter')
+      .flatMap((step) => step.names),
   );
   for (const filterName of Object.keys(nextFilters)) {
     if (!usedFilters.has(filterName)) {
@@ -224,12 +195,14 @@ export function toConfig(
     }
   }
 
-  // Merge channel gains into UI metadata for round-trip persistence
+  // Merge UI metadata (channel gains are now stored as actual Gain filters in the pipeline)
+  const baseMetadata = config.ui?.signalFlow ?? {};
   const mergedSignalFlowMetadata: SignalFlowUiMetadata = {
-    ...(config.ui?.signalFlow ?? {}),
+    ...baseMetadata,
     ...(uiMetadata ?? {}),
-    channelGains: Object.keys(channelGainsMetadata).length > 0 ? channelGainsMetadata : undefined,
   };
+  // Remove channelGains if it exists - no longer needed since gains are in pipeline filters
+  delete mergedSignalFlowMetadata.channelGains;
 
   const nextConfig: CamillaConfig = {
     ...config,
@@ -244,11 +217,13 @@ export function toConfig(
   // Surface a warning if we stripped any single-channel filter steps that we couldn't map.
   const strippedSteps = [...inputRegion, ...outputRegion].filter((step) => {
     if (!isSingleChannelFilterStep(step)) return false;
+    if (step.type !== 'Filter') return false;
     const channel = normalizeSingleChannel(step);
     if (channel === null) return false;
     const stageNodes = inputRegion.includes(step) ? model.inputs : model.outputs;
+    const filterNames = step.names;
     return !stageNodes.some(
-      (node) => node.channelIndex === channel && node.processing.filters.some((f) => f.name === step.name),
+      (node) => node.channelIndex === channel && node.processing.filters.some((f) => filterNames.includes(f.name)),
     );
   });
   if (strippedSteps.length > 0) {

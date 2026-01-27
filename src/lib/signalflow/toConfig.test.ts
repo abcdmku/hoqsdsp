@@ -63,10 +63,11 @@ describe('signalflow/toConfig', () => {
     const result = toConfig(config, model);
     expect(result.representable).toBe(true);
     expect(result.config.mixers?.routing?.channels).toEqual({ in: 2, out: 2 });
+    // Note: mute: false is omitted since we only include truthy optional values
     expect(result.config.mixers?.routing?.mapping).toEqual([
       {
         dest: 1,
-        sources: [{ channel: 0, gain: -4.5, inverted: true, mute: false }],
+        sources: [{ channel: 0, gain: -4.5, inverted: true }],
       },
     ]);
   });
@@ -124,9 +125,9 @@ describe('signalflow/toConfig', () => {
     const result = toConfig(config, model);
 
     expect(result.config.pipeline).toEqual([
-      { type: 'Filter', name: 'inGain', channel: 0 },
+      { type: 'Filter', names: ['inGain'], channels: [0] },
       { type: 'Mixer', name: 'routing' },
-      { type: 'Filter', name: 'outConv', channel: 0 },
+      { type: 'Filter', names: ['outConv'], channels: [0] },
     ]);
     expect(result.config.filters?.inGain).toBeTruthy();
     expect(result.config.filters?.outConv).toBeTruthy();

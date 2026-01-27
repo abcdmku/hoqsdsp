@@ -146,7 +146,7 @@ mixers:
             gain: 0
 pipeline:
   - type: Filter
-    name: eq
+    names: [eq]
     channels: [0, 1]
   - type: Mixer
     name: main
@@ -314,8 +314,8 @@ filters:
       subsample: true
 pipeline:
   - type: Filter
-    name: delay
-    channel: 0
+    names: [delay]
+    channels: [0]
 title: Roundtrip Test
 `;
     const yamlResult = parseYamlConfig(yaml);
@@ -340,7 +340,7 @@ title: Roundtrip Test
           parameters: { gain: -10, inverted: true, scale: 'dB' },
         },
       },
-      pipeline: [{ type: 'Filter', name: 'gain', channels: [0, 1] }],
+      pipeline: [{ type: 'Filter', names: ['gain'], channels: [0, 1] }],
     });
 
     const json = JSON.stringify(config);

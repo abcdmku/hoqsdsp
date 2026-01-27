@@ -225,7 +225,8 @@ describe('Signal Flow Integration', () => {
       const result = toConfig(config, flow.model);
       const routing = result.config.mixers?.routing;
       expect(routing?.mapping[0]?.sources[0]?.inverted).toBe(true);
-      expect(routing?.mapping[0]?.sources[0]?.mute).toBe(false);
+      // mute: false is omitted since we only include truthy optional values
+      expect(routing?.mapping[0]?.sources[0]?.mute).toBeUndefined();
       expect(routing?.mapping[0]?.sources[0]?.gain).toBe(-6);
 
       const validation = validateConfig(result.config);
@@ -313,7 +314,7 @@ describe('Signal Flow Integration', () => {
 
       expect(result.config.filters?.['gain-ch0']).toBeDefined();
       expect(result.config.filters?.['gain-ch0']?.type).toBe('Gain');
-      expect(result.config.pipeline.some((s) => s.type === 'Filter' && s.name === 'gain-ch0')).toBe(true);
+      expect(result.config.pipeline.some((s) => s.type === 'Filter' && s.names.includes('gain-ch0'))).toBe(true);
 
       const validation = validateConfig(result.config);
       expect(validation.valid).toBe(true);

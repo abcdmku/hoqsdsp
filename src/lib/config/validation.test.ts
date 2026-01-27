@@ -207,7 +207,7 @@ describe('validateConfig', () => {
 
   it('detects undefined filter references in pipeline', () => {
     const config = createValidConfig({
-      pipeline: [{ type: 'Filter', name: 'nonexistent', channel: 0 }],
+      pipeline: [{ type: 'Filter', names: ['nonexistent'], channels: [0] }],
     });
     const result = validateConfig(config);
     expect(result.valid).toBe(false);
