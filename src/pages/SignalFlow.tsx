@@ -244,6 +244,38 @@ export function SignalFlowPage() {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [highlightedPortKey, setHighlightedPortKey] = useState<string | null>(null);
 
+  // Global click handler to clear selection when clicking outside interactive elements
+  useEffect(() => {
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // Don't clear selection if clicking on interactive elements
+      if (
+        target.closest('[role="button"]') ||
+        target.closest('button') ||
+        target.closest('input') ||
+        target.closest('select') ||
+        target.closest('a') ||
+        target.closest('[data-floating-window]') ||
+        target.closest('path') || // SVG route lines
+        target.closest('[data-port-key]') // Channel ports
+      ) {
+        return;
+      }
+
+      // Clear selections and close windows
+      setSelectedRouteIndex(null);
+      setSelectedChannelKey(null);
+      setWindows([]);
+      setDockedFilterEditor(null);
+    };
+
+    document.addEventListener('click', handleGlobalClick);
+    return () => {
+      document.removeEventListener('click', handleGlobalClick);
+    };
+  }, []);
+
   // Compute highlighted channel keys based on selected or hovered route
   const routeHighlightedChannelKeys = useMemo(() => {
     const activeRouteIndex = selectedRouteIndex ?? hoveredRouteIndex;
@@ -1380,6 +1412,10 @@ export function SignalFlowPage() {
             // Don't auto-open connection window - user should click route lines to edit routes
           }}
           onPortPointerDown={handlePortPointerDown}
+          onClearSelection={() => {
+            setSelectedRouteIndex(null);
+            setSelectedChannelKey(null);
+          }}
         />
 
         <ConnectionsCanvas
@@ -1399,6 +1435,9 @@ export function SignalFlowPage() {
             openConnectionWindow(route, point);
           }}
           onRouteHover={setHoveredRouteIndex}
+          onClearSelection={() => {
+            setSelectedChannelKey(null);
+          }}
         />
 
         <ChannelBank
@@ -1438,6 +1477,10 @@ export function SignalFlowPage() {
             // Don't auto-open connection window - user should click route lines to edit routes
           }}
           onPortPointerDown={handlePortPointerDown}
+          onClearSelection={() => {
+            setSelectedRouteIndex(null);
+            setSelectedChannelKey(null);
+          }}
         />
 
         </div>
@@ -1467,6 +1510,8 @@ export function SignalFlowPage() {
                 }}
                 onRequestClose={() => {
                   setWindows((prev) => prev.filter((w) => w.id !== win.id));
+                  setSelectedRouteIndex(null);
+                  setSelectedChannelKey(null);
                 }}
                 onRequestFocus={() => {
                   setWindows((prev) => {

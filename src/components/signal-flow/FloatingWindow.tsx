@@ -107,6 +107,7 @@ export function FloatingWindow({
       role="dialog"
       aria-label={title}
       data-window-id={id}
+      data-floating-window
       onPointerDown={() => {
         onRequestFocus();
       }}

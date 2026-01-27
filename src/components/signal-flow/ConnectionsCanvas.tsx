@@ -22,6 +22,8 @@ export interface ConnectionsCanvasProps {
   onSelectRoute: (index: number | null) => void;
   onRouteActivate?: (index: number, point: { x: number; y: number }) => void;
   onRouteHover?: (index: number | null) => void;
+  /** Called when clicking on empty canvas area to clear all selections */
+  onClearSelection?: () => void;
 }
 
 function portKey(side: 'input' | 'output', endpoint: RouteEndpoint): string {
@@ -75,6 +77,7 @@ export function ConnectionsCanvas({
   onSelectRoute,
   onRouteActivate,
   onRouteHover,
+  onClearSelection,
 }: ConnectionsCanvasProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [layoutTick, setLayoutTick] = useState(0);
@@ -190,6 +193,7 @@ export function ConnectionsCanvas({
         onPointerDown={(event) => {
           if (event.target === svgRef.current || event.target instanceof SVGRectElement) {
             onSelectRoute(null);
+            onClearSelection?.();
           }
         }}
       >

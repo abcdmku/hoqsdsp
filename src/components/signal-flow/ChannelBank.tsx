@@ -33,6 +33,8 @@ export interface ChannelBankProps {
     filters: ChannelNode['processing']['filters'],
     options?: { debounce?: boolean },
   ) => void;
+  /** Called when clicking on empty space to clear all selections */
+  onClearSelection?: () => void;
 }
 
 function portKey(side: ChannelSide, node: ChannelNode): string {
@@ -60,6 +62,7 @@ export function ChannelBank({
   onLabelChange,
   onOpenConnections,
   onUpdateFilters,
+  onClearSelection,
 }: ChannelBankProps) {
   const channelsByDevice = useMemo(() => {
     const map = new Map<string, ChannelNode[]>();
@@ -83,6 +86,14 @@ export function ChannelBank({
           : 'flex-1 min-w-50 overflow-y-auto border-l border-dsp-primary/20 bg-dsp-surface'
       }
       aria-label={title}
+      onClick={(event) => {
+        // Clear selection when clicking on empty space (not on a channel card or interactive element)
+        const target = event.target as HTMLElement;
+        if (target.closest('[role="button"]') || target.closest('button') || target.closest('input') || target.closest('select')) {
+          return;
+        }
+        onClearSelection?.();
+      }}
     >
       <div className="border-b border-dsp-primary/20 px-4 py-3">
         <h2 className="text-sm font-semibold text-dsp-text">{title}</h2>
