@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { GitBranch } from 'lucide-react';
 import { useConnectionStore } from '../stores/connectionStore';
+import { Page, PageBody, PageHeader } from '../components/layout';
 import { RoutingMatrix } from '../components/routing/RoutingMatrix';
 import type { MixerConfig } from '../types';
 
-/**
- * Routing Page - Interface for managing audio routing and mixing
- */
 export function RoutingPage() {
   const activeUnitId = useConnectionStore((state) => state.activeUnitId);
   const [mixer, setMixer] = useState<MixerConfig>({
@@ -17,46 +15,44 @@ export function RoutingPage() {
     ],
   });
 
-  // Empty state when no unit is selected
   if (!activeUnitId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-6">
-        <div className="mb-4 rounded-full bg-dsp-primary/30 p-4">
-          <GitBranch className="h-8 w-8 text-dsp-text-muted" />
-        </div>
-        <h3 className="mb-2 text-lg font-medium text-dsp-text">No Unit Selected</h3>
-        <p className="text-center text-sm text-dsp-text-muted">
-          Select a CamillaDSP unit from the dashboard to view and edit its routing.
-        </p>
-      </div>
+      <Page>
+        <PageHeader title="Routing" description="Select a unit to view and edit routing." />
+        <PageBody className="flex items-center justify-center">
+          <div className="rounded-lg border border-dsp-primary/60 bg-dsp-surface/30 p-10 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-dsp-primary/30">
+              <GitBranch className="h-6 w-6 text-dsp-text-muted" aria-hidden="true" />
+            </div>
+            <h3 className="text-lg font-medium text-dsp-text">No Unit Selected</h3>
+            <p className="mt-2 text-sm text-dsp-text-muted">
+              Choose an active unit from the top bar or in System Overview.
+            </p>
+          </div>
+        </PageBody>
+      </Page>
     );
   }
 
-  const handleMixerChange = (newMixer: MixerConfig) => {
-    setMixer(newMixer);
-  };
-
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-dsp-bg">
-      {/* Header */}
-      <div className="border-b border-dsp-primary/30 px-6 py-4">
-        <h1 className="text-xl font-bold text-dsp-text">Routing Matrix</h1>
-        <p className="text-sm text-dsp-text-muted">
-          {mixer.channels.in} input{mixer.channels.in !== 1 ? 's' : ''} → {mixer.channels.out} output{mixer.channels.out !== 1 ? 's' : ''}
-        </p>
-      </div>
-
-      {/* Routing Matrix */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="rounded-lg border border-dsp-primary/30 bg-dsp-surface p-6">
+    <Page>
+      <PageHeader
+        title="Routing"
+        description={`${mixer.channels.in} input${mixer.channels.in === 1 ? '' : 's'} → ${mixer.channels.out} output${
+          mixer.channels.out === 1 ? '' : 's'
+        }`}
+      />
+      <PageBody>
+        <div className="rounded-lg border border-dsp-primary/50 bg-dsp-surface/30 p-6">
           <RoutingMatrix
             mixer={mixer}
-            onMixerChange={handleMixerChange}
+            onMixerChange={(newMixer) => { setMixer(newMixer); }}
             inputLabels={Array.from({ length: mixer.channels.in }, (_, i) => `In ${i + 1}`)}
             outputLabels={Array.from({ length: mixer.channels.out }, (_, i) => `Out ${i + 1}`)}
           />
         </div>
-      </div>
-    </div>
+      </PageBody>
+    </Page>
   );
 }
+

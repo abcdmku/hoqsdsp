@@ -2,13 +2,13 @@ import { useState, useCallback, useMemo } from 'react';
 import { Plus, Volume2, VolumeX, RefreshCw } from 'lucide-react';
 import { useUIStore } from '../stores/uiStore';
 import { useConnectionStore } from '../stores/connectionStore';
+import { Page, PageBody, PageHeader } from '../components/layout';
 import { Button } from '../components/ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { ChannelStrip } from '../components/channel-strip/ChannelStrip';
 import { QuickAddMenu } from '../components/channel-strip/QuickAddMenu';
 import type { FilterConfig, FilterType } from '../types';
 
-// Mock pipeline data for development - will be replaced with real data from TanStack Query
 interface ChannelFilter {
   id: string;
   name: string;
@@ -120,10 +120,6 @@ const mockChannels: ChannelData[] = [
   },
 ];
 
-/**
- * Channel Strip View - Main interface for viewing and editing audio channels.
- * Displays processing chains with inline status indicators.
- */
 export function ChannelStripPage() {
   const selectedChannel = useUIStore((state) => state.selectedChannel);
   const selectedFilter = useUIStore((state) => state.selectedFilter);
@@ -135,10 +131,8 @@ export function ChannelStripPage() {
   const [quickAddMenuOpen, setQuickAddMenuOpen] = useState(false);
   const [quickAddTarget, setQuickAddTarget] = useState<{ channelId: number; position: number } | null>(null);
 
-  // Check if any channel is soloed
   const hasSoloedChannel = useMemo(() => channels.some((ch) => ch.solo), [channels]);
 
-  // Handle channel selection
   const handleChannelSelect = useCallback(
     (channelId: number) => {
       setSelectedChannel(channelId === selectedChannel ? null : channelId);
@@ -147,7 +141,6 @@ export function ChannelStripPage() {
     [selectedChannel, setSelectedChannel, setSelectedFilter]
   );
 
-  // Handle filter selection
   const handleFilterSelect = useCallback(
     (channelId: number, filterId: string) => {
       setSelectedChannel(channelId);
@@ -156,7 +149,6 @@ export function ChannelStripPage() {
     [selectedFilter, setSelectedChannel, setSelectedFilter]
   );
 
-  // Handle filter bypass toggle
   const handleFilterBypass = useCallback((channelId: number, filterId: string) => {
     setChannels((prev) =>
       prev.map((ch) => {
@@ -169,133 +161,107 @@ export function ChannelStripPage() {
     );
   }, []);
 
-  // Handle filter delete
-  const handleFilterDelete = useCallback(
-    (channelId: number, filterId: string) => {
-      setChannels((prev) =>
-        prev.map((ch) => {
-          if (ch.id !== channelId) return ch;
-          return {
-            ...ch,
-            filters: ch.filters.filter((f) => f.id !== filterId),
-          };
-        })
-      );
-      if (selectedFilter === filterId) {
-        setSelectedFilter(null);
-      }
-    },
-    [selectedFilter, setSelectedFilter]
-  );
+  const handleFilterDelete = useCallback((channelId: number, filterId: string) => {
+    setChannels((prev) =>
+      prev.map((ch) => {
+        if (ch.id !== channelId) return ch;
+        return { ...ch, filters: ch.filters.filter((f) => f.id !== filterId) };
+      })
+    );
+    if (selectedFilter === filterId) setSelectedFilter(null);
+  }, [selectedFilter, setSelectedFilter]);
 
-  // Handle filter reorder
   const handleFilterReorder = useCallback((channelId: number, fromIndex: number, toIndex: number) => {
     setChannels((prev) =>
       prev.map((ch) => {
         if (ch.id !== channelId) return ch;
-        const newFilters = [...ch.filters];
-        const [removed] = newFilters.splice(fromIndex, 1);
-        if (removed) {
-          newFilters.splice(toIndex, 0, removed);
-        }
-        return { ...ch, filters: newFilters };
+        const next = [...ch.filters];
+        const [moved] = next.splice(fromIndex, 1);
+        if (!moved) return ch;
+        next.splice(toIndex, 0, moved);
+        return { ...ch, filters: next };
       })
     );
   }, []);
 
-  // Handle mute toggle
   const handleMuteToggle = useCallback((channelId: number) => {
-    setChannels((prev) =>
-      prev.map((ch) => (ch.id === channelId ? { ...ch, muted: !ch.muted } : ch))
-    );
+    setChannels((prev) => prev.map((ch) => (ch.id === channelId ? { ...ch, muted: !ch.muted } : ch)));
   }, []);
 
-  // Handle solo toggle
   const handleSoloToggle = useCallback((channelId: number) => {
-    setChannels((prev) =>
-      prev.map((ch) => (ch.id === channelId ? { ...ch, solo: !ch.solo } : ch))
-    );
+    setChannels((prev) => prev.map((ch) => (ch.id === channelId ? { ...ch, solo: !ch.solo } : ch)));
   }, []);
 
-  // Handle gain change
+  const handleClearSolo = useCallback(() => {
+    setChannels((prev) => prev.map((ch) => (ch.solo ? { ...ch, solo: false } : ch)));
+  }, []);
+
   const handleGainChange = useCallback((channelId: number, gain: number) => {
-    setChannels((prev) =>
-      prev.map((ch) => (ch.id === channelId ? { ...ch, gain } : ch))
-    );
+    setChannels((prev) => prev.map((ch) => (ch.id === channelId ? { ...ch, gain } : ch)));
   }, []);
 
-  // Handle quick add filter
+  const handleMuteAll = useCallback(() => {
+    setChannels((prev) => {
+      const allMuted = prev.every((ch) => ch.muted);
+      return prev.map((ch) => ({ ...ch, muted: !allMuted }));
+    });
+  }, []);
+
   const handleQuickAdd = useCallback((channelId: number, position: number) => {
     setQuickAddTarget({ channelId, position });
     setQuickAddMenuOpen(true);
   }, []);
 
-  // Handle filter type selection from quick add menu
   const handleAddFilter = useCallback(
     (filterType: FilterType) => {
       if (!quickAddTarget) return;
 
-      const newFilter = {
-        id: `${filterType.toLowerCase()}-${String(Date.now())}`,
-        name: filterType,
-        config: getDefaultFilter(filterType),
-        bypassed: false,
-      };
-
       setChannels((prev) =>
         prev.map((ch) => {
           if (ch.id !== quickAddTarget.channelId) return ch;
-          const newFilters = [...ch.filters];
-          newFilters.splice(quickAddTarget.position, 0, newFilter);
-          return { ...ch, filters: newFilters };
+
+          const newFilter: ChannelFilter = {
+            id: `${filterType}-${Date.now()}`,
+            name: filterType,
+            config: getDefaultFilter(filterType),
+            bypassed: false,
+          };
+
+          const next = [...ch.filters];
+          next.splice(quickAddTarget.position, 0, newFilter);
+          return { ...ch, filters: next };
         })
       );
 
-      setQuickAddMenuOpen(false);
       setQuickAddTarget(null);
-      setSelectedFilter(newFilter.id);
+      setQuickAddMenuOpen(false);
     },
-    [quickAddTarget, setSelectedFilter]
+    [quickAddTarget]
   );
 
-  // Handle clear all solo
-  const handleClearSolo = useCallback(() => {
-    setChannels((prev) => prev.map((ch) => ({ ...ch, solo: false })));
-  }, []);
-
-  // Handle mute all
-  const handleMuteAll = useCallback(() => {
-    const allMuted = channels.every((ch) => ch.muted);
-    setChannels((prev) => prev.map((ch) => ({ ...ch, muted: !allMuted })));
-  }, [channels]);
-
-  // Empty state when no unit is selected
   if (!activeUnitId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-6">
-        <div className="mb-4 rounded-full bg-dsp-primary/30 p-4">
-          <Volume2 className="h-8 w-8 text-dsp-text-muted" />
-        </div>
-        <h3 className="mb-2 text-lg font-medium text-dsp-text">No Unit Selected</h3>
-        <p className="text-center text-sm text-dsp-text-muted">
-          Select a CamillaDSP unit from the dashboard to view and edit its channels.
-        </p>
-      </div>
+      <Page>
+        <PageHeader title="Channels" description="Select a unit to view channel strips and processing." />
+        <PageBody className="flex items-center justify-center">
+          <div className="rounded-lg border border-dsp-primary/60 bg-dsp-surface/30 p-10 text-center">
+            <h3 className="text-lg font-medium text-dsp-text">No Unit Selected</h3>
+            <p className="mt-2 text-sm text-dsp-text-muted">
+              Choose an active unit from the top bar or in System Overview.
+            </p>
+          </div>
+        </PageBody>
+      </Page>
     );
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-dsp-primary/30 px-6 py-4">
-          <div>
-            <h1 className="text-xl font-bold text-dsp-text">Channels</h1>
-            <p className="text-sm text-dsp-text-muted">
-              {channels.length} channel{channels.length !== 1 ? 's' : ''} configured
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
+    <Page>
+      <PageHeader
+        title="Channels"
+        description={`${channels.length} channel${channels.length === 1 ? '' : 's'} configured`}
+        actions={
+          <>
             {hasSoloedChannel && (
               <Button variant="secondary" size="sm" onClick={handleClearSolo}>
                 Clear Solo
@@ -304,14 +270,14 @@ export function ChannelStripPage() {
 
             <Tooltip>
               <TooltipTrigger
-                className="inline-flex items-center justify-center h-10 w-10 rounded-md hover:bg-dsp-primary/50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-transparent hover:bg-dsp-primary/35 hover:border-dsp-primary/60 transition-colors"
                 onClick={handleMuteAll}
                 aria-label="Mute/Unmute all"
               >
                 {channels.every((ch) => ch.muted) ? (
-                  <VolumeX className="h-5 w-5 text-meter-red" />
+                  <VolumeX className="h-5 w-5 text-meter-red" aria-hidden="true" />
                 ) : (
-                  <Volume2 className="h-5 w-5" />
+                  <Volume2 className="h-5 w-5" aria-hidden="true" />
                 )}
               </TooltipTrigger>
               <TooltipContent>
@@ -321,23 +287,24 @@ export function ChannelStripPage() {
 
             <Tooltip>
               <TooltipTrigger
-                className="inline-flex items-center justify-center h-10 w-10 rounded-md hover:bg-dsp-primary/50"
-                aria-label="Refresh"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-transparent hover:bg-dsp-primary/35 hover:border-dsp-primary/60 transition-colors"
+                aria-label="Refresh channels"
               >
-                <RefreshCw className="h-5 w-5" />
+                <RefreshCw className="h-5 w-5" aria-hidden="true" />
               </TooltipTrigger>
               <TooltipContent>Refresh channels</TooltipContent>
             </Tooltip>
 
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button variant="outline">
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
               Add Channel
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* Channel strips container */}
-        <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+      <PageBody className="p-6">
+        <div className="flex flex-1 gap-4 overflow-x-auto pb-2">
           {channels.map((channel) => (
             <ChannelStrip
               key={channel.id}
@@ -365,17 +332,12 @@ export function ChannelStripPage() {
           ))}
         </div>
 
-        {/* Quick Add Menu */}
-        <QuickAddMenu
-          open={quickAddMenuOpen}
-          onOpenChange={setQuickAddMenuOpen}
-          onSelect={handleAddFilter}
-        />
-      </div>
+        <QuickAddMenu open={quickAddMenuOpen} onOpenChange={setQuickAddMenuOpen} onSelect={handleAddFilter} />
+      </PageBody>
+    </Page>
   );
 }
 
-// Helper function to get default filter configuration
 function getDefaultFilter(filterType: FilterType): FilterConfig {
   switch (filterType) {
     case 'Biquad':
@@ -385,7 +347,10 @@ function getDefaultFilter(filterType: FilterType): FilterConfig {
     case 'Gain':
       return { type: 'Gain', parameters: { gain: 0, scale: 'dB' } };
     case 'Compressor':
-      return { type: 'Compressor', parameters: { channels: 1, threshold: -20, factor: 4, attack: 5, release: 100 } };
+      return {
+        type: 'Compressor',
+        parameters: { channels: 1, threshold: -20, factor: 4, attack: 5, release: 100 },
+      };
     case 'NoiseGate':
       return { type: 'NoiseGate', parameters: { channels: 1, threshold: -60, attack: 1, release: 50, hold: 100 } };
     case 'Conv':
@@ -402,3 +367,4 @@ function getDefaultFilter(filterType: FilterType): FilterConfig {
       return { type: 'Biquad', parameters: { type: 'Peaking', freq: 1000, gain: 0, q: 1.0 } };
   }
 }
+

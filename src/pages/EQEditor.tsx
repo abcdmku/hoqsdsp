@@ -1,60 +1,45 @@
 import { useState } from 'react';
 import { AudioWaveform } from 'lucide-react';
 import { useConnectionStore } from '../stores/connectionStore';
+import { Page, PageBody, PageHeader } from '../components/layout';
 import { EQEditor } from '../components/eq-editor/EQEditor';
 import type { EQBand } from '../components/eq-editor/types';
 
-/**
- * EQ Editor Page - Interface for editing EQ bands and frequency responses
- */
 export function EQEditorPage() {
   const activeUnitId = useConnectionStore((state) => state.activeUnitId);
   const [bands, setBands] = useState<EQBand[]>([
-    {
-      id: 'band-1',
-      enabled: true,
-      parameters: { type: 'Peaking', freq: 100, gain: 0, q: 1.0 },
-    },
-    {
-      id: 'band-2',
-      enabled: true,
-      parameters: { type: 'Peaking', freq: 1000, gain: 0, q: 1.0 },
-    },
-    {
-      id: 'band-3',
-      enabled: true,
-      parameters: { type: 'Peaking', freq: 10000, gain: 0, q: 1.0 },
-    },
+    { id: 'band-1', enabled: true, parameters: { type: 'Peaking', freq: 100, gain: 0, q: 1.0 } },
+    { id: 'band-2', enabled: true, parameters: { type: 'Peaking', freq: 1000, gain: 0, q: 1.0 } },
+    { id: 'band-3', enabled: true, parameters: { type: 'Peaking', freq: 10000, gain: 0, q: 1.0 } },
   ]);
   const [selectedBandIndex, setSelectedBandIndex] = useState<number | null>(null);
 
-  // Empty state when no unit is selected
   if (!activeUnitId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-6">
-        <div className="mb-4 rounded-full bg-dsp-primary/30 p-4">
-          <AudioWaveform className="h-8 w-8 text-dsp-text-muted" />
-        </div>
-        <h3 className="mb-2 text-lg font-medium text-dsp-text">No Unit Selected</h3>
-        <p className="text-center text-sm text-dsp-text-muted">
-          Select a CamillaDSP unit from the dashboard to view and edit its EQ.
-        </p>
-      </div>
+      <Page>
+        <PageHeader title="EQ" description="Select a unit to view and edit its equalization." />
+        <PageBody className="flex items-center justify-center">
+          <div className="rounded-lg border border-dsp-primary/60 bg-dsp-surface/30 p-10 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-dsp-primary/30">
+              <AudioWaveform className="h-6 w-6 text-dsp-text-muted" aria-hidden="true" />
+            </div>
+            <h3 className="text-lg font-medium text-dsp-text">No Unit Selected</h3>
+            <p className="mt-2 text-sm text-dsp-text-muted">
+              Choose an active unit from the top bar or in System Overview.
+            </p>
+          </div>
+        </PageBody>
+      </Page>
     );
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-dsp-bg">
-      {/* Header */}
-      <div className="border-b border-dsp-primary/30 px-6 py-4">
-        <h1 className="text-xl font-bold text-dsp-text">EQ Editor</h1>
-        <p className="text-sm text-dsp-text-muted">
-          {bands.length} band{bands.length !== 1 ? 's' : ''} configured
-        </p>
-      </div>
-
-      {/* EQ Editor */}
-      <div className="flex-1 overflow-auto p-6">
+    <Page>
+      <PageHeader
+        title="EQ"
+        description={`${bands.length} band${bands.length === 1 ? '' : 's'} configured`}
+      />
+      <PageBody>
         <EQEditor
           bands={bands}
           onChange={setBands}
@@ -62,7 +47,8 @@ export function EQEditorPage() {
           selectedBandIndex={selectedBandIndex}
           onSelectBand={setSelectedBandIndex}
         />
-      </div>
-    </div>
+      </PageBody>
+    </Page>
   );
 }
+

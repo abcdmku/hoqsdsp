@@ -49,33 +49,38 @@ export function CrosspointCell({
       className={cn(
         'w-16 h-10 flex items-center justify-center border',
         'transition-colors focus:outline-none',
-        isSelected && 'ring-2 ring-dsp-accent ring-inset',
-        isFocused && 'ring-2 ring-dsp-accent',
+        'border-dsp-primary/30',
+        isSelected && 'ring-2 ring-dsp-accent/50 ring-inset',
+        isFocused && 'ring-2 ring-dsp-accent/35',
         isConnected
-          ? 'bg-dsp-accent/20 border-dsp-accent/50 text-white'
+          ? 'bg-dsp-accent/12 border-dsp-accent/40 text-dsp-text'
           : isMuted
-            ? 'bg-gray-600/20 border-gray-600/50 text-gray-500'
-            : 'bg-transparent border-white/10 text-gray-500 hover:bg-white/5'
+            ? 'bg-dsp-primary/15 border-dsp-primary/40 text-dsp-text-muted'
+            : 'bg-transparent text-dsp-text-muted hover:bg-dsp-primary/15 hover:border-dsp-primary/50'
       )}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       role="gridcell"
-      aria-label={`Input ${inputIndex + 1} to Output ${outputIndex + 1}${source ? `, gain ${formatGain(source.gain)} dB${source.inverted ? ', phase inverted' : ''}${source.mute ? ', muted' : ''}` : ', not connected'}`}
+      aria-label={`Input ${inputIndex + 1} to Output ${outputIndex + 1}${
+        source
+          ? `, gain ${formatGain(source.gain)} dB${source.inverted ? ', phase inverted' : ''}${source.mute ? ', muted' : ''}`
+          : ', not connected'
+      }`}
       aria-selected={isSelected}
       tabIndex={isFocused ? 0 : -1}
     >
       {source ? (
         <div className="flex items-center gap-1">
           <span
-            className={cn(
-              'w-2 h-2 rounded-sm',
-              source.mute ? 'bg-gray-500' : 'bg-dsp-accent'
-            )}
+            className={cn('w-2 h-2 rounded-sm', source.mute ? 'bg-dsp-primary/70' : 'bg-dsp-accent')}
+            aria-hidden="true"
           />
-          <span className="text-xs font-mono">
-            {formatGain(source.gain)}
-          </span>
-          {isInverted && <span className="text-meter-red text-xs">φ</span>}
+          <span className="text-xs font-mono tabular-nums">{formatGain(source.gain)}</span>
+          {isInverted && (
+            <span className="text-meter-red text-xs" aria-label="Phase inverted">
+              φ
+            </span>
+          )}
         </div>
       ) : null}
     </button>

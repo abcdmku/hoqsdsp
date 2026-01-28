@@ -122,7 +122,7 @@ describe('CrosspointCell', () => {
     const source = createTestSource({ mute: true });
     render(<CrosspointCell {...defaultProps} source={source} />);
     const button = screen.getByRole('gridcell');
-    expect(button).toHaveClass('bg-gray-600/20');
+    expect(button).toHaveClass('bg-dsp-primary/15');
   });
 });
 
@@ -192,7 +192,7 @@ describe('CrosspointEditor', () => {
   it('should show muted state in mute button', () => {
     const source = createTestSource({ mute: true });
     render(<CrosspointEditor {...defaultProps} source={source} />);
-    expect(screen.getByRole('button', { name: 'MUTED' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Muted' })).toBeInTheDocument();
   });
 
   it('should show active state in mute button', () => {

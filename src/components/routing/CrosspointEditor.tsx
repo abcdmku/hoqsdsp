@@ -23,21 +23,19 @@ export function CrosspointEditor({
 }: CrosspointEditorProps) {
   if (!source) {
     return (
-      <div className="mt-4 p-4 bg-dsp-surface rounded-lg">
-        <div className="flex items-center justify-between mb-4">
+      <div className="mt-4 rounded-lg border border-dsp-primary/50 bg-dsp-surface/30 p-4">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="font-semibold text-dsp-text">
             {inputLabel} → {outputLabel}
           </h3>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
-            <X className="w-4 h-4" />
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onClose} aria-label="Close">
+            <X className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
-        <p className="text-gray-400 mb-4">
+        <p className="mb-4 text-sm text-dsp-text-muted">
           No connection. Click to add routing from {inputLabel} to {outputLabel}.
         </p>
-        <Button onClick={onAddConnection}>
-          Add Connection
-        </Button>
+        <Button onClick={onAddConnection}>Add Connection</Button>
       </div>
     );
   }
@@ -48,20 +46,19 @@ export function CrosspointEditor({
   };
 
   return (
-    <div className="mt-4 p-4 bg-dsp-surface rounded-lg">
-      <div className="flex items-center justify-between mb-4">
+    <div className="mt-4 rounded-lg border border-dsp-primary/50 bg-dsp-surface/30 p-4">
+      <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold text-dsp-text">
           {inputLabel} → {outputLabel}
         </h3>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
-          <X className="w-4 h-4" />
+        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onClose} aria-label="Close">
+          <X className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Gain */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="space-y-2">
-          <label className="text-sm text-gray-400">Gain</label>
+          <label className="text-sm text-dsp-text-muted">Gain</label>
           <div className="flex items-center gap-2">
             <Slider
               value={[source.gain]}
@@ -72,15 +69,14 @@ export function CrosspointEditor({
               className="flex-1"
               aria-label="Gain"
             />
-            <span className="font-mono text-sm w-16 text-right text-dsp-text">
+            <span className="w-16 text-right font-mono text-sm text-dsp-text">
               {formatGain(source.gain)} dB
             </span>
           </div>
         </div>
 
-        {/* Phase Invert */}
         <div className="space-y-2">
-          <label className="text-sm text-gray-400">Phase</label>
+          <label className="text-sm text-dsp-text-muted">Phase</label>
           <Button
             variant={source.inverted ? 'destructive' : 'outline'}
             onClick={() => { onSourceChange({ ...source, inverted: !source.inverted }); }}
@@ -90,24 +86,20 @@ export function CrosspointEditor({
           </Button>
         </div>
 
-        {/* Mute */}
         <div className="space-y-2">
-          <label className="text-sm text-gray-400">Mute</label>
+          <label className="text-sm text-dsp-text-muted">Mute</label>
           <Button
             variant={source.mute ? 'destructive' : 'outline'}
             onClick={() => { onSourceChange({ ...source, mute: !source.mute }); }}
             className="w-full"
           >
-            {source.mute ? 'MUTED' : 'Active'}
+            {source.mute ? 'Muted' : 'Active'}
           </Button>
         </div>
       </div>
 
-      <div className="flex justify-end mt-4">
-        <Button
-          variant="destructive"
-          onClick={() => { onSourceChange(null); }}
-        >
+      <div className="mt-4 flex justify-end">
+        <Button variant="destructive" onClick={() => { onSourceChange(null); }}>
           Remove Connection
         </Button>
       </div>

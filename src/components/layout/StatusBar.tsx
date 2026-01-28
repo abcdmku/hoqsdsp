@@ -12,14 +12,13 @@ interface StatusBarProps {
 export function StatusBar({
   processingLoad: propProcessingLoad,
   bufferLevel: propBufferLevel,
-  sampleRate = 48000
+  sampleRate = 48000,
 }: StatusBarProps) {
   const activeConnection = useConnectionStore(selectActiveConnection);
   const [processingLoad, setProcessingLoad] = useState(propProcessingLoad ?? 0);
   const [bufferLevel, setBufferLevel] = useState(propBufferLevel ?? 0);
   const activeUnitId = useConnectionStore((state) => state.activeUnitId);
 
-  // Poll for active unit metrics
   useEffect(() => {
     if (!activeUnitId) {
       setProcessingLoad(0);
@@ -33,59 +32,64 @@ export function StatusBar({
         const buffer = await useConnectionStore.getState().getBufferLevel(activeUnitId);
         setProcessingLoad(load ?? 0);
         setBufferLevel(buffer ?? 0);
-      } catch (error) {
+      } catch {
         // Silently handle polling errors
       }
     }, 1000);
 
-    return () => clearInterval(pollInterval);
+    return () => { clearInterval(pollInterval); };
   }, [activeUnitId]);
-  const loadColor = processingLoad > 80
-    ? 'text-meter-red'
-    : processingLoad > 50
-      ? 'text-meter-yellow'
-      : 'text-meter-green';
 
-  const loadStatus = processingLoad > 80
-    ? 'high'
-    : processingLoad > 50
-      ? 'moderate'
-      : 'normal';
+  const loadColor =
+    processingLoad > 80 ? 'text-meter-red' : processingLoad > 50 ? 'text-meter-yellow' : 'text-meter-green';
+
+  const loadStatus =
+    processingLoad > 80 ? 'high' : processingLoad > 50 ? 'moderate' : 'normal';
+
+  const bufferColor =
+    bufferLevel < 20 ? 'text-meter-red' : bufferLevel < 40 ? 'text-meter-yellow' : 'text-meter-green';
 
   const hasActiveUnit = activeUnitId && activeConnection?.status === 'connected';
 
   return (
     <footer
-      className="h-8 bg-dsp-surface border-t border-dsp-primary/30 flex items-center px-4 text-xs text-dsp-text-muted gap-6"
+      className={cn(
+        'h-9 px-4 flex items-center gap-3 text-xs',
+        'bg-dsp-surface/90 supports-[backdrop-filter]:bg-dsp-surface/70 backdrop-blur',
+        'border-t border-dsp-primary/50'
+      )}
       role="contentinfo"
       aria-label="System status"
     >
       {hasActiveUnit ? (
         <>
           <div
-            className="flex items-center gap-2"
+            className="inline-flex items-center gap-2 rounded-full border border-dsp-primary/50 bg-dsp-bg/40 px-3 py-1"
             role="status"
             aria-label={`CPU load: ${processingLoad.toFixed(1)} percent, ${loadStatus}`}
           >
-            <Cpu className={cn("w-4 h-4", loadColor)} aria-hidden="true" />
-            <span>CPU: {processingLoad.toFixed(1)}%</span>
+            <Cpu className={cn('h-4 w-4', loadColor)} aria-hidden="true" />
+            <span className="text-dsp-text-muted">CPU</span>
+            <span className={cn('font-mono font-medium', loadColor)}>{processingLoad.toFixed(1)}%</span>
           </div>
 
           <div
-            className="flex items-center gap-2"
+            className="inline-flex items-center gap-2 rounded-full border border-dsp-primary/50 bg-dsp-bg/40 px-3 py-1"
             role="status"
             aria-label={`Buffer level: ${bufferLevel.toFixed(0)} percent`}
           >
-            <HardDrive className="w-4 h-4" aria-hidden="true" />
-            <span>Buffer: {bufferLevel.toFixed(0)}%</span>
+            <HardDrive className={cn('h-4 w-4', bufferColor)} aria-hidden="true" />
+            <span className="text-dsp-text-muted">Buffer</span>
+            <span className={cn('font-mono font-medium', bufferColor)}>{bufferLevel.toFixed(0)}%</span>
           </div>
 
           <div
-            className="flex items-center gap-2"
+            className="inline-flex items-center gap-2 rounded-full border border-dsp-primary/50 bg-dsp-bg/40 px-3 py-1"
             aria-label={`Sample rate: ${(sampleRate / 1000).toFixed(1)} kilohertz`}
           >
-            <Activity className="w-4 h-4" aria-hidden="true" />
-            <span>{(sampleRate / 1000).toFixed(1)} kHz</span>
+            <Activity className="h-4 w-4 text-dsp-accent" aria-hidden="true" />
+            <span className="text-dsp-text-muted">Rate</span>
+            <span className="font-mono font-medium text-dsp-text">{(sampleRate / 1000).toFixed(1)} kHz</span>
           </div>
         </>
       ) : (
@@ -94,7 +98,9 @@ export function StatusBar({
 
       <div className="flex-1" />
 
-      <span aria-label="CamillaDSP Frontend version 0.1.0">CamillaDSP Frontend v0.1.0</span>
+      <span className="text-[11px] text-dsp-text-muted" aria-label="HOQ DSP Console version 0.1.0">
+        HOQ DSP Console v0.1.0
+      </span>
     </footer>
   );
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Volume2, VolumeX } from 'lucide-react';
 import { useUnitStore, selectUnits, selectZones } from '../stores/unitStore';
 import { useConnectionStore, selectAllConnections } from '../stores/connectionStore';
+import { Page, PageBody, PageHeader } from '../components/layout';
 import { Button } from '../components/ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { UnitCard, type UnitCardProps } from '../components/dashboard/UnitCard';
@@ -16,7 +17,21 @@ import { useAutoSetupStore } from '../stores/autoSetupStore';
 import { showToast } from '../components/feedback';
 import type { DSPUnit, ConnectionStatus, DeviceInfo } from '../types';
 
-interface ConnectedUnitCardProps extends Omit<UnitCardProps, 'inputChannels' | 'outputChannels' | 'sampleRate' | 'inputLevels' | 'outputLevels' | 'inputPeaks' | 'outputPeaks' | 'clipping' | 'hasConfig' | 'onAutoSetup' | 'isAutoSetupRunning'> {
+interface ConnectedUnitCardProps
+  extends Omit<
+    UnitCardProps,
+    | 'inputChannels'
+    | 'outputChannels'
+    | 'sampleRate'
+    | 'inputLevels'
+    | 'outputLevels'
+    | 'inputPeaks'
+    | 'outputPeaks'
+    | 'clipping'
+    | 'hasConfig'
+    | 'onAutoSetup'
+    | 'isAutoSetupRunning'
+  > {
   unit: DSPUnit;
 }
 
@@ -24,23 +39,14 @@ function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
   const { data: config, isLoading: configLoading } = useConfigJson(unit.id);
   const isConnected = props.status === 'connected';
 
-  // Auto setup hook for this unit
   const autoSetup = useAutoSetup(unit.id);
-
-  // Auto setup dialog state
   const [autoSetupDialogOpen, setAutoSetupDialogOpen] = useState(false);
 
-  // Watch for pending auto setup requests from the prompt toast
   const pendingUnitId = useAutoSetupStore((state) => state.pendingUnitId);
   const clearPendingRequest = useAutoSetupStore((state) => state.clearPendingRequest);
 
-  // Get real-time levels for this unit
-  const { capture, playback, clippedSamples } = useUnitLevels(
-    isConnected ? unit.id : null,
-    { enabled: isConnected }
-  );
+  const { capture, playback, clippedSamples } = useUnitLevels(isConnected ? unit.id : null, { enabled: isConnected });
 
-  // Extract level arrays for the UnitCard
   const inputLevels = useMemo<ChannelLevelState[] | undefined>(() => {
     if (!isConnected || capture.length === 0) return undefined;
     return capture;
@@ -51,31 +57,25 @@ function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
     return playback;
   }, [isConnected, playback]);
 
-  // Determine if we have a config (only after loading completes)
   const hasConfig = configLoading ? undefined : !!config;
 
-  // Open the auto setup dialog
   const handleAutoSetupClick = useCallback(() => {
-    console.log('[Dashboard] Auto Setup clicked for unit:', unit.id);
     setAutoSetupDialogOpen(true);
-  }, [unit.id]);
+  }, []);
 
-  // Handle device selection from dialog
-  const handleDeviceConfirm = useCallback(async (
-    captureDevice: DeviceInfo,
-    playbackDevice: DeviceInfo,
-    backend: string
-  ) => {
-    const result = await autoSetup.applyWithDevices(captureDevice, playbackDevice, backend);
-    if (result.success) {
-      const deviceName = captureDevice.name ?? captureDevice.device ?? 'unknown device';
-      showToast.success('Auto Setup Complete', `Configured: ${deviceName}`);
-    } else {
-      showToast.error('Auto Setup Failed', result.error ?? 'Unknown error');
-    }
-  }, [autoSetup]);
+  const handleDeviceConfirm = useCallback(
+    async (captureDevice: DeviceInfo, playbackDevice: DeviceInfo, backend: string) => {
+      const result = await autoSetup.applyWithDevices(captureDevice, playbackDevice, backend);
+      if (result.success) {
+        const deviceName = captureDevice.name ?? captureDevice.device ?? 'unknown device';
+        showToast.success('Auto Setup Complete', `Configured: ${deviceName}`);
+      } else {
+        showToast.error('Auto Setup Failed', result.error ?? 'Unknown error');
+      }
+    },
+    [autoSetup]
+  );
 
-  // Trigger auto setup dialog when this unit is requested via the toast action
   useEffect(() => {
     if (pendingUnitId === unit.id && isConnected && !autoSetup.isRunning) {
       clearPendingRequest();
@@ -110,15 +110,13 @@ function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
 
 type ZoneCollapsedState = Record<string, boolean>;
 
-/**
- * Network Dashboard page displaying all configured CamillaDSP units.
- * Units are grouped by zone and show real-time status and metrics.
- */
 export function Dashboard() {
   const navigate = useNavigate();
+
   const units = useUnitStore(selectUnits);
   const zones = useUnitStore(selectZones);
   const connections = useConnectionStore(selectAllConnections);
+
   const addUnit = useUnitStore((state) => state.addUnit);
   const setActiveUnit = useConnectionStore((state) => state.setActiveUnit);
   const activeUnitId = useConnectionStore((state) => state.activeUnitId);
@@ -134,51 +132,52 @@ export function Dashboard() {
   const [unitLoads, setUnitLoads] = useState<Record<string, number>>({});
   const [unitBuffers, setUnitBuffers] = useState<Record<string, number>>({});
 
-  // Get connection status for a unit
+  const connectionsByUnitId = useMemo(() => {
+    const map = new Map<string, { status: ConnectionStatus; lastSeen?: number; version?: string }>();
+    for (const connection of connections) {
+      map.set(connection.unitId, {
+        status: connection.status,
+        lastSeen: connection.lastSeen,
+        version: connection.version,
+      });
+    }
+    return map;
+  }, [connections]);
+
   const getConnectionStatus = useCallback(
     (unitId: string): { status: ConnectionStatus; lastSeen?: number; version?: string } => {
-      const connection = connections.find((c) => c.unitId === unitId);
-      return {
-        status: connection?.status ?? 'disconnected',
-        lastSeen: connection?.lastSeen,
-        version: connection?.version,
-      };
+      return connectionsByUnitId.get(unitId) ?? { status: 'disconnected' };
     },
-    [connections]
+    [connectionsByUnitId]
   );
 
-  // Group units by zone
   const { zoneGroups, ungroupedUnits } = useMemo(() => {
     const grouped: Record<string, DSPUnit[]> = {};
     const ungrouped: DSPUnit[] = [];
 
     for (const unit of units) {
       if (unit.zone) {
-        const arr = (grouped[unit.zone] ??= []);
-        arr.push(unit);
+        (grouped[unit.zone] ??= []).push(unit);
       } else {
         ungrouped.push(unit);
       }
     }
 
-    return {
-      zoneGroups: grouped,
-      ungroupedUnits: ungrouped,
-    };
+    return { zoneGroups: grouped, ungroupedUnits: ungrouped };
   }, [units]);
 
-  // Count online units per zone
   const getZoneOnlineCount = useCallback(
     (zoneUnits: DSPUnit[]): number => {
-      return zoneUnits.filter((unit) => {
-        const conn = getConnectionStatus(unit.id);
-        return conn.status === 'connected';
-      }).length;
+      return zoneUnits.filter((unit) => getConnectionStatus(unit.id).status === 'connected').length;
     },
     [getConnectionStatus]
   );
 
-  // Handle adding a new unit
+  const onlineCount = useMemo(
+    () => connections.filter((c) => c.status === 'connected').length,
+    [connections]
+  );
+
   const handleAddUnit = useCallback(
     (unitData: Omit<DSPUnit, 'id'>) => {
       addUnit(unitData);
@@ -186,7 +185,6 @@ export function Dashboard() {
     [addUnit]
   );
 
-  // Handle clicking on a unit card
   const handleUnitClick = useCallback(
     (unit: DSPUnit) => {
       setActiveUnit(unit.id);
@@ -194,7 +192,6 @@ export function Dashboard() {
     [setActiveUnit]
   );
 
-  // Handle settings click on a unit - navigate to settings page
   const handleUnitSettings = useCallback(
     (unit: DSPUnit) => {
       setActiveUnit(unit.id);
@@ -203,51 +200,70 @@ export function Dashboard() {
     [setActiveUnit, navigate]
   );
 
-  // Toggle zone collapse state
   const toggleZoneCollapse = useCallback((zone: string) => {
-    setCollapsedZones((prev) => ({
-      ...prev,
-      [zone]: !prev[zone],
-    }));
+    setCollapsedZones((prev) => ({ ...prev, [zone]: !prev[zone] }));
   }, []);
 
-  // Handle dialog close
   const handleDialogClose = useCallback((open: boolean) => {
     setAddDialogOpen(open);
   }, []);
 
-  // Poll for real-time data from connected unit
   useEffect(() => {
-    if (!activeUnitId) return;
+    let alive = true;
 
-    const pollInterval = setInterval(async () => {
-      try {
-        const volume = await useConnectionStore.getState().getVolume(activeUnitId);
-        const mute = await useConnectionStore.getState().getMute(activeUnitId);
-        const load = await useConnectionStore.getState().getProcessingLoad(activeUnitId);
-        const buffer = await useConnectionStore.getState().getBufferLevel(activeUnitId);
+    const poll = async () => {
+      const connectedUnitIds = units
+        .filter((u) => getConnectionStatus(u.id).status === 'connected')
+        .map((u) => u.id);
 
-        setUnitVolumes((prev) => ({ ...prev, [activeUnitId]: volume }));
-        setUnitMuted((prev) => ({ ...prev, [activeUnitId]: mute }));
-        setUnitLoads((prev) => ({ ...prev, [activeUnitId]: load }));
-        setUnitBuffers((prev) => ({ ...prev, [activeUnitId]: buffer }));
-      } catch (error) {
-        console.error('Failed to poll unit data:', error);
-      }
-    }, 1000);
+      if (connectedUnitIds.length === 0) return;
 
-    return () => clearInterval(pollInterval);
-  }, [activeUnitId]);
+      const nextVolumes: Record<string, number> = {};
+      const nextMuted: Record<string, boolean> = {};
+      const nextLoads: Record<string, number> = {};
+      const nextBuffers: Record<string, number> = {};
+
+      await Promise.all(
+        connectedUnitIds.map(async (unitId) => {
+          try {
+            const [volume, mute, load, buffer] = await Promise.all([
+              useConnectionStore.getState().getVolume(unitId),
+              useConnectionStore.getState().getMute(unitId),
+              useConnectionStore.getState().getProcessingLoad(unitId),
+              useConnectionStore.getState().getBufferLevel(unitId),
+            ]);
+
+            nextVolumes[unitId] = volume;
+            nextMuted[unitId] = mute;
+            nextLoads[unitId] = load;
+            nextBuffers[unitId] = buffer;
+          } catch {
+            // Ignore per-unit errors to keep the dashboard responsive
+          }
+        })
+      );
+
+      if (!alive) return;
+      setUnitVolumes((prev) => ({ ...prev, ...nextVolumes }));
+      setUnitMuted((prev) => ({ ...prev, ...nextMuted }));
+      setUnitLoads((prev) => ({ ...prev, ...nextLoads }));
+      setUnitBuffers((prev) => ({ ...prev, ...nextBuffers }));
+    };
+
+    void poll();
+    const pollInterval = setInterval(() => { void poll(); }, 1000);
+
+    return () => {
+      alive = false;
+      clearInterval(pollInterval);
+    };
+  }, [units, getConnectionStatus]);
 
   const handleVolumeChange = useCallback(
     (unitId: string, volume: number) => {
       setVolume(unitId, volume)
-        .then(() => {
-          setUnitVolumes((prev) => ({ ...prev, [unitId]: volume }));
-        })
-        .catch((error) => {
-          console.error('Failed to set volume:', error);
-        });
+        .then(() => { setUnitVolumes((prev) => ({ ...prev, [unitId]: volume })); })
+        .catch(() => {});
     },
     [setVolume]
   );
@@ -256,12 +272,8 @@ export function Dashboard() {
     (unitId: string) => {
       const isMuted = unitMuted[unitId] ?? false;
       setMute(unitId, !isMuted)
-        .then(() => {
-          setUnitMuted((prev) => ({ ...prev, [unitId]: !isMuted }));
-        })
-        .catch((error) => {
-          console.error('Failed to toggle mute:', error);
-        });
+        .then(() => { setUnitMuted((prev) => ({ ...prev, [unitId]: !isMuted })); })
+        .catch(() => {});
     },
     [unitMuted, setMute]
   );
@@ -271,25 +283,20 @@ export function Dashboard() {
       const zoneUnits = zoneGroups[zone] ?? [];
       zoneUnits.forEach((unit) => {
         setMute(unit.id, true)
-          .then(() => {
-            setUnitMuted((prev) => ({ ...prev, [unit.id]: true }));
-          })
-          .catch((error) => {
-            console.error(`Failed to mute unit ${unit.id}:`, error);
-          });
+          .then(() => { setUnitMuted((prev) => ({ ...prev, [unit.id]: true })); })
+          .catch(() => {});
       });
     },
     [zoneGroups, setMute]
   );
 
   const handleRefreshAll = useCallback(async () => {
-    // Reconnect all units
     for (const unit of units) {
       try {
         await disconnectUnit(unit.id);
         await connectUnit(unit.id, unit.address, unit.port);
-      } catch (error) {
-        console.error(`Failed to reconnect unit ${unit.id}:`, error);
+      } catch {
+        // Keep iterating so one bad unit doesn't block the rest
       }
     }
   }, [units, connectUnit, disconnectUnit]);
@@ -297,16 +304,11 @@ export function Dashboard() {
   const handleMuteAll = useCallback(() => {
     units.forEach((unit) => {
       setMute(unit.id, true)
-        .then(() => {
-          setUnitMuted((prev) => ({ ...prev, [unit.id]: true }));
-        })
-        .catch((error) => {
-          console.error(`Failed to mute unit ${unit.id}:`, error);
-        });
+        .then(() => { setUnitMuted((prev) => ({ ...prev, [unit.id]: true })); })
+        .catch(() => {});
     });
   }, [units, setMute]);
 
-  // Render a single unit card
   const renderUnitCard = useCallback(
     (unit: DSPUnit) => {
       const conn = getConnectionStatus(unit.id);
@@ -334,76 +336,80 @@ export function Dashboard() {
         />
       );
     },
-    [activeUnitId, getConnectionStatus, handleUnitClick, handleUnitSettings, handleVolumeChange, handleMuteToggle, unitVolumes, unitMuted, unitLoads, unitBuffers]
+    [
+      activeUnitId,
+      getConnectionStatus,
+      handleUnitClick,
+      handleUnitSettings,
+      handleVolumeChange,
+      handleMuteToggle,
+      unitVolumes,
+      unitMuted,
+      unitLoads,
+      unitBuffers,
+    ]
   );
 
-  const onlineCount = useMemo(
-    () => connections.filter((c) => c.status === 'connected').length,
-    [connections]
-  );
+  const summary = useMemo(() => {
+    if (units.length === 0) return 'No units configured';
+    const unitLabel = `${units.length} unit${units.length === 1 ? '' : 's'}`;
+    return `${unitLabel} • ${onlineCount} online`;
+  }, [units.length, onlineCount]);
 
   return (
-    <div className="h-full overflow-auto p-6">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-dsp-text">Network Dashboard</h1>
-            <p className="text-sm text-dsp-text-muted">
-              {units.length} unit{units.length !== 1 ? 's' : ''} configured
-              {units.length > 0 && ` (${String(onlineCount)} online)`}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
+    <Page>
+      <PageHeader
+        title="System Overview"
+        description={summary}
+        actions={
+          <>
             <Tooltip>
               <TooltipTrigger
-                className="inline-flex items-center justify-center h-10 w-10 rounded-md hover:bg-dsp-primary/50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-transparent hover:bg-dsp-primary/35 hover:border-dsp-primary/60 transition-colors"
                 onClick={handleRefreshAll}
-                aria-label="Refresh all units"
+                aria-label="Reconnect all units"
               >
-                <RefreshCw className="h-5 w-5" />
+                <RefreshCw className="h-5 w-5" aria-hidden="true" />
               </TooltipTrigger>
-              <TooltipContent>Refresh all</TooltipContent>
+              <TooltipContent>Reconnect all</TooltipContent>
             </Tooltip>
 
             <Tooltip>
               <TooltipTrigger
-                className="inline-flex items-center justify-center h-10 w-10 rounded-md hover:bg-dsp-primary/50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-transparent hover:bg-dsp-primary/35 hover:border-dsp-primary/60 transition-colors"
                 onClick={handleMuteAll}
                 aria-label="Mute all units"
               >
-                <VolumeX className="h-5 w-5" />
+                <VolumeX className="h-5 w-5" aria-hidden="true" />
               </TooltipTrigger>
               <TooltipContent>Mute all</TooltipContent>
             </Tooltip>
 
             <Button onClick={() => { setAddDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
               Add Unit
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* Empty state */}
+      <PageBody>
         {units.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-dsp-primary/50 py-16">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-dsp-primary/60 bg-dsp-surface/30 py-16">
             <div className="mb-4 rounded-full bg-dsp-primary/30 p-4">
-              <Volume2 className="h-8 w-8 text-dsp-text-muted" />
+              <Volume2 className="h-8 w-8 text-dsp-text-muted" aria-hidden="true" />
             </div>
-            <h3 className="mb-2 text-lg font-medium text-dsp-text">
-              No units configured
-            </h3>
-            <p className="mb-4 text-center text-sm text-dsp-text-muted">
-              Add your first CamillaDSP unit to start monitoring and controlling.
+            <h3 className="mb-2 text-lg font-medium text-dsp-text">No units configured</h3>
+            <p className="mb-6 max-w-md text-center text-sm text-dsp-text-muted">
+              Add your first DSP unit to start monitoring levels, performance, and routing.
             </p>
             <Button onClick={() => { setAddDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
               Add Unit
             </Button>
           </div>
         )}
 
-        {/* Zone groups */}
         {zones.map((zone) => {
           const zoneUnits = zoneGroups[zone] ?? [];
           if (zoneUnits.length === 0) return null;
@@ -423,20 +429,16 @@ export function Dashboard() {
           );
         })}
 
-        {/* Ungrouped units */}
-        {ungroupedUnits.length > 0 && (
-          <UngroupedSection>
-            {ungroupedUnits.map(renderUnitCard)}
-          </UngroupedSection>
-        )}
+        {ungroupedUnits.length > 0 && <UngroupedSection>{ungroupedUnits.map(renderUnitCard)}</UngroupedSection>}
 
-        {/* Add unit dialog */}
         <AddUnitDialog
           open={addDialogOpen}
           onOpenChange={handleDialogClose}
           onSubmit={handleAddUnit}
           existingZones={zones}
         />
-      </div>
+      </PageBody>
+    </Page>
   );
 }
+
