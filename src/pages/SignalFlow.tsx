@@ -1309,6 +1309,7 @@ export function SignalFlowPage() {
         <div
           className="overflow-hidden border-b border-dsp-primary/20 bg-dsp-surface transition-[height] duration-300 ease-in-out"
           style={{ height: dockedFilterEditor ? 'calc(100% - 20vh)' : '0px' }}
+          data-floating-window
         >
           {dockedFilterEditor && (() => {
             const endpoint = { deviceId: dockedFilterEditor.deviceId, channelIndex: dockedFilterEditor.channelIndex };

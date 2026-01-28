@@ -13,3 +13,5 @@ coverage
 .env.*
 !.env.example
 nul
+.claude
+.codex
