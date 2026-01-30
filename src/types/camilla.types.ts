@@ -3,6 +3,26 @@
 import type { FilterConfig } from './filters.types';
 
 // Signal Flow UI metadata - preserved by CamillaDSP but ignored by DSP engine
+export type FirPhaseCorrectionWindowType = 'Rectangular' | 'Hann' | 'Hamming' | 'Blackman' | 'Kaiser';
+
+export interface FirPhaseCorrectionUiSettingsV1 {
+  version: 1;
+  previewEnabled?: boolean;
+  tapMode?: 'latency' | 'taps';
+  maxLatencyMs?: number;
+  taps?: number;
+  bandLowHz?: number;
+  bandHighHz?: number;
+  transitionOctaves?: number;
+  magnitudeThresholdDb?: number;
+  magnitudeTransitionDb?: number;
+  phaseHideBelowDb?: number;
+  window?: FirPhaseCorrectionWindowType;
+  kaiserBeta?: number;
+  normalize?: boolean;
+  selectedFilterNames?: string[];
+}
+
 export interface SignalFlowUiMetadata {
   channelColors?: Record<string, string>;  // key: "input:deviceId:0" or "output:deviceId:1"
   channelNames?: Record<string, string>;   // custom display names
@@ -13,6 +33,7 @@ export interface SignalFlowUiMetadata {
   // Per-channel gains (stored separately since Gain filters are merged into mixer sources)
   // key: "input:channelIndex" or "output:channelIndex"
   channelGains?: Record<string, { gain: number; inverted: boolean }>;
+  firPhaseCorrection?: Record<string, FirPhaseCorrectionUiSettingsV1>;
 }
 
 export interface CamillaConfigUi {

@@ -25,6 +25,9 @@ interface FilterEditorModalProps<T extends FilterConfig> {
   children: React.ReactNode;
   showFrequencyResponse?: boolean;
   sampleRate?: number;
+  contentClassName?: string;
+  bodyScrollable?: boolean;
+  bodyClassName?: string;
 }
 
 export interface FilterEditorPanelProps<T extends FilterConfig> {
@@ -40,6 +43,8 @@ export interface FilterEditorPanelProps<T extends FilterConfig> {
   sampleRate?: number;
   className?: string;
   showHeader?: boolean;
+  bodyScrollable?: boolean;
+  bodyClassName?: string;
 }
 
 // Frequency response graph for biquad filters
@@ -180,6 +185,8 @@ function FilterEditorCore<T extends FilterConfig>({
   sampleRate = 48000,
   className,
   showHeader = true,
+  bodyScrollable = true,
+  bodyClassName,
 }: Omit<FilterEditorPanelProps<T>, 'title'> & { title?: string }) {
   const [localFilter, setLocalFilter] = useState<T>(filter);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -265,7 +272,7 @@ function FilterEditorCore<T extends FilterConfig>({
       )}
 
       {/* Parameters Section */}
-      <div className="flex-1 overflow-auto py-4">
+      <div className={cn('flex-1 py-4', bodyScrollable ? 'overflow-auto' : 'overflow-hidden', bodyClassName)}>
         <FilterEditorContext.Provider
           value={{
             filter: localFilter,
@@ -326,6 +333,8 @@ export function FilterEditorPanel<T extends FilterConfig>({
   sampleRate = 48000,
   className,
   showHeader = false,
+  bodyScrollable = true,
+  bodyClassName,
 }: FilterEditorPanelProps<T>) {
   return (
     <FilterEditorCore
@@ -340,6 +349,8 @@ export function FilterEditorPanel<T extends FilterConfig>({
       sampleRate={sampleRate}
       className={className}
       showHeader={showHeader}
+      bodyScrollable={bodyScrollable}
+      bodyClassName={bodyClassName}
     >
       {children}
     </FilterEditorCore>
@@ -358,12 +369,15 @@ export function FilterEditorModal<T extends FilterConfig>({
   children,
   showFrequencyResponse = false,
   sampleRate = 48000,
+  contentClassName,
+  bodyScrollable = true,
+  bodyClassName,
 }: FilterEditorModalProps<T>) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
       if (!isOpen) onClose();
     }}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent className={cn('max-w-lg max-h-[85vh] flex flex-col', contentClassName)}>
         <FilterEditorCore
           onClose={onClose}
           title={title}
@@ -375,6 +389,8 @@ export function FilterEditorModal<T extends FilterConfig>({
           showFrequencyResponse={showFrequencyResponse}
           sampleRate={sampleRate}
           showHeader={true}
+          bodyScrollable={bodyScrollable}
+          bodyClassName={bodyClassName}
         >
           {children}
         </FilterEditorCore>

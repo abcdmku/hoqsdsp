@@ -41,6 +41,10 @@ const DialogContent = React.forwardRef<
         'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
         className
       )}
+      // Prevent closing when clicking outside (e.g., on dropdown portals)
+      // Dialogs should only close via explicit X button or Escape key
+      onPointerDownOutside={(e) => e.preventDefault()}
+      onInteractOutside={(e) => e.preventDefault()}
       {...props}
     >
       {children}

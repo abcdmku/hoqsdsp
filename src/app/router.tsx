@@ -6,6 +6,7 @@ import { EQEditorPage } from '../pages/EQEditor';
 import { SignalFlowPage } from '../pages/SignalFlow';
 import { RoutingPage } from '../pages/Routing';
 import { SettingsPage } from '../pages/Settings';
+import { HelpPage } from '../pages/Help';
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
       { path: 'signal-flow', element: <SignalFlowPage /> },
       { path: 'routing', element: <RoutingPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'help', element: <HelpPage /> },
     ],
   },
 ]);

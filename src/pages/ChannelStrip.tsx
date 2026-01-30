@@ -354,7 +354,7 @@ function getDefaultFilter(filterType: FilterType): FilterConfig {
     case 'NoiseGate':
       return { type: 'NoiseGate', parameters: { channels: 1, threshold: -60, attack: 1, release: 50, hold: 100 } };
     case 'Conv':
-      return { type: 'Conv', parameters: { type: 'Wav', filename: '' } };
+      return { type: 'Conv', parameters: { type: 'Values', values: [1] } };
     case 'Dither':
       return { type: 'Dither', parameters: { type: 'Simple', bits: 16 } };
     case 'Volume':
@@ -367,4 +367,3 @@ function getDefaultFilter(filterType: FilterType): FilterConfig {
       return { type: 'Biquad', parameters: { type: 'Peaking', freq: 1000, gain: 0, q: 1.0 } };
   }
 }
-

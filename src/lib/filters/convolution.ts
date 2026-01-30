@@ -62,15 +62,14 @@ class ConvolutionFilterHandler extends BaseFilterHandler<ConvolutionFilter> {
     return {
       type: 'Conv',
       parameters: {
-        type: 'Wav',
-        filename: '',
-        channel: 0,
+        type: 'Values',
+        values: [1],
       },
     };
   }
 
   getDisplayName(config: ConvolutionFilter): string {
-    return `Convolution (${config.parameters.type})`;
+    return config.parameters.type === 'Values' ? 'FIR Phase Correction' : `Convolution (${config.parameters.type})`;
   }
 
   getSummary(config: ConvolutionFilter): string {

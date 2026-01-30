@@ -6,6 +6,7 @@ import type {
   DelayFilter,
   DiffEqFilter,
   DitherFilter,
+  FirPhaseCorrectionUiSettingsV1,
   FilterConfig,
   FilterType,
   GainFilter,
@@ -49,7 +50,7 @@ function createDefaultFilter(type: FilterType): FilterConfig {
     case 'NoiseGate':
       return { type: 'NoiseGate', parameters: { channels: 1, threshold: -60, attack: 1, release: 50, hold: 100 } };
     case 'Conv':
-      return { type: 'Conv', parameters: { type: 'Wav', filename: '' } };
+      return { type: 'Conv', parameters: { type: 'Values', values: [1] } };
     case 'Dither':
       return { type: 'Dither', parameters: { type: 'Simple', bits: 16 } };
     case 'Volume':
@@ -147,6 +148,8 @@ export interface SignalFlowFilterWindowContentProps {
   filterType: FilterType;
   onClose: () => void;
   onChange: (filters: ChannelProcessingFilter[], options?: { debounce?: boolean }) => void;
+  firPhaseCorrection?: Record<string, FirPhaseCorrectionUiSettingsV1>;
+  onPersistFirPhaseCorrectionSettings?: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
 }
 
 export function SignalFlowFilterWindowContent({
@@ -155,6 +158,8 @@ export function SignalFlowFilterWindowContent({
   filterType,
   onClose,
   onChange,
+  firPhaseCorrection,
+  onPersistFirPhaseCorrectionSettings,
 }: SignalFlowFilterWindowContentProps) {
   const filters = node.processing.filters;
 
@@ -192,6 +197,8 @@ export function SignalFlowFilterWindowContent({
 
   const fallback = createDefaultFilter(filterType);
   const currentConfig = firstFilterOfType.filter?.config ?? fallback;
+  const currentFilterName = firstFilterOfType.filter?.name;
+  const currentFirPhaseCorrectionSettings = currentFilterName ? firPhaseCorrection?.[currentFilterName] : undefined;
 
   const warning = firstFilterOfType.count > 1
     ? `Multiple ${filterType} filters found; editing the first one in the chain.`
@@ -252,6 +259,11 @@ export function SignalFlowFilterWindowContent({
         <ConvolutionEditorPanel
           {...commonProps}
           filter={currentConfig as ConvolutionFilter}
+          sampleRate={sampleRate}
+          channelFilters={filters}
+          filterName={currentFilterName}
+          firPhaseCorrectionSettings={currentFirPhaseCorrectionSettings}
+          onPersistFirPhaseCorrectionSettings={onPersistFirPhaseCorrectionSettings}
           onApply={(updated) => { applySingle(updated, { debounce: true }); }}
           onSave={(updated) => { applySingle(updated); }}
         />
@@ -309,4 +321,3 @@ export function SignalFlowFilterWindowContent({
     </div>
   );
 }
-

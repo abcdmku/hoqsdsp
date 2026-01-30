@@ -165,6 +165,35 @@ export function DeviceConfigSection({ unitId }: DeviceConfigSectionProps) {
   const handleApply = () => {
     if (!config) return;
 
+    // Update mixer channel counts to match new device channel counts
+    const newInputChannels = formState.inputChannels;
+    const newOutputChannels = formState.outputChannels;
+
+    // Update the routing mixer if it exists
+    let updatedMixers = config.mixers;
+    if (config.mixers?.routing) {
+      const routingMixer = config.mixers.routing;
+      const oldInChannels = routingMixer.channels.in;
+      const oldOutChannels = routingMixer.channels.out;
+
+      // Only update if channel counts changed
+      if (oldInChannels !== newInputChannels || oldOutChannels !== newOutputChannels) {
+        // Filter out any routes that would be out of range with new channel counts
+        const validMapping = routingMixer.mapping.filter(
+          (m) => m.dest < newOutputChannels && m.sources.every((s) => s.channel < newInputChannels)
+        );
+
+        updatedMixers = {
+          ...config.mixers,
+          routing: {
+            ...routingMixer,
+            channels: { in: newInputChannels, out: newOutputChannels },
+            mapping: validMapping,
+          },
+        };
+      }
+    }
+
     const updatedConfig: CamillaConfig = {
       ...config,
       devices: {
@@ -186,6 +215,7 @@ export function DeviceConfigSection({ unitId }: DeviceConfigSectionProps) {
           format: formState.outputFormat,
         },
       },
+      mixers: updatedMixers,
     };
 
     setConfigJson.mutate(updatedConfig);

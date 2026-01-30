@@ -215,6 +215,11 @@ export function ChannelCard({
   const activeCounts = useMemo(() => {
     const counts = new Map<FilterType, number>();
     for (const filter of node.processing.filters) {
+      if (filter.config.type === 'Conv') {
+        const params = filter.config.parameters;
+        const applied = params.type !== 'Values' || params.values.length !== 1 || Math.abs((params.values[0] ?? 0) - 1) > 1e-12;
+        if (!applied) continue;
+      }
       counts.set(filter.config.type, (counts.get(filter.config.type) ?? 0) + 1);
     }
     return counts;

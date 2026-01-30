@@ -4,7 +4,7 @@ import { Share2, Copy, ClipboardPaste, ChevronDown, Check, X } from 'lucide-reac
 import { useConnectionStore, selectAllConnections } from '../stores/connectionStore';
 import { useUnitStore } from '../stores/unitStore';
 import { useSignalFlowUiStore, type SignalFlowClipboardPayload, type SignalFlowMirrorGroups } from '../stores/signalFlowUiStore';
-import type { SignalFlowUiMetadata } from '../types';
+import type { FirPhaseCorrectionUiSettingsV1, SignalFlowUiMetadata } from '../types';
 import { useConfigJson } from '../features/configuration/configQueries';
 import { useSetConfigJson } from '../features/configuration';
 import { useUnitLevels } from '../features/realtime';
@@ -173,6 +173,7 @@ export function SignalFlowPage() {
   const [channelColors, setChannelColors] = useState<Record<string, string>>({});
   const [channelNames, setChannelNames] = useState<Record<string, string>>({});
   const [mirrorGroups, setMirrorGroups] = useState<SignalFlowMirrorGroups>({ input: [], output: [] });
+  const [firPhaseCorrection, setFirPhaseCorrection] = useState<Record<string, FirPhaseCorrectionUiSettingsV1>>({});
 
   // Track if we've already migrated from localStorage for this unit
   const migratedRef = useRef<Set<string>>(new Set());
@@ -257,17 +258,21 @@ export function SignalFlowPage() {
         target.closest('select') ||
         target.closest('a') ||
         target.closest('[data-floating-window]') ||
+        target.closest('[data-radix-popper-content-pane]') || // Radix UI dropdowns/selects
+        target.closest('[data-radix-dialog-content]') || // Radix UI dialogs
+        target.closest('[role="dialog"]') || // Dialogs and modals
+        target.closest('[role="listbox"]') || // Select dropdown lists
+        target.closest('aside') || // Drawer sidebars
         target.closest('path') || // SVG route lines
         target.closest('[data-port-key]') // Channel ports
       ) {
         return;
       }
 
-      // Clear selections and close windows
+      // Clear selections and close only connection windows (filters/channel windows stay open)
       setSelectedRouteIndex(null);
       setSelectedChannelKey(null);
-      setWindows([]);
-      setDockedFilterEditor(null);
+      setWindows((prev) => prev.filter((w) => w.kind !== 'connection'));
     };
 
     document.addEventListener('click', handleGlobalClick);
@@ -405,6 +410,7 @@ export function SignalFlowPage() {
       const serverColors = uiMeta?.channelColors ?? {};
       const serverNames = uiMeta?.channelNames ?? {};
       const serverMirrorGroups = uiMeta?.mirrorGroups ?? { input: [], output: [] };
+      const serverFirPhaseCorrection = uiMeta?.firPhaseCorrection ?? {};
 
       // Generate default colors for any channels that don't have colors yet
       const allKeys = [
@@ -422,6 +428,7 @@ export function SignalFlowPage() {
       setChannelColors(colorsWithDefaults);
       setChannelNames(serverNames);
       setMirrorGroups(serverMirrorGroups);
+      setFirPhaseCorrection(serverFirPhaseCorrection);
     });
   }, [flow, activeUnitId]);
 
@@ -522,6 +529,7 @@ export function SignalFlowPage() {
         channelColors: next.uiMetadata?.channelColors ?? channelColors,
         channelNames: next.uiMetadata?.channelNames ?? channelNames,
         mirrorGroups: next.uiMetadata?.mirrorGroups ?? mirrorGroups,
+        firPhaseCorrection: next.uiMetadata?.firPhaseCorrection ?? firPhaseCorrection,
       };
 
       // Mark that we have pending changes - prevents useEffect from overwriting local state
@@ -599,7 +607,7 @@ export function SignalFlowPage() {
 
       void send();
     },
-    [config, flow, inputs, outputs, routes, channelColors, channelNames, mirrorGroups, setConfigJson],
+    [config, flow, inputs, outputs, routes, channelColors, channelNames, mirrorGroups, firPhaseCorrection, setConfigJson],
   );
 
   const addRoute = useCallback(
@@ -759,6 +767,17 @@ export function SignalFlowPage() {
 
         const next = { ...prev, [side]: nextGroups };
         commitModel({ uiMetadata: { mirrorGroups: next } });
+        return next;
+      });
+    },
+    [commitModel],
+  );
+
+  const handlePersistFirPhaseCorrectionSettings = useCallback(
+    (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => {
+      setFirPhaseCorrection((prev) => {
+        const next = { ...prev, [filterName]: settings };
+        commitModel({ uiMetadata: { firPhaseCorrection: next } }, { debounce: true });
         return next;
       });
     },
@@ -1310,6 +1329,8 @@ export function SignalFlowPage() {
           className="overflow-hidden border-b border-dsp-primary/20 bg-dsp-surface transition-[height] duration-300 ease-in-out"
           style={{ height: dockedFilterEditor ? 'calc(100% - 20vh)' : '0px' }}
           data-floating-window
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           {dockedFilterEditor && (() => {
             const endpoint = { deviceId: dockedFilterEditor.deviceId, channelIndex: dockedFilterEditor.channelIndex };
@@ -1356,6 +1377,8 @@ export function SignalFlowPage() {
                     onClose={() => {
                       setDockedFilterEditor(null);
                     }}
+                    firPhaseCorrection={firPhaseCorrection}
+                    onPersistFirPhaseCorrectionSettings={handlePersistFirPhaseCorrectionSettings}
                     onChange={(nextFilters, options) => {
                       updateChannelFilters(dockedFilterEditor.side, endpoint, nextFilters, options);
                     }}
@@ -1714,6 +1737,8 @@ export function SignalFlowPage() {
                   onClose={() => {
                     setWindows((prev) => prev.filter((w) => w.id !== win.id));
                   }}
+                  firPhaseCorrection={firPhaseCorrection}
+                  onPersistFirPhaseCorrectionSettings={handlePersistFirPhaseCorrectionSettings}
                   onChange={(nextFilters, options) => {
                     updateChannelFilters(win.side, endpoint, nextFilters, options);
                   }}

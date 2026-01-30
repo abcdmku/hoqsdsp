@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Settings, Wifi, WifiOff, Upload, Download, AudioWaveform } from 'lucide-react';
+import { Menu, Settings, Wifi, WifiOff, Upload, Download, AudioWaveform, HelpCircle } from 'lucide-react';
 import { useUIStore, useConnectionStore, selectActiveConnection, useUnitStore, selectUnits } from '../../stores';
 import { cn } from '../../lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
@@ -84,6 +84,17 @@ export function TopNav({ currentConfig, onConfigImport }: TopNavProps) {
           </p>
         </div>
       </div>
+
+      <Tooltip>
+        <TooltipTrigger
+          onClick={() => { navigate('/help'); }}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-dsp-primary/60 transition-colors"
+          aria-label="Help & Troubleshooting"
+        >
+          <HelpCircle className="h-5 w-5" aria-hidden="true" />
+        </TooltipTrigger>
+        <TooltipContent>Help & Troubleshooting</TooltipContent>
+      </Tooltip>
 
       <div className="flex-1" />
 

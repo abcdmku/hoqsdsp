@@ -150,17 +150,17 @@ describe('ConvolutionFilterHandler', () => {
 
   describe('Handler Methods', () => {
     describe('getDefault', () => {
-      it('should return default Wav filter', () => {
+      it('should return default Values filter', () => {
         const defaultFilter = convolutionHandler.getDefault();
 
         expect(defaultFilter.type).toBe('Conv');
-        expect(defaultFilter.parameters.type).toBe('Wav');
+        expect(defaultFilter.parameters.type).toBe('Values');
       });
 
       it('should return a valid filter', () => {
         const defaultFilter = convolutionHandler.getDefault();
-        // Note: default has empty filename which won't validate, but structure is correct
-        expect(defaultFilter.type).toBe('Conv');
+        const result = convolutionFilterSchema.safeParse(defaultFilter);
+        expect(result.success).toBe(true);
       });
     });
 
@@ -234,7 +234,7 @@ describe('ConvolutionFilterHandler', () => {
 
         const displayName = convolutionHandler.getDisplayName(filter);
 
-        expect(displayName).toBe('Convolution (Values)');
+        expect(displayName).toBe('FIR Phase Correction');
       });
     });
 

@@ -59,7 +59,7 @@ export const FILTER_UI: Record<FilterType, FilterUiMeta> = {
   },
   Conv: {
     type: 'Conv',
-    label: 'Convolution (FIR)',
+    label: 'FIR Phase Correction',
     shortLabel: 'FIR',
     icon: Waves,
     color: 'fir',

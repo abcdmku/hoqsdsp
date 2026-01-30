@@ -109,9 +109,9 @@ const FILTER_OPTIONS: FilterOption[] = [
   },
   {
     type: 'Conv',
-    label: 'Convolution',
+    label: 'FIR Phase Correction',
     shortLabel: 'FIR',
-    description: 'FIR filter / room correction',
+    description: 'Auto phase correction for upstream filters',
     colorClass: 'bg-filter-fir/20 border-filter-fir/50 text-filter-fir',
     category: 'time',
   },

@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConvolutionEditor } from './ConvolutionEditor';
 import type { ConvolutionFilter } from '../../types';
+import { TooltipProvider } from '../ui';
 
 const wavConvolutionFilter: ConvolutionFilter = {
   type: 'Conv',
@@ -21,9 +22,13 @@ const valuesConvolutionFilter: ConvolutionFilter = {
   },
 };
 
+function renderWithTooltips(ui: React.ReactElement) {
+  return render(<TooltipProvider>{ui}</TooltipProvider>);
+}
+
 describe('ConvolutionEditor', () => {
   it('renders with correct title', () => {
-    render(
+    renderWithTooltips(
       <ConvolutionEditor
         open={true}
         onClose={() => {}}
@@ -32,50 +37,11 @@ describe('ConvolutionEditor', () => {
       />,
     );
 
-    expect(screen.getByText('Convolution Filter')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'FIR Phase Correction' })).toBeInTheDocument();
   });
 
-  it('shows source type selector', () => {
-    render(
-      <ConvolutionEditor
-        open={true}
-        onClose={() => {}}
-        filter={wavConvolutionFilter}
-        onSave={() => {}}
-      />,
-    );
-
-    expect(screen.getByText('Source Type')).toBeInTheDocument();
-  });
-
-  it('shows filename input for WAV type', () => {
-    render(
-      <ConvolutionEditor
-        open={true}
-        onClose={() => {}}
-        filter={wavConvolutionFilter}
-        onSave={() => {}}
-      />,
-    );
-
-    expect(screen.getByText('Filename')).toBeInTheDocument();
-  });
-
-  it('shows channel input for WAV type', () => {
-    render(
-      <ConvolutionEditor
-        open={true}
-        onClose={() => {}}
-        filter={wavConvolutionFilter}
-        onSave={() => {}}
-      />,
-    );
-
-    expect(screen.getByText('Channel')).toBeInTheDocument();
-  });
-
-  it('shows coefficients textarea for Values type', () => {
-    render(
+  it('shows graph tabs', () => {
+    renderWithTooltips(
       <ConvolutionEditor
         open={true}
         onClose={() => {}}
@@ -84,11 +50,14 @@ describe('ConvolutionEditor', () => {
       />,
     );
 
-    expect(screen.getByText('Filter Coefficients')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Mag' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Phase' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Delay' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Impulse' })).toBeInTheDocument();
   });
 
-  it('displays coefficient count for Values type', () => {
-    render(
+  it('displays tap count in stats bar for Values type', () => {
+    renderWithTooltips(
       <ConvolutionEditor
         open={true}
         onClose={() => {}}
@@ -97,14 +66,15 @@ describe('ConvolutionEditor', () => {
       />,
     );
 
-    expect(screen.getByText(/3 coefficients entered/)).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('taps')).toBeInTheDocument();
   });
 
   it('calls onClose when Cancel is clicked', async () => {
     const handleClose = vi.fn();
     const user = userEvent.setup();
 
-    render(
+    renderWithTooltips(
       <ConvolutionEditor
         open={true}
         onClose={handleClose}
@@ -118,7 +88,7 @@ describe('ConvolutionEditor', () => {
   });
 
   it('does not render when closed', () => {
-    render(
+    renderWithTooltips(
       <ConvolutionEditor
         open={false}
         onClose={() => {}}

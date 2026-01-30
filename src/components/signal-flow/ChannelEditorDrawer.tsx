@@ -499,6 +499,9 @@ export function ChannelEditorDrawer({
           onApply={(updated) => {
             commitFilterUpdate(editingFilter.name, updated, { debounce: true });
           }}
+          sampleRate={sampleRate}
+          channelFilters={processingFilters}
+          filterName={editingFilter.name}
         />
       )}
 

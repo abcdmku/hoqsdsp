@@ -1,4 +1,4 @@
-import type { CamillaConfig, SampleFormat } from '../../types';
+import type { CamillaConfig, MixerMapping, SampleFormat } from '../../types';
 
 export interface MinimalConfigOptions {
   captureDevice: string;
@@ -14,6 +14,14 @@ export interface MinimalConfigOptions {
 }
 
 export function createMinimalConfig(options: MinimalConfigOptions): CamillaConfig {
+  // Create default 1:1 routing: input 0 → output 0, input 1 → output 1, etc.
+  // This ensures audio flows through the mixer from the start
+  const routeCount = Math.min(options.captureChannels, options.playbackChannels);
+  const mapping: MixerMapping[] = Array.from({ length: routeCount }, (_, idx) => ({
+    dest: idx,
+    sources: [{ channel: idx, gain: 0 }],
+  }));
+
   return {
     devices: {
       samplerate: options.sampleRate,
@@ -31,6 +39,12 @@ export function createMinimalConfig(options: MinimalConfigOptions): CamillaConfi
         format: options.playbackFormat,
       },
     },
-    pipeline: [],
+    mixers: {
+      routing: {
+        channels: { in: options.captureChannels, out: options.playbackChannels },
+        mapping,
+      },
+    },
+    pipeline: [{ type: 'Mixer', name: 'routing' }],
   };
 }

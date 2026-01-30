@@ -107,20 +107,71 @@ const pipelineStepSchema = z.discriminatedUnion('type', [
 ]);
 
 // UI metadata schemas (preserved by CamillaDSP but ignored by DSP engine)
-const signalFlowUiMetadataSchema = z.object({
-  channelColors: z.record(z.string(), z.string()).optional(),
-  channelNames: z.record(z.string(), z.string()).optional(),
-  mirrorGroups: z.object({
-    input: z.array(z.array(z.object({
-      deviceId: z.string(),
-      channelIndex: z.number(),
-    }))),
-    output: z.array(z.array(z.object({
-      deviceId: z.string(),
-      channelIndex: z.number(),
-    }))),
-  }).optional(),
-}).optional();
+const firPhaseCorrectionWindowTypeSchema = z.enum([
+  'Rectangular',
+  'Hann',
+  'Hamming',
+  'Blackman',
+  'Kaiser',
+]);
+
+const firPhaseCorrectionUiSettingsSchema = z
+  .object({
+    version: z.number().int().optional(),
+    previewEnabled: z.boolean().optional(),
+    tapMode: z.enum(['latency', 'taps']).optional(),
+    maxLatencyMs: z.number().min(0).optional(),
+    taps: z.number().int().min(1).optional(),
+    bandLowHz: z.number().min(0).optional(),
+    bandHighHz: z.number().min(0).optional(),
+    transitionOctaves: z.number().min(0).optional(),
+    magnitudeThresholdDb: z.number().optional(),
+    magnitudeTransitionDb: z.number().min(0).optional(),
+    phaseHideBelowDb: z.number().optional(),
+    window: firPhaseCorrectionWindowTypeSchema.optional(),
+    kaiserBeta: z.number().min(0).optional(),
+    normalize: z.boolean().optional(),
+    selectedFilterNames: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const signalFlowUiMetadataSchema = z
+  .object({
+    channelColors: z.record(z.string(), z.string()).optional(),
+    channelNames: z.record(z.string(), z.string()).optional(),
+    mirrorGroups: z
+      .object({
+        input: z.array(
+          z.array(
+            z.object({
+              deviceId: z.string(),
+              channelIndex: z.number(),
+            }),
+          ),
+        ),
+        output: z.array(
+          z.array(
+            z.object({
+              deviceId: z.string(),
+              channelIndex: z.number(),
+            }),
+          ),
+        ),
+      })
+      .optional(),
+    channelGains: z
+      .record(
+        z.string(),
+        z.object({
+          gain: z.number(),
+          inverted: z.boolean(),
+        }),
+      )
+      .optional(),
+    firPhaseCorrection: z.record(z.string(), firPhaseCorrectionUiSettingsSchema).optional(),
+  })
+  .passthrough()
+  .optional();
 
 const uiConfigSchema = z.object({
   signalFlow: signalFlowUiMetadataSchema,
