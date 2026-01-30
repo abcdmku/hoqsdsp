@@ -1,6 +1,7 @@
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import { useMemo } from 'react';
 import type { ChannelNode, ChannelSide, DeviceGroup, RouteEndpoint } from '../../lib/signalflow';
+import { portKey } from '../../lib/signalflow/endpointUtils';
 import type { FilterType } from '../../types';
 import type { ChannelLevelState } from '../../features/realtime';
 import { ChannelCard } from './ChannelCard';
@@ -35,10 +36,6 @@ export interface ChannelBankProps {
   ) => void;
   /** Called when clicking on empty space to clear all selections */
   onClearSelection?: () => void;
-}
-
-function portKey(side: ChannelSide, node: ChannelNode): string {
-  return `${side}:${node.deviceId}:${node.channelIndex}`;
 }
 
 export function ChannelBank({
@@ -118,7 +115,7 @@ export function ChannelBank({
               </div>
               <div className="space-y-2">
                 {groupChannels.map((channel) => {
-                  const key = portKey(side, channel);
+                  const key = portKey(side, { deviceId: channel.deviceId, channelIndex: channel.channelIndex });
                   const levelData = channelLevels?.[channel.channelIndex];
                   return (
                     <ChannelCard

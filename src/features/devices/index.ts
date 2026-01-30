@@ -84,10 +84,8 @@ export function useAvailableCaptureDevices(unitId: string, backend: string | nul
     queryKey: deviceKeys.captureDevices(unitId, safeBackend ?? ''),
     queryFn: async (): Promise<DeviceInfo[]> => {
       if (!safeBackend) return [];
-      console.log('[useAvailableCaptureDevices] Querying with backend:', safeBackend);
       const rawResult = await websocketService.getAvailableCaptureDevices(unitId, safeBackend);
       const parsed = parseDeviceList(rawResult);
-      console.log('[useAvailableCaptureDevices] Parsed devices:', parsed.length);
       return parsed;
     },
     enabled: status === 'connected' && !!safeBackend,
@@ -107,10 +105,8 @@ export function useAvailablePlaybackDevices(unitId: string, backend: string | nu
     queryKey: deviceKeys.playbackDevices(unitId, safeBackend ?? ''),
     queryFn: async (): Promise<DeviceInfo[]> => {
       if (!safeBackend) return [];
-      console.log('[useAvailablePlaybackDevices] Querying with backend:', safeBackend);
       const rawResult = await websocketService.getAvailablePlaybackDevices(unitId, safeBackend);
       const parsed = parseDeviceList(rawResult);
-      console.log('[useAvailablePlaybackDevices] Parsed devices:', parsed.length);
       return parsed;
     },
     enabled: status === 'connected' && !!safeBackend,

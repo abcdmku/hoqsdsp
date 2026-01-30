@@ -34,8 +34,6 @@ export function classifyDevice(device: DeviceInfo, backend?: string): Classified
   const name = (device.name ?? '').toLowerCase();
   const backendLower = (backend ?? '').toLowerCase();
 
-  console.log('[classifyDevice] Input:', { device, backend, deviceId, name, backendLower });
-
   let category: DeviceCategory = 'unknown';
 
   // Check for loopback devices (all backends)
@@ -106,7 +104,6 @@ export function classifyDevice(device: DeviceInfo, backend?: string): Classified
     category,
     isHardware: category === 'hardware',
   };
-  console.log('[classifyDevice] Result:', { deviceId, category, isHardware: result.isHardware });
   return result;
 }
 

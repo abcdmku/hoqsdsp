@@ -1,145 +1,36 @@
 import { useCallback, useMemo } from 'react';
 import type { ChannelNode, ChannelProcessingFilter } from '../../lib/signalflow';
-import type {
-  CompressorFilter,
-  ConvolutionFilter,
-  DelayFilter,
-  DiffEqFilter,
-  DitherFilter,
-  FirPhaseCorrectionUiSettingsV1,
-  FilterConfig,
-  FilterType,
-  GainFilter,
-  LoudnessFilter,
-  NoiseGateFilter,
-  VolumeFilter,
-} from '../../types';
+import { upsertSingleFilterOfType } from '../../lib/signalflow/filterUtils';
+import type { FirPhaseCorrectionUiSettingsV1, FilterConfig, FilterType } from '../../types';
 import type { EQBand } from '../eq-editor/types';
 import { EQEditor } from '../eq-editor/EQEditor';
-import {
-  CompressorEditorPanel,
-  ConvolutionEditorPanel,
-  DelayEditorPanel,
-  DiffEqEditorPanel,
-  DitherEditorPanel,
-  GainEditorPanel,
-  LoudnessEditorPanel,
-  NoiseGateEditorPanel,
-  VolumeEditorPanel,
-} from '../filters';
+import { SignalFlowFilterEditorPanel } from './SignalFlowFilterEditorPanel';
+import { buildEqBands, mergeEqBandsIntoFilters } from './eqUtils';
 
-function ensureUniqueName(base: string, taken: Set<string>): string {
-  if (!taken.has(base)) return base;
-  let attempt = 1;
-  while (taken.has(`${base}-${String(attempt)}`)) {
-    attempt += 1;
-  }
-  return `${base}-${String(attempt)}`;
+const DEFAULT_FILTER_CONFIGS: Record<FilterType, FilterConfig> = {
+  Biquad: { type: 'Biquad', parameters: { type: 'Peaking', freq: 1000, gain: 0, q: 1.0 } },
+  Delay: { type: 'Delay', parameters: { delay: 0, unit: 'ms', subsample: true } },
+  Gain: { type: 'Gain', parameters: { gain: 0, scale: 'dB' } },
+  Compressor: { type: 'Compressor', parameters: { channels: 1, threshold: -20, factor: 4, attack: 5, release: 100 } },
+  NoiseGate: { type: 'NoiseGate', parameters: { channels: 1, threshold: -60, attack: 1, release: 50, hold: 100 } },
+  Conv: { type: 'Conv', parameters: { type: 'Values', values: [1] } },
+  Dither: { type: 'Dither', parameters: { type: 'Simple', bits: 16 } },
+  Volume: { type: 'Volume', parameters: {} },
+  Loudness: { type: 'Loudness', parameters: { reference_level: -25, high_boost: 5, low_boost: 10 } },
+  DiffEq: { type: 'DiffEq', parameters: { a: [1], b: [1] } },
+};
+
+function cloneFilterConfig<T extends FilterConfig>(config: T): T {
+  return JSON.parse(JSON.stringify(config)) as T;
 }
 
 function createDefaultFilter(type: FilterType): FilterConfig {
-  switch (type) {
-    case 'Biquad':
-      return { type: 'Biquad', parameters: { type: 'Peaking', freq: 1000, gain: 0, q: 1.0 } };
-    case 'Delay':
-      return { type: 'Delay', parameters: { delay: 0, unit: 'ms', subsample: true } };
-    case 'Gain':
-      return { type: 'Gain', parameters: { gain: 0, scale: 'dB' } };
-    case 'Compressor':
-      return { type: 'Compressor', parameters: { channels: 1, threshold: -20, factor: 4, attack: 5, release: 100 } };
-    case 'NoiseGate':
-      return { type: 'NoiseGate', parameters: { channels: 1, threshold: -60, attack: 1, release: 50, hold: 100 } };
-    case 'Conv':
-      return { type: 'Conv', parameters: { type: 'Values', values: [1] } };
-    case 'Dither':
-      return { type: 'Dither', parameters: { type: 'Simple', bits: 16 } };
-    case 'Volume':
-      return { type: 'Volume', parameters: {} };
-    case 'Loudness':
-      return { type: 'Loudness', parameters: { reference_level: -25, high_boost: 5, low_boost: 10 } };
-    case 'DiffEq':
-      return { type: 'DiffEq', parameters: { a: [1], b: [1] } };
-    default:
-      return { type: 'Biquad', parameters: { type: 'Peaking', freq: 1000, gain: 0, q: 1.0 } };
-  }
+  const template = DEFAULT_FILTER_CONFIGS[type] ?? DEFAULT_FILTER_CONFIGS.Biquad;
+  return cloneFilterConfig(template);
 }
 
-function upsertSingleFilterOfType(
-  node: ChannelNode,
-  type: FilterType,
-  config: FilterConfig,
-): ChannelProcessingFilter[] {
-  const current = node.processing.filters;
-  const index = current.findIndex((filter) => filter.config.type === type);
-  if (index >= 0) {
-    return current.map((filter, idx) => (idx === index ? { ...filter, config } : filter));
-  }
-
-  const takenNames = new Set(current.map((f) => f.name));
-  const baseName = `sf-${node.side}-ch${String(node.channelIndex + 1)}-${type.toLowerCase()}-${String(Date.now())}`;
-  const name = ensureUniqueName(baseName, takenNames);
-  return [...current, { name, config }];
-}
-
-function getBiquadBlock(filters: ChannelProcessingFilter[]): { start: number; end: number } | null {
-  const indices: number[] = [];
-  for (let i = 0; i < filters.length; i++) {
-    if (filters[i]?.config.type === 'Biquad') indices.push(i);
-  }
-  return indices.length > 0 ? { start: indices[0]!, end: indices[indices.length - 1]! } : null;
-}
-
-function buildEqBands(filters: ChannelProcessingFilter[]): EQBand[] {
-  const bands: EQBand[] = [];
-  for (const filter of filters) {
-    if (filter.config.type !== 'Biquad') continue;
-    bands.push({
-      id: filter.name,
-      enabled: true,
-      parameters: filter.config.parameters,
-    });
-  }
-  return bands;
-}
-
-function mergeEqBandsIntoFilters(
-  node: ChannelNode,
-  nextBands: EQBand[],
-): ChannelProcessingFilter[] {
-  const processingFilters = node.processing.filters;
-  const takenNames = new Set(processingFilters.map((f) => f.name));
-  const usedNames = new Set<string>();
-
-  const normalizedBands: EQBand[] = nextBands.map((band, index) => {
-    if (takenNames.has(band.id)) {
-      usedNames.add(band.id);
-      return band;
-    }
-
-    const baseName = `sf-${node.side}-ch${String(node.channelIndex + 1)}-biquad-${String(Date.now())}-${String(index)}`;
-    const nextName = ensureUniqueName(baseName, new Set([...takenNames, ...usedNames]));
-    usedNames.add(nextName);
-    return { ...band, id: nextName };
-  });
-
-  const nextBiquadFilters: ChannelProcessingFilter[] = normalizedBands.map((band) => ({
-    name: band.id,
-    config: { type: 'Biquad', parameters: band.parameters },
-  }));
-
-  const current = processingFilters;
-  const biquadBlock = getBiquadBlock(processingFilters);
-  const nextFilters: ChannelProcessingFilter[] = [];
-
-  if (!biquadBlock) {
-    nextFilters.push(...current, ...nextBiquadFilters);
-  } else {
-    nextFilters.push(...current.slice(0, biquadBlock.start));
-    nextFilters.push(...nextBiquadFilters);
-    nextFilters.push(...current.slice(biquadBlock.end + 1));
-  }
-
-  return nextFilters;
+function buildFilterNameBase(node: ChannelNode, filterType: FilterType): string {
+  return `sf-${node.side}-ch${String(node.channelIndex + 1)}-${filterType.toLowerCase()}-${String(Date.now())}`;
 }
 
 export interface SignalFlowFilterWindowContentProps {
@@ -179,9 +70,10 @@ export function SignalFlowFilterWindowContent({
 
   const applySingle = useCallback(
     (config: FilterConfig, options?: { debounce?: boolean }) => {
-      onChange(upsertSingleFilterOfType(node, filterType, config), options);
+      const nameBase = buildFilterNameBase(node, filterType);
+      onChange(upsertSingleFilterOfType(filters, config, nameBase), options);
     },
-    [filterType, node, onChange],
+    [filterType, filters, node, onChange],
   );
 
   if (filterType === 'Biquad') {
@@ -204,12 +96,6 @@ export function SignalFlowFilterWindowContent({
     ? `Multiple ${filterType} filters found; editing the first one in the chain.`
     : null;
 
-  const commonProps = {
-    onClose,
-    onApply: (updated: FilterConfig) => { applySingle(updated, { debounce: true }); },
-    onSave: (updated: FilterConfig) => { applySingle(updated); },
-  } as const;
-
   return (
     <div className="space-y-3">
       {warning && (
@@ -217,107 +103,18 @@ export function SignalFlowFilterWindowContent({
           {warning}
         </div>
       )}
-
-      {filterType === 'Gain' && (
-        <GainEditorPanel
-          {...commonProps}
-          filter={currentConfig as GainFilter}
-          onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-          onSave={(updated) => { applySingle(updated); }}
-        />
-      )}
-
-      {filterType === 'Delay' && (
-        <DelayEditorPanel
-          {...commonProps}
-          filter={currentConfig as DelayFilter}
-          sampleRate={sampleRate}
-          onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-          onSave={(updated) => { applySingle(updated); }}
-        />
-      )}
-
-      {filterType === 'Volume' && (
-        <VolumeEditorPanel
-          {...commonProps}
-          filter={currentConfig as VolumeFilter}
-          onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-          onSave={(updated) => { applySingle(updated); }}
-        />
-      )}
-
-      {filterType === 'DiffEq' && (
-        <DiffEqEditorPanel
-          {...commonProps}
-          filter={currentConfig as DiffEqFilter}
-          onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-          onSave={(updated) => { applySingle(updated); }}
-        />
-      )}
-
-      {filterType === 'Conv' && (
-        <ConvolutionEditorPanel
-          {...commonProps}
-          filter={currentConfig as ConvolutionFilter}
-          sampleRate={sampleRate}
-          channelFilters={filters}
-          filterName={currentFilterName}
-          firPhaseCorrectionSettings={currentFirPhaseCorrectionSettings}
-          onPersistFirPhaseCorrectionSettings={onPersistFirPhaseCorrectionSettings}
-          onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-          onSave={(updated) => { applySingle(updated); }}
-        />
-      )}
-
-      {filterType === 'Compressor' && (
-        <CompressorEditorPanel
-          {...commonProps}
-          filter={currentConfig as CompressorFilter}
-          onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-          onSave={(updated) => { applySingle(updated); }}
-        />
-      )}
-
-      {filterType === 'NoiseGate' && (
-        <NoiseGateEditorPanel
-          {...commonProps}
-          filter={currentConfig as NoiseGateFilter}
-          onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-          onSave={(updated) => { applySingle(updated); }}
-        />
-      )}
-
-      {filterType === 'Loudness' && (
-        <LoudnessEditorPanel
-          {...commonProps}
-          filter={currentConfig as LoudnessFilter}
-          onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-          onSave={(updated) => { applySingle(updated); }}
-        />
-      )}
-
-      {filterType === 'Dither' && (
-        <DitherEditorPanel
-          {...commonProps}
-          filter={currentConfig as DitherFilter}
-          onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-          onSave={(updated) => { applySingle(updated); }}
-        />
-      )}
-
-      {filterType !== 'Gain' &&
-        filterType !== 'Delay' &&
-        filterType !== 'Volume' &&
-        filterType !== 'DiffEq' &&
-        filterType !== 'Conv' &&
-        filterType !== 'Compressor' &&
-        filterType !== 'NoiseGate' &&
-        filterType !== 'Loudness' &&
-        filterType !== 'Dither' && (
-          <div className="text-sm text-dsp-text-muted">
-            No editor available for {filterType}.
-          </div>
-      )}
+      <SignalFlowFilterEditorPanel
+        filterType={filterType}
+        config={currentConfig}
+        sampleRate={sampleRate}
+        filters={filters}
+        filterName={currentFilterName}
+        firPhaseCorrectionSettings={currentFirPhaseCorrectionSettings}
+        onPersistFirPhaseCorrectionSettings={onPersistFirPhaseCorrectionSettings}
+        onClose={onClose}
+        onApply={(updated) => { applySingle(updated, { debounce: true }); }}
+        onSave={(updated) => { applySingle(updated); }}
+      />
     </div>
   );
 }

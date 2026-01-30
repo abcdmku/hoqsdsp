@@ -75,11 +75,6 @@ export function useAutoSetup(unitId: string) {
     const captureDevices = parseDeviceList(rawCaptureDevices);
     const playbackDevices = parseDeviceList(rawPlaybackDevices);
 
-    // Debug: log device data
-    console.log('[AutoSetup] Backend:', backend);
-    console.log('[AutoSetup] Parsed capture devices:', captureDevices.slice(0, 5));
-    console.log('[AutoSetup] Parsed playback devices:', playbackDevices.slice(0, 5));
-
     setState(s => ({
       ...s,
       message: `Found ${captureDevices.length} capture and ${playbackDevices.length} playback devices`
@@ -88,9 +83,6 @@ export function useAutoSetup(unitId: string) {
     // Find best hardware devices (pass backend for platform-specific classification)
     const bestCapture = findBestHardwareDevice(captureDevices, backend);
     const bestPlayback = findBestHardwareDevice(playbackDevices, backend);
-
-    console.log('[AutoSetup] Best capture:', bestCapture);
-    console.log('[AutoSetup] Best playback:', bestPlayback);
 
     return {
       backend,

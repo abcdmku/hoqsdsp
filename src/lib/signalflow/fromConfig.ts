@@ -8,6 +8,7 @@ import {
   type RouteEdge,
   type SignalFlowWarning,
 } from './model';
+import { portKeyFromParts } from './endpointUtils';
 
 const ROUTING_MIXER_NAME = 'routing';
 
@@ -74,16 +75,8 @@ function channelLabel(side: 'input' | 'output', channelIndex: number): string {
   return side === 'input' ? `In ${channelIndex + 1}` : `Out ${channelIndex + 1}`;
 }
 
-function portKey(side: 'input' | 'output', deviceId: string, channelIndex: number): string {
-  return `${side}:${deviceId}:${channelIndex}`;
-}
-
 export function fromConfig(config: CamillaConfig): FromConfigResult {
   const warnings: SignalFlowWarning[] = [];
-
-  // Debug logging
-  console.log('[fromConfig] Pipeline filter steps:', config.pipeline.filter(s => s.type === 'Filter'));
-  console.log('[fromConfig] Filter definitions:', config.filters ? Object.keys(config.filters) : 'none');
 
   const inputLabel = deviceLabelFromConfig('input', config);
   const outputLabel = deviceLabelFromConfig('output', config);
@@ -101,7 +94,7 @@ export function fromConfig(config: CamillaConfig): FromConfigResult {
   const channelNames = uiMetadata?.channelNames ?? {};
 
   const inputs: ChannelNode[] = Array.from({ length: inputChannels }, (_, idx) => {
-    const key = portKey('input', inputDeviceId, idx);
+    const key = portKeyFromParts('input', inputDeviceId, idx);
     const customName = channelNames[key];
     return {
       side: 'input' as const,
@@ -114,7 +107,7 @@ export function fromConfig(config: CamillaConfig): FromConfigResult {
   });
 
   const outputs: ChannelNode[] = Array.from({ length: outputChannels }, (_, idx) => {
-    const key = portKey('output', outputDeviceId, idx);
+    const key = portKeyFromParts('output', outputDeviceId, idx);
     const customName = channelNames[key];
     return {
       side: 'output' as const,
@@ -243,23 +236,11 @@ export function fromConfig(config: CamillaConfig): FromConfigResult {
           if (isExplicitSingleChannel && explicitChannels) {
             const node = stage === 'input' ? inputs[ch]! : outputs[ch]!;
             node.processing.filters.push({ name: filterName, config: filter });
-            // Debug logging
-            console.log('[fromConfig] Added filter to', stage, 'channel', ch, ':', { name: filterName, type: filter.type });
           }
         }
       }
     }
   }
-
-  // Debug logging at end
-  console.log('[fromConfig] Final inputs with filters:', inputs.map(n => ({
-    ch: n.channelIndex,
-    filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
-  })));
-  console.log('[fromConfig] Final outputs with filters:', outputs.map(n => ({
-    ch: n.channelIndex,
-    filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
-  })));
 
   return {
     model: {

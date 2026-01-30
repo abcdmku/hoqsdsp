@@ -85,15 +85,6 @@ export function toConfig(
   const warnings: SignalFlowWarning[] = [];
 
   // Debug logging for filter issues
-  console.log('[toConfig] Input channels with filters:', model.inputs.map(n => ({
-    ch: n.channelIndex,
-    filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
-  })));
-  console.log('[toConfig] Output channels with filters:', model.outputs.map(n => ({
-    ch: n.channelIndex,
-    filters: n.processing.filters.map(f => ({ name: f.name, type: f.config.type }))
-  })));
-
   const inputChannels = config.devices.capture.channels;
   const outputChannels = config.devices.playback.channels;
   const { inputDeviceId, outputDeviceId } = getCanonicalDeviceIds(model);
@@ -178,11 +169,6 @@ export function toConfig(
   ];
 
   // Debug logging for pipeline
-  console.log('[toConfig] nextInputSteps:', nextInputSteps);
-  console.log('[toConfig] nextOutputSteps:', nextOutputSteps);
-  console.log('[toConfig] Final pipeline filter steps:', nextPipeline.filter(s => s.type === 'Filter'));
-  console.log('[toConfig] Filter definitions:', Object.keys(nextFilters));
-
   // Drop filter definitions that are no longer referenced by any pipeline step.
   const usedFilters = new Set(
     nextPipeline

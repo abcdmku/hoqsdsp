@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cn } from '../../lib/utils';
+import { dbToPercent, meterZoneForDb } from '../../lib/monitoring/levelUtils';
 
 export interface ChannelMeterProps {
   /** Current level in dB (-60 to 0) */
@@ -46,22 +47,13 @@ export const ChannelMeter = React.memo(function ChannelMeter({
   showScale = false,
   className,
 }: ChannelMeterProps) {
-  // Convert dB to percentage (0-100)
-  // Using logarithmic scale for more natural meter response
-  const levelToPercent = React.useCallback((db: number): number => {
-    // Clamp to -60 to 0 range
-    const clamped = Math.max(-60, Math.min(0, db));
-    // Linear scale for simplicity
-    return ((clamped + 60) / 60) * 100;
-  }, []);
+  const levelPercent = dbToPercent(level);
+  const peakPercent = peak !== undefined ? dbToPercent(peak) : undefined;
 
-  const levelPercent = levelToPercent(level);
-  const peakPercent = peak !== undefined ? levelToPercent(peak) : undefined;
-
-  // Determine segment colors based on level
   const getSegmentColor = (segmentDb: number): string => {
-    if (segmentDb > -3) return 'bg-meter-red';
-    if (segmentDb > -12) return 'bg-meter-yellow';
+    const zone = meterZoneForDb(segmentDb);
+    if (zone === 'clip') return 'bg-meter-red';
+    if (zone === 'warn') return 'bg-meter-yellow';
     return 'bg-meter-green';
   };
 

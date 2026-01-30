@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cn } from '../../lib/utils';
+import { dbToPercent, meterZoneForDb } from '../../lib/monitoring/levelUtils';
 
 export interface MiniMeterProps {
   /** Current level in dB (-60 to 0) */
@@ -22,6 +23,16 @@ export interface MiniMeterProps {
  * - Yellow: High (-12 to -3 dB)
  * - Red: Clipping (above -3 dB)
  */
+const ZONE_CLASS = {
+  safe: 'bg-meter-green',
+  warn: 'bg-meter-yellow',
+  clip: 'bg-meter-red',
+} as const;
+
+function getMeterClass(db: number): string {
+  return ZONE_CLASS[meterZoneForDb(db)];
+}
+
 export const MiniMeter = React.memo(function MiniMeter({
   level,
   peak,
@@ -30,25 +41,9 @@ export const MiniMeter = React.memo(function MiniMeter({
   label,
   className,
 }: MiniMeterProps) {
-  // Convert dB to percentage (0-100)
-  const levelToPercent = (db: number): number => {
-    // Clamp to -60 to 0 range
-    const clamped = Math.max(-60, Math.min(0, db));
-    // Linear scale for simplicity in mini meter
-    return ((clamped + 60) / 60) * 100;
-  };
-
-  const levelPercent = levelToPercent(level);
-  const peakPercent = peak !== undefined ? levelToPercent(peak) : undefined;
-
-  // Determine color based on level
-  const getColor = (db: number): string => {
-    if (db > -3) return 'bg-meter-red';
-    if (db > -12) return 'bg-meter-yellow';
-    return 'bg-meter-green';
-  };
-
-  const meterColor = getColor(level);
+  const levelPercent = dbToPercent(level);
+  const peakPercent = peak !== undefined ? dbToPercent(peak) : undefined;
+  const meterColor = getMeterClass(level);
   const isHorizontal = orientation === 'horizontal';
 
   return (

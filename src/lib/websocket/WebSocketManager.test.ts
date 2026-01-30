@@ -8,6 +8,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WebSocketManager } from './WebSocketManager';
+import { formatCommand, formatMessage } from './protocol';
+import { calculateReconnectDelay } from './reconnectUtils';
 import type { WSResponse } from '../../types';
 
 // Mock WebSocket
@@ -252,7 +254,7 @@ describe('WebSocketManager', () => {
       await expect(manager.send('GetVersion', 'high')).rejects.toThrow('WebSocket not connected');
 
       // Message should be queued
-      expect((manager as any).messageQueue).toHaveLength(1);
+      expect((manager as any).messageQueue.size).toBe(1);
     });
 
     it('should prioritize high priority messages', async () => {
@@ -261,10 +263,10 @@ describe('WebSocketManager', () => {
       manager.send('GetVersion', 'high').catch(() => {});
       manager.send('GetConfig', 'normal').catch(() => {});
 
-      const queue = (manager as any).messageQueue;
-      expect(queue[0].priority).toBe('high');
-      expect(queue[1].priority).toBe('normal');
-      expect(queue[2].priority).toBe('low');
+      const queue = (manager as any).messageQueue.peekAll();
+      expect(queue[0]?.priority).toBe('high');
+      expect(queue[1]?.priority).toBe('normal');
+      expect(queue[2]?.priority).toBe('low');
     });
   });
 
@@ -294,29 +296,29 @@ describe('WebSocketManager', () => {
 
   describe('Command Formatting', () => {
     it('should format string commands correctly', () => {
-      const formatted = (manager as any).formatCommand('GetVersion');
+      const formatted = formatCommand('GetVersion');
       expect(formatted).toBe('GetVersion');
     });
 
     it('should format object commands correctly', () => {
-      const formatted = (manager as any).formatCommand({ SetVolume: -10.5 });
+      const formatted = formatCommand({ SetVolume: -10.5 });
       expect(formatted).toBe('SetVolume');
     });
 
     it('should handle empty object commands', () => {
-      const formatted = (manager as any).formatCommand({});
+      const formatted = formatCommand({});
       expect(formatted).toBe('Unknown');
     });
   });
 
   describe('Message Formatting', () => {
     it('should format string command messages', () => {
-      const message = (manager as any).formatMessage('GetVersion');
+      const message = formatMessage('GetVersion');
       expect(JSON.parse(message)).toBe('GetVersion');
     });
 
     it('should format object command messages', () => {
-      const message = (manager as any).formatMessage({ SetVolume: -10.5 });
+      const message = formatMessage({ SetVolume: -10.5 });
       expect(JSON.parse(message)).toEqual({ SetVolume: -10.5 });
     });
   });
@@ -356,13 +358,9 @@ describe('WebSocketManager', () => {
     });
 
     it('should calculate exponential backoff delay', () => {
-      const delay1 = (manager as any).calculateReconnectDelay();
-      (manager as any).reconnectAttempts = 1;
-
-      const delay2 = (manager as any).calculateReconnectDelay();
-      (manager as any).reconnectAttempts = 2;
-
-      const delay3 = (manager as any).calculateReconnectDelay();
+      const delay1 = calculateReconnectDelay(1, 1000, 30000);
+      const delay2 = calculateReconnectDelay(2, 1000, 30000);
+      const delay3 = calculateReconnectDelay(3, 1000, 30000);
 
       // Delays should increase exponentially (within jitter bounds)
       expect(delay2).toBeGreaterThanOrEqual(delay1 * 0.75);
@@ -370,9 +368,7 @@ describe('WebSocketManager', () => {
     });
 
     it('should cap reconnect delay at max', () => {
-      (manager as any).reconnectAttempts = 20; // Very high
-
-      const delay = (manager as any).calculateReconnectDelay();
+      const delay = calculateReconnectDelay(20, 1000, 30000);
 
       // Should be capped at maxReconnectDelay (30000) plus/minus jitter
       expect(delay).toBeLessThanOrEqual(30000 * 1.25);
@@ -401,7 +397,7 @@ describe('WebSocketManager', () => {
       manager.send('GetVersion', 'high').catch(() => {});
       manager.send('GetState', 'normal').catch(() => {});
 
-      expect((manager as any).messageQueue).toHaveLength(2);
+      expect((manager as any).messageQueue.size).toBe(2);
 
       // Connect
       await manager.connect();
@@ -410,16 +406,16 @@ describe('WebSocketManager', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       // Queue should be empty after flush
-      expect((manager as any).messageQueue).toHaveLength(0);
+      expect((manager as any).messageQueue.size).toBe(0);
     });
 
     it('should handle empty queue flush gracefully', async () => {
-      expect((manager as any).messageQueue).toHaveLength(0);
+      expect((manager as any).messageQueue.size).toBe(0);
 
       // Should not throw when connecting with empty queue
       await manager.connect();
 
-      expect((manager as any).messageQueue).toHaveLength(0);
+      expect((manager as any).messageQueue.size).toBe(0);
     });
   });
 

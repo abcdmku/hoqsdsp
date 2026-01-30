@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { ConnectionStatus, UnitConnection } from '../types';
+import type { ConnectionStatus, SignalLevels, UnitConnection } from '../types';
 import { websocketService } from '../services/websocketService';
 
 interface ConnectionState {
@@ -21,7 +21,7 @@ interface ConnectionActions {
   getVolume: (unitId: string) => Promise<number>;
   getMute: (unitId: string) => Promise<boolean>;
   getProcessingLoad: (unitId: string) => Promise<number>;
-  getSignalLevels: (unitId: string) => Promise<any>;
+  getSignalLevels: (unitId: string) => Promise<SignalLevels>;
   getBufferLevel: (unitId: string) => Promise<number>;
   getVersion: (unitId: string) => Promise<string>;
 }

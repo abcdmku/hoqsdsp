@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { ChannelNode, ChannelSide, RouteEdge, RouteEndpoint } from '../../lib/signalflow';
+import { sameEndpoint } from '../../lib/signalflow/endpointUtils';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
 import {
@@ -10,10 +11,6 @@ import {
   SelectValue,
 } from '../ui/Select';
 import { useState } from 'react';
-
-function sameEndpoint(a: RouteEndpoint, b: RouteEndpoint): boolean {
-  return a.deviceId === b.deviceId && a.channelIndex === b.channelIndex;
-}
 
 export interface ChannelConnectionsWindowContentProps {
   node: ChannelNode;

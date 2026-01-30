@@ -1,11 +1,8 @@
 import { useMemo } from 'react';
 import type { ChannelNode, ChannelSide, RouteEndpoint } from '../../lib/signalflow';
+import { sameEndpoint } from '../../lib/signalflow/endpointUtils';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
-
-function sameEndpoint(a: RouteEndpoint, b: RouteEndpoint): boolean {
-  return a.deviceId === b.deviceId && a.channelIndex === b.channelIndex;
-}
 
 export interface SignalFlowChannelWindowContentProps {
   node: ChannelNode;

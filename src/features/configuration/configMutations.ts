@@ -38,34 +38,17 @@ export function useSetConfigJson(unitId: string) {
       try {
         // SetConfigJson validates and applies the config directly
         // (Note: Reload is not needed - SetConfigJson applies the config immediately)
-        console.log('[SetConfigJson] Sending config:');
-        console.log('[SetConfigJson] filters:', cleanedConfig.filters);
-        console.log('[SetConfigJson] pipeline filter steps:', (cleanedConfig.pipeline as Array<{ type: string; name: string; channels?: number[] }>)?.filter((s) => s.type === 'Filter'));
-        console.debug('[SetConfigJson] Full JSON string:', jsonString);
-
-        // Try to get version info for debugging
-        try {
-          const version = await wsManager.send<string>('GetVersion');
-          console.log('[SetConfigJson] CamillaDSP version:', version);
-        } catch {
-          console.log('[SetConfigJson] Could not get version');
-        }
-
-        // Try direct SetConfigJson first
         try {
           await wsManager.send({ SetConfigJson: jsonString });
-          console.log('[SetConfigJson] Config sent successfully (direct)');
           return;
         } catch (directError) {
           console.warn('[SetConfigJson] Direct apply failed, trying Stop/Set/Start:', directError);
         }
 
         // If direct apply fails (e.g., pipeline structure changed), try Stop -> Set -> Reload
-        console.log('[SetConfigJson] Trying Stop -> SetConfigJson -> Reload...');
         await wsManager.send('Stop');
         await wsManager.send({ SetConfigJson: jsonString });
         await wsManager.send({ Reload: null });
-        console.log('[SetConfigJson] Config sent successfully (with restart)');
       } catch (error) {
         console.error('[SetConfigJson] Failed to apply config:', error);
         console.error('[SetConfigJson] Config that failed:', cleanedConfig);

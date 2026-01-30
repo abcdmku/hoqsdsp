@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChannelNode, RouteEdge, RouteEndpoint } from '../../lib/signalflow';
+import { portKey } from '../../lib/signalflow/endpointUtils';
 import { cn } from '../../lib/utils';
 
 export interface DragState {
@@ -24,10 +25,6 @@ export interface ConnectionsCanvasProps {
   onRouteHover?: (index: number | null) => void;
   /** Called when clicking on empty canvas area to clear all selections */
   onClearSelection?: () => void;
-}
-
-function portKey(side: 'input' | 'output', endpoint: RouteEndpoint): string {
-  return `${side}:${endpoint.deviceId}:${endpoint.channelIndex}`;
 }
 
 function buildCurve(
