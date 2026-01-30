@@ -25,6 +25,13 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   private readonly maxReconnectDelay = 30000;
   private readonly requestTimeout = 5000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private keepAliveInFlight = false;
+  private lastSentAt = 0;
+  private lastReceivedAt = 0;
+  private intentionalClose = false;
+  private readonly heartbeatInterval = 15000;
+  private readonly staleTimeout = 45000;
 
   constructor(url: string) {
     super();
@@ -46,7 +53,27 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
         return;
       }
 
+      if (this.ws?.readyState === WebSocket.CONNECTING) {
+        const onConnected = () => {
+          cleanup();
+          resolve();
+        };
+        const onError = (error: Error) => {
+          cleanup();
+          reject(error);
+        };
+        const cleanup = () => {
+          this.off('connected', onConnected);
+          this.off('error', onError);
+        };
+
+        this.on('connected', onConnected);
+        this.on('error', onError);
+        return;
+      }
+
       this.setState('connecting');
+      this.intentionalClose = false;
 
       try {
         this.ws = new WebSocket(this.url);
@@ -59,6 +86,10 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
       this.ws.onopen = () => {
         this.setState('connected');
         this.reconnectAttempts = 0;
+        const now = Date.now();
+        this.lastSentAt = now;
+        this.lastReceivedAt = now;
+        this.startHeartbeat();
         this.emit('connected');
         this.flushMessageQueue();
         resolve();
@@ -84,7 +115,9 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
 
   disconnect(): void {
     this.cancelReconnect();
+    this.stopHeartbeat();
     this.clearPendingRequests();
+    this.intentionalClose = true;
 
     if (this.ws) {
       this.ws.onclose = null;
@@ -106,6 +139,7 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
       throw new Error('WebSocket not connected');
     }
 
+    this.lastSentAt = Date.now();
     const commandName = formatCommand(command);
     const message = formatMessage(command);
     const timeout = options?.timeout ?? this.requestTimeout;
@@ -136,6 +170,7 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   }
 
   private handleMessage(data: string): void {
+    this.lastReceivedAt = Date.now();
     try {
       const parsed = JSON.parse(data) as unknown;
       this.emit('message', parsed);
@@ -178,10 +213,12 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
 
   private handleDisconnect(code: number, reason: string): void {
     this.ws = null;
+    this.stopHeartbeat();
     this.clearPendingRequests();
     this.emit('disconnected', code, reason);
 
-    if (code === 1000) {
+    if (this.intentionalClose || reason === 'Client disconnect') {
+      this.intentionalClose = false;
       this.setState('disconnected');
       return;
     }
@@ -205,6 +242,7 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
     );
 
     this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
       this.connect().catch(() => {
         // Will trigger another reconnect attempt via onclose
       });
@@ -232,5 +270,42 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
         // Message failed, will be logged via error event
       });
     });
+  }
+
+  private startHeartbeat(): void {
+    if (this.heartbeatInterval <= 0 || this.heartbeatTimer) {
+      return;
+    }
+
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.isConnected || !this.ws) {
+        return;
+      }
+
+      const now = Date.now();
+      const lastActivity = Math.max(this.lastSentAt, this.lastReceivedAt);
+
+      if (this.lastReceivedAt > 0 && now - this.lastReceivedAt > this.staleTimeout) {
+        this.ws.close(4000, 'Heartbeat timeout');
+        return;
+      }
+
+      if (now - lastActivity >= this.heartbeatInterval && !this.keepAliveInFlight) {
+        this.keepAliveInFlight = true;
+        this.send('GetState', 'low', { timeout: Math.min(this.requestTimeout, 3000) })
+          .catch(() => {})
+          .finally(() => {
+            this.keepAliveInFlight = false;
+          });
+      }
+    }, this.heartbeatInterval);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    this.keepAliveInFlight = false;
   }
 }

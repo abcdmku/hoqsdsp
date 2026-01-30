@@ -341,6 +341,21 @@ describe('WebSocketManager', () => {
       expect(stateChanges).toContain('reconnecting');
     });
 
+    it('should attempt reconnect on clean close from server', async () => {
+      await manager.connect();
+
+      const stateChanges: string[] = [];
+      manager.on('stateChange', (state) => stateChanges.push(state));
+
+      const ws = (manager as any).ws as MockWebSocket;
+      ws.readyState = MockWebSocket.CLOSED;
+      ws.onclose?.(new CloseEvent('close', { code: 1000, reason: 'Server shutdown' }));
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(stateChanges).toContain('reconnecting');
+    });
+
     it('should stop reconnecting after max attempts', async () => {
       await manager.connect();
 
