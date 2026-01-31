@@ -79,8 +79,8 @@ export function ChannelBank({
       ref={containerRef}
       className={
         side === 'input'
-          ? 'flex-1 min-w-50 overflow-y-auto border-r border-dsp-primary/20 bg-dsp-surface'
-          : 'flex-1 min-w-50 overflow-y-auto border-l border-dsp-primary/20 bg-dsp-surface'
+          ? 'flex-1 min-w-50 border-r border-dsp-primary/20 bg-dsp-surface'
+          : 'flex-1 min-w-50 border-l border-dsp-primary/20 bg-dsp-surface'
       }
       aria-label={title}
       onClick={(event) => {

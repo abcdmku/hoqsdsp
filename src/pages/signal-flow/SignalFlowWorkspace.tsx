@@ -63,6 +63,7 @@ interface SignalFlowWorkspaceProps {
   deleteRoute: (index: number) => void;
   windows: SignalFlowWindow[];
   workspaceRef: RefObject<HTMLDivElement | null>;
+  scrollContainerRef?: RefObject<HTMLElement | null>;
   nextZIndexRef: MutableRefObject<number>;
   channelLevels: {
     capture: number[] | null;
@@ -118,6 +119,7 @@ export function SignalFlowWorkspace({
   deleteRoute,
   windows,
   workspaceRef,
+  scrollContainerRef,
   nextZIndexRef,
   channelLevels,
   onColorChange,
@@ -133,6 +135,7 @@ export function SignalFlowWorkspace({
         dragState={dragState}
         highlightedPortKey={highlightedPortKey}
         inputBankRef={inputBankRef}
+        scrollContainerRef={scrollContainerRef}
         inputGroups={inputGroups}
         inputs={inputs}
         onClearSelection={onClearSelection}

@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { ChannelNode, ChannelSide, RouteEndpoint } from '../../lib/signalflow';
 import type { DockedFilterEditorState } from './windows/types';
 import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../types';
@@ -39,16 +40,40 @@ export function SignalFlowDockedFilterEditor({
   onUpdateFilters,
 }: SignalFlowDockedFilterEditorProps) {
   const isOpen = !!dockedFilterEditor;
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setContentHeight(0);
+      return;
+    }
+
+    const el = contentRef.current;
+    if (!el) return;
+
+    const update = () => {
+      setContentHeight(el.scrollHeight);
+    };
+
+    update();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => update());
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isOpen, dockedFilterEditor]);
 
   return (
     <div
       className="overflow-hidden border-b border-dsp-primary/20 bg-dsp-surface transition-[height] duration-300 ease-in-out"
-      style={{ height: isOpen ? 'calc(100% - 20vh)' : '0px' }}
+      style={{ height: isOpen ? `${contentHeight}px` : '0px' }}
       data-floating-window
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
-      {dockedFilterEditor && (() => {
+      <div ref={contentRef}>
+        {dockedFilterEditor && (() => {
         const endpoint = { deviceId: dockedFilterEditor.deviceId, channelIndex: dockedFilterEditor.channelIndex };
         const nodes = dockedFilterEditor.side === 'input' ? inputs : outputs;
         const node = nodes.find(
@@ -60,7 +85,7 @@ export function SignalFlowDockedFilterEditor({
         const meta = FILTER_UI[dockedFilterEditor.filterType];
 
         return (
-          <div className="flex h-full flex-col overflow-hidden">
+          <div className="flex flex-col">
             <div className="flex items-center justify-between gap-4 border-b border-dsp-primary/20 px-4 py-3">
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-dsp-text">
@@ -83,7 +108,7 @@ export function SignalFlowDockedFilterEditor({
               </Button>
             </div>
 
-            <div className="flex-1 overflow-auto p-4">
+            <div className="p-4">
               <SignalFlowFilterWindowContent
                 node={node}
                 sampleRate={sampleRate}
@@ -101,6 +126,7 @@ export function SignalFlowDockedFilterEditor({
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }

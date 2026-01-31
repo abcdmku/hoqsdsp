@@ -14,6 +14,7 @@ export interface ConnectionsCanvasProps {
   canvasRef: RefObject<HTMLElement | null>;
   inputBankRef: RefObject<HTMLElement | null>;
   outputBankRef: RefObject<HTMLElement | null>;
+  scrollContainerRef?: RefObject<HTMLElement | null>;
   inputs: ChannelNode[];
   outputs: ChannelNode[];
   routes: RouteEdge[];
@@ -65,6 +66,7 @@ export function ConnectionsCanvas({
   canvasRef,
   inputBankRef,
   outputBankRef,
+  scrollContainerRef,
   inputs,
   outputs,
   routes,
@@ -105,13 +107,18 @@ export function ConnectionsCanvas({
       .map((bank) => bank.querySelector<HTMLElement>('[data-sf-bank-content]'))
       .filter(Boolean) as HTMLElement[];
 
+    const scrollTargets = [
+      ...banks,
+      ...(scrollContainerRef?.current ? [scrollContainerRef.current] : []),
+    ];
+
     resizeObserver?.observe(canvasEl);
     for (const content of bankContents) {
       resizeObserver?.observe(content);
     }
 
-    for (const bank of banks) {
-      bank.addEventListener('scroll', request, { passive: true });
+    for (const target of scrollTargets) {
+      target.addEventListener('scroll', request, { passive: true });
     }
 
     window.addEventListener('resize', request);
@@ -120,14 +127,14 @@ export function ConnectionsCanvas({
     return () => {
       resizeObserver?.disconnect();
       window.removeEventListener('resize', request);
-      for (const bank of banks) {
-        bank.removeEventListener('scroll', request);
+      for (const target of scrollTargets) {
+        target.removeEventListener('scroll', request);
       }
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
     };
-  }, [canvasRef, inputBankRef, outputBankRef]);
+  }, [canvasRef, inputBankRef, outputBankRef, scrollContainerRef]);
 
   const layout = useMemo(() => {
     const canvasEl = canvasRef.current;

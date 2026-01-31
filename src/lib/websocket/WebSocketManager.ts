@@ -43,7 +43,7 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   }
 
   get isConnected(): boolean {
-    return this.state === 'connected';
+    return this.state === 'connected' && this.ws?.readyState === WebSocket.OPEN;
   }
 
   connect(): Promise<void> {

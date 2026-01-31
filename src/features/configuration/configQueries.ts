@@ -1,8 +1,10 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { CamillaConfig } from '../../types';
 import { websocketService } from '../../services/websocketService';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { cleanNullValues } from '../../lib/config/cleanConfig';
+import { useConfigBackupStore } from '../../stores/configBackupStore';
 
 export const configKeys = {
   all: ['config'] as const,
@@ -32,19 +34,31 @@ export function useConfigJson(unitId: string) {
     (state) => state.connections.get(unitId)?.status,
   );
   const wsManager = websocketService.getManager(unitId);
+  const saveConfig = useConfigBackupStore((state) => state.saveConfig);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: configKeys.json(unitId),
-    queryFn: async (): Promise<CamillaConfig> => {
+    queryFn: async (): Promise<CamillaConfig | null> => {
       if (!wsManager) throw new Error('WebSocket not connected');
       const jsonString = await wsManager.send<string>('GetConfigJson');
-      const rawConfig = JSON.parse(jsonString) as CamillaConfig;
+      const rawConfig = JSON.parse(jsonString) as CamillaConfig | null;
+      if (rawConfig == null) {
+        return null;
+      }
       // Clean null values that CamillaDSP sends for optional fields
       return cleanNullValues(rawConfig);
     },
     enabled: status === 'connected' && !!wsManager,
     staleTime: 5000,
   });
+
+  useEffect(() => {
+    if (query.data) {
+      saveConfig(unitId, query.data);
+    }
+  }, [query.data, saveConfig, unitId]);
+
+  return query;
 }
 
 export interface ConfigStatus {

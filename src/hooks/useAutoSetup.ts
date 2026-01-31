@@ -9,7 +9,73 @@ import {
   type AutoConfigResult,
 } from '../lib/devices/deviceClassifier';
 import { parseDeviceList } from '../features/devices';
-import type { DeviceInfo } from '../types';
+import type { CamillaConfig, DeviceInfo } from '../types';
+import { useConfigBackupStore } from '../stores/configBackupStore';
+
+function patchConfigForDevices(
+  config: CamillaConfig,
+  options: {
+    captureDevice: string;
+    captureBackend: string;
+    captureChannels: number;
+    captureFormat: string;
+    playbackDevice: string;
+    playbackBackend: string;
+    playbackChannels: number;
+    playbackFormat: string;
+    sampleRate: number;
+    chunkSize: number;
+  },
+): CamillaConfig {
+  const next: CamillaConfig = {
+    ...config,
+    devices: {
+      ...config.devices,
+      samplerate: options.sampleRate,
+      chunksize: options.chunkSize,
+      capture: {
+        ...config.devices.capture,
+        type: options.captureBackend,
+        channels: options.captureChannels,
+        device: options.captureDevice,
+        format: options.captureFormat as CamillaConfig['devices']['capture']['format'],
+      },
+      playback: {
+        ...config.devices.playback,
+        type: options.playbackBackend,
+        channels: options.playbackChannels,
+        device: options.playbackDevice,
+        format: options.playbackFormat as CamillaConfig['devices']['playback']['format'],
+      },
+    },
+  };
+
+  const routing = next.mixers?.routing;
+  if (!routing) return next;
+
+  const inChannels = options.captureChannels;
+  const outChannels = options.playbackChannels;
+
+  const nextMapping = routing.mapping
+    .filter((m) => m.dest >= 0 && m.dest < outChannels)
+    .map((m) => ({
+      ...m,
+      sources: m.sources.filter((s) => s.channel >= 0 && s.channel < inChannels),
+    }))
+    .filter((m) => m.sources.length > 0);
+
+  return {
+    ...next,
+    mixers: {
+      ...next.mixers,
+      routing: {
+        ...routing,
+        channels: { in: inChannels, out: outChannels },
+        mapping: nextMapping,
+      },
+    },
+  };
+}
 
 export interface AutoSetupResult {
   success: boolean;
@@ -147,9 +213,31 @@ export function useAutoSetup(unitId: string) {
       });
 
       // Step 4: Apply config to device
-      setState(s => ({ ...s, step: 'applying', message: 'Applying configuration...' }));
+      const backupConfig = useConfigBackupStore.getState().getConfig(unitId);
+      const configToApply = backupConfig
+        ? patchConfigForDevices(backupConfig, {
+          captureDevice: captureConfig.deviceForConfig,
+          captureBackend: captureConfig.backend,
+          captureChannels: captureConfig.channels,
+          captureFormat: captureConfig.format,
+          playbackDevice: playbackConfig.deviceForConfig,
+          playbackBackend: playbackConfig.backend,
+          playbackChannels: playbackConfig.channels,
+          playbackFormat: playbackConfig.format,
+          sampleRate: captureConfig.sampleRate,
+          chunkSize: captureConfig.chunkSize,
+        })
+        : config;
 
-      await setConfigMutation.mutateAsync(config);
+      setState(s => ({
+        ...s,
+        step: 'applying',
+        message: backupConfig
+          ? 'Restoring previous configuration with updated devices...'
+          : 'Applying configuration...',
+      }));
+
+      await setConfigMutation.mutateAsync(configToApply);
       setConfigMutation.invalidate();
 
       const result: AutoSetupResult = {
@@ -211,9 +299,31 @@ export function useAutoSetup(unitId: string) {
         chunkSize: captureConfig.chunkSize,
       });
 
-      setState(s => ({ ...s, step: 'applying', message: 'Applying configuration...' }));
+      const backupConfig = useConfigBackupStore.getState().getConfig(unitId);
+      const configToApply = backupConfig
+        ? patchConfigForDevices(backupConfig, {
+          captureDevice: captureConfig.deviceForConfig,
+          captureBackend: captureConfig.backend,
+          captureChannels: captureConfig.channels,
+          captureFormat: captureConfig.format,
+          playbackDevice: playbackConfig.deviceForConfig,
+          playbackBackend: playbackConfig.backend,
+          playbackChannels: playbackConfig.channels,
+          playbackFormat: playbackConfig.format,
+          sampleRate: captureConfig.sampleRate,
+          chunkSize: captureConfig.chunkSize,
+        })
+        : config;
 
-      await setConfigMutation.mutateAsync(config);
+      setState(s => ({
+        ...s,
+        step: 'applying',
+        message: backupConfig
+          ? 'Restoring previous configuration with updated devices...'
+          : 'Applying configuration...',
+      }));
+
+      await setConfigMutation.mutateAsync(configToApply);
       setConfigMutation.invalidate();
 
       const result: AutoSetupResult = {

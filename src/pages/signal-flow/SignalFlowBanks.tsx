@@ -16,6 +16,7 @@ interface SignalFlowBanksProps {
   dragState: DragState | null;
   highlightedPortKey: string | null;
   inputBankRef: RefObject<HTMLElement | null>;
+  scrollContainerRef?: RefObject<HTMLElement | null>;
   inputGroups: DeviceGroup[];
   inputs: ChannelNode[];
   onClearSelection: () => void;
@@ -53,6 +54,7 @@ export function SignalFlowBanks({
   dragState,
   highlightedPortKey,
   inputBankRef,
+  scrollContainerRef,
   inputGroups,
   inputs,
   onClearSelection,
@@ -79,7 +81,7 @@ export function SignalFlowBanks({
 }: SignalFlowBanksProps) {
   return (
     <div
-      className="relative flex flex-1 overflow-hidden"
+      className="relative flex overflow-hidden"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClearSelection();
@@ -114,6 +116,7 @@ export function SignalFlowBanks({
         canvasRef={canvasRef}
         inputBankRef={inputBankRef}
         outputBankRef={outputBankRef}
+        scrollContainerRef={scrollContainerRef}
         inputs={inputs}
         outputs={outputs}
         routes={routes}

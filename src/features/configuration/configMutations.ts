@@ -4,6 +4,7 @@ import { configKeys } from './configQueries';
 import type { CamillaConfig } from '../../types';
 import { websocketService } from '../../services/websocketService';
 import { cleanNullValues } from '../../lib/config/cleanConfig';
+import { useConfigBackupStore } from '../../stores/configBackupStore';
 
 export function useSetConfig(unitId: string) {
   const queryClient = useQueryClient();
@@ -23,6 +24,7 @@ export function useSetConfig(unitId: string) {
 
 export function useSetConfigJson(unitId: string) {
   const queryClient = useQueryClient();
+  const saveConfig = useConfigBackupStore((state) => state.saveConfig);
 
   const mutation = useMutation({
     mutationFn: async (config: CamillaConfig): Promise<void> => {
@@ -41,11 +43,13 @@ export function useSetConfigJson(unitId: string) {
         // (Note: Reload is not needed - SetConfigJson applies the config immediately)
         try {
           await wsManager.send({ SetConfigJson: jsonString });
+          saveConfig(unitId, cleanedConfig);
           return;
         } catch (directError) {
           if (fallbackJsonString) {
             try {
               await wsManager.send({ SetConfigJson: fallbackJsonString });
+              saveConfig(unitId, cleanedConfig);
               return;
             } catch (fallbackError) {
               console.warn('[SetConfigJson] Direct apply failed (with and without ui), trying Stop/Set/Start:', fallbackError);
@@ -60,6 +64,7 @@ export function useSetConfigJson(unitId: string) {
         await wsManager.send('Stop');
         await wsManager.send({ SetConfigJson: jsonForReload });
         await wsManager.send({ Reload: null });
+        saveConfig(unitId, cleanedConfig);
       } catch (error) {
         console.error('[SetConfigJson] Failed to apply config:', error);
         console.error('[SetConfigJson] Config that failed:', cleanedConfig);

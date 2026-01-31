@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { ChannelNode, ChannelSide, RouteEndpoint } from '../../lib/signalflow';
 import type { FilterType } from '../../types';
 import { portKey } from '../../lib/signalflow/endpointUtils';
@@ -31,6 +31,8 @@ export function SignalFlowPage() {
     readClipboard,
     scrollChannelIntoView,
   } = useSignalFlowPageState();
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const onSelectChannel = useCallback(
     (side: ChannelSide, channel: ChannelNode) => {
@@ -121,74 +123,77 @@ export function SignalFlowPage() {
         warningCount={warningCount}
       />
 
-      <SignalFlowDockedFilterEditor
-        dockedFilterEditor={windows.dockedFilterEditor}
-        firPhaseCorrection={model.firPhaseCorrection}
-        deq={model.deq}
-        inputs={model.inputs}
-        outputs={model.outputs}
-        sampleRate={configState.sampleRate}
-        labelFor={model.labelFor}
-        onClose={() => windows.setDockedFilterEditor(null)}
-        onPersistFirPhaseCorrectionSettings={model.handlePersistFirPhaseCorrectionSettings}
-        onPersistDeqSettings={model.handlePersistDeqSettings}
-        onUpdateFilters={model.updateChannelFilters}
-      />
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
+        <SignalFlowDockedFilterEditor
+          dockedFilterEditor={windows.dockedFilterEditor}
+          firPhaseCorrection={model.firPhaseCorrection}
+          deq={model.deq}
+          inputs={model.inputs}
+          outputs={model.outputs}
+          sampleRate={configState.sampleRate}
+          labelFor={model.labelFor}
+          onClose={() => windows.setDockedFilterEditor(null)}
+          onPersistFirPhaseCorrectionSettings={model.handlePersistFirPhaseCorrectionSettings}
+          onPersistDeqSettings={model.handlePersistDeqSettings}
+          onUpdateFilters={model.updateChannelFilters}
+        />
 
-      <SignalFlowWorkspace
-        addRoute={model.addRoute}
-        canvasRef={canvasRef}
-        channelColors={model.channelColors}
-        clipboard={clipboard}
-        copyClipboard={copyClipboard}
-        connectionCounts={model.connectionCounts}
-        dragState={drag.dragState}
-        firPhaseCorrection={model.firPhaseCorrection}
-        deq={model.deq}
-        handleSetChannelColor={model.handleSetChannelColor}
-        handleSetMirrorGroup={model.handleSetMirrorGroup}
-        handlePersistFirPhaseCorrectionSettings={model.handlePersistFirPhaseCorrectionSettings}
-        handlePersistDeqSettings={model.handlePersistDeqSettings}
-        highlightedPortKey={drag.highlightedPortKey}
-        inputBankRef={inputBankRef}
-        inputGroups={configState.flow.model.inputGroups}
-        inputs={model.inputs}
-        labelFor={model.labelFor}
-        mirrorGroups={model.mirrorGroups}
-        onClearSelection={() => {
-          selection.setSelectedRouteIndex(null);
-          selection.setSelectedChannelKey(null);
-        }}
-        onPortPointerDown={drag.handlePortPointerDown}
-        onSelectChannel={onSelectChannel}
-        onUpdateFilters={handleUpdateFilters}
-        openChannelWindow={windows.openChannelWindow}
-        openConnectionWindow={windows.openConnectionWindow}
-        openConnectionsWindow={windows.openConnectionsWindow}
-        openFilterWindow={openFilterWindow}
-        outputBankRef={outputBankRef}
-        outputGroups={configState.flow.model.outputGroups}
-        outputs={model.outputs}
-        readClipboard={readClipboard}
-        routeHighlightedKeys={routeHighlightedChannelKeys}
-        routes={model.routes}
-        sampleRate={configState.sampleRate}
-        selectedChannelKey={selection.selectedChannelKey}
-        selectedRouteIndex={selection.selectedRouteIndex}
-        setHoveredRouteIndex={selection.setHoveredRouteIndex}
-        setSelectedChannelKey={selection.setSelectedChannelKey}
-        setSelectedRouteIndex={selection.setSelectedRouteIndex}
-        setWindows={windows.setWindows}
-        updateChannelFilters={model.updateChannelFilters}
-        updateRoute={model.updateRoute}
-        deleteRoute={model.deleteRoute}
-        windows={windows.windows}
-        workspaceRef={workspaceRef}
-        nextZIndexRef={windows.nextZIndexRef}
-        channelLevels={{ capture: captureLevels, playback: playbackLevels }}
-        onColorChange={onColorChange}
-        onLabelChange={onLabelChange}
-      />
+        <SignalFlowWorkspace
+          addRoute={model.addRoute}
+          canvasRef={canvasRef}
+          channelColors={model.channelColors}
+          clipboard={clipboard}
+          copyClipboard={copyClipboard}
+          connectionCounts={model.connectionCounts}
+          dragState={drag.dragState}
+          firPhaseCorrection={model.firPhaseCorrection}
+          deq={model.deq}
+          handleSetChannelColor={model.handleSetChannelColor}
+          handleSetMirrorGroup={model.handleSetMirrorGroup}
+          handlePersistFirPhaseCorrectionSettings={model.handlePersistFirPhaseCorrectionSettings}
+          handlePersistDeqSettings={model.handlePersistDeqSettings}
+          highlightedPortKey={drag.highlightedPortKey}
+          inputBankRef={inputBankRef}
+          inputGroups={configState.flow.model.inputGroups}
+          inputs={model.inputs}
+          labelFor={model.labelFor}
+          mirrorGroups={model.mirrorGroups}
+          onClearSelection={() => {
+            selection.setSelectedRouteIndex(null);
+            selection.setSelectedChannelKey(null);
+          }}
+          onPortPointerDown={drag.handlePortPointerDown}
+          onSelectChannel={onSelectChannel}
+          onUpdateFilters={handleUpdateFilters}
+          openChannelWindow={windows.openChannelWindow}
+          openConnectionWindow={windows.openConnectionWindow}
+          openConnectionsWindow={windows.openConnectionsWindow}
+          openFilterWindow={openFilterWindow}
+          outputBankRef={outputBankRef}
+          outputGroups={configState.flow.model.outputGroups}
+          outputs={model.outputs}
+          readClipboard={readClipboard}
+          routeHighlightedKeys={routeHighlightedChannelKeys}
+          routes={model.routes}
+          sampleRate={configState.sampleRate}
+          selectedChannelKey={selection.selectedChannelKey}
+          selectedRouteIndex={selection.selectedRouteIndex}
+          setHoveredRouteIndex={selection.setHoveredRouteIndex}
+          setSelectedChannelKey={selection.setSelectedChannelKey}
+          setSelectedRouteIndex={selection.setSelectedRouteIndex}
+          setWindows={windows.setWindows}
+          updateChannelFilters={model.updateChannelFilters}
+          updateRoute={model.updateRoute}
+          deleteRoute={model.deleteRoute}
+          windows={windows.windows}
+          workspaceRef={workspaceRef}
+          nextZIndexRef={windows.nextZIndexRef}
+          channelLevels={{ capture: captureLevels, playback: playbackLevels }}
+          onColorChange={onColorChange}
+          onLabelChange={onLabelChange}
+          scrollContainerRef={scrollContainerRef}
+        />
+      </div>
     </div>
   );
 }
