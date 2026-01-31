@@ -3,7 +3,6 @@ import type { ChannelNode, ChannelSide, RouteEndpoint } from '../../lib/signalfl
 import type { FilterType } from '../../types';
 import { portKey } from '../../lib/signalflow/endpointUtils';
 import { SignalFlowEmptyState, SignalFlowStatusMessage } from './SignalFlowEmptyState';
-import { SignalFlowHeader } from './SignalFlowHeader';
 import { SignalFlowDockedFilterEditor } from './SignalFlowDockedFilterEditor';
 import { SignalFlowWorkspace } from './SignalFlowWorkspace';
 import { useSignalFlowPageState } from './hooks/useSignalFlowPageState';
@@ -22,8 +21,6 @@ export function SignalFlowPage() {
     playbackLevels,
     routeHighlightedChannelKeys,
     selection,
-    setUnitSelectorOpen,
-    unitSelectorOpen,
     units,
     windows,
     workspaceRef,
@@ -100,29 +97,8 @@ export function SignalFlowPage() {
     return <SignalFlowStatusMessage message="No config available." />;
   }
 
-  const warningCount = configState.flow.warnings.length;
-  const inputCount = configState.flow.model.inputs.length;
-  const outputCount = configState.flow.model.outputs.length;
-  const routeCount = model.routes.length;
-  const activeUnitName = units.activeUnitId ? units.getUnitName(units.activeUnitId) : 'Unknown';
-
   return (
     <div className="flex h-full flex-col overflow-hidden bg-dsp-bg">
-      <SignalFlowHeader
-        activeUnitName={activeUnitName}
-        connectedUnits={units.connectedUnits}
-        effectiveSelectedIds={units.effectiveSelectedIds}
-        getUnitName={units.getUnitName}
-        inputCount={inputCount}
-        outputCount={outputCount}
-        routeCount={routeCount}
-        setSelectedUnitIds={units.setSelectedUnitIds}
-        toggleSelectedUnit={units.toggleSelectedUnit}
-        unitSelectorOpen={unitSelectorOpen}
-        setUnitSelectorOpen={setUnitSelectorOpen}
-        warningCount={warningCount}
-      />
-
       <div ref={scrollContainerRef} className="flex-1 overflow-auto">
         <SignalFlowDockedFilterEditor
           dockedFilterEditor={windows.dockedFilterEditor}
@@ -131,7 +107,6 @@ export function SignalFlowPage() {
           inputs={model.inputs}
           outputs={model.outputs}
           sampleRate={configState.sampleRate}
-          labelFor={model.labelFor}
           onClose={() => windows.setDockedFilterEditor(null)}
           onPersistFirPhaseCorrectionSettings={model.handlePersistFirPhaseCorrectionSettings}
           onPersistDeqSettings={model.handlePersistDeqSettings}

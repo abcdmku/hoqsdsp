@@ -17,16 +17,12 @@ export interface PageHeaderProps {
   className?: string;
 }
 
-export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
+export function PageHeader({ actions, className }: PageHeaderProps) {
+  if (!actions) return null;
+
   return (
-    <div className={cn('border-b border-dsp-primary/50 bg-dsp-surface/40 px-6 py-4', className)}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-lg font-semibold tracking-tight text-dsp-text">{title}</h1>
-          {description && <p className="mt-1 text-sm text-dsp-text-muted">{description}</p>}
-        </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
-      </div>
+    <div className={cn('border-b border-dsp-primary/50 bg-dsp-surface/40 px-6 py-3', className)}>
+      <div className="flex items-center justify-end gap-2">{actions}</div>
     </div>
   );
 }

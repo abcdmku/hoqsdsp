@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { ChannelNode, ChannelProcessingFilter } from '../../lib/signalflow';
 import { upsertSingleFilterOfType } from '../../lib/signalflow/filterUtils';
 import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1, FilterConfig, FilterType } from '../../types';
@@ -41,6 +41,7 @@ export interface SignalFlowFilterWindowContentProps {
   filterType: FilterType;
   onClose: () => void;
   onChange: (filters: ChannelProcessingFilter[], options?: { debounce?: boolean }) => void;
+  topRightControls?: ReactNode;
   firPhaseCorrection?: Record<string, FirPhaseCorrectionUiSettingsV1>;
   onPersistFirPhaseCorrectionSettings?: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
   deq?: Record<string, DeqBandUiSettingsV1>;
@@ -53,6 +54,7 @@ export function SignalFlowFilterWindowContent({
   filterType,
   onClose,
   onChange,
+  topRightControls,
   firPhaseCorrection,
   onPersistFirPhaseCorrectionSettings,
   deq,
@@ -95,6 +97,7 @@ export function SignalFlowFilterWindowContent({
         bands={eqBands}
         onChange={eqChange}
         sampleRate={sampleRate}
+        topRightControls={topRightControls}
         className="bg-transparent p-0"
       />
     );
@@ -106,6 +109,7 @@ export function SignalFlowFilterWindowContent({
         bands={deqBands}
         sampleRate={sampleRate}
         className="bg-transparent p-0"
+        topRightControls={topRightControls}
         onChange={(nextBands) => {
           const { filters: nextFilters, bands: normalizedBands } = mergeDeqBandsIntoFilters(node, nextBands, sampleRate);
           onChange(nextFilters, { debounce: true });

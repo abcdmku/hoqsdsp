@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Info, Power, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { BiquadParameters } from '../../types';
 import { BandSelector } from '../eq-editor/BandSelector';
@@ -6,8 +7,7 @@ import { BandParameters } from '../eq-editor/BandParameters';
 import type { CanvasDimensions } from '../eq-editor/types';
 import { hasGain } from '../eq-editor/types';
 import { useAddBandDrag } from '../eq-editor/useAddBandDrag';
-import { GainInput, NumericInput } from '../ui';
-import { Switch } from '../ui/Switch';
+import { Button, GainInput, NumericInput, Tooltip, TooltipContent, TooltipTrigger } from '../ui';
 import { DEQCanvas } from './DEQCanvas';
 import type { DeqBand } from './types';
 import { DEFAULT_DEQ_DYNAMICS, normalizeDeqDynamics } from './types';
@@ -48,6 +48,7 @@ export interface DeqEditorProps {
   onSelectBand?: (index: number | null) => void;
   className?: string;
   readOnly?: boolean;
+  topRightControls?: ReactNode;
 }
 
 export function DEQEditor({
@@ -58,6 +59,7 @@ export function DEQEditor({
   onSelectBand: controlledOnSelectBand,
   className,
   readOnly = false,
+  topRightControls,
 }: DeqEditorProps) {
   const [internalSelectedIndex, setInternalSelectedIndex] = useState<number | null>(null);
   const selectedBandIndex = controlledSelectedIndex ?? internalSelectedIndex;
@@ -73,7 +75,7 @@ export function DEQEditor({
       if (!canvasContainerRef.current) return;
       const rect = canvasContainerRef.current.getBoundingClientRect();
       const width = Math.max(400, rect.width);
-      const height = Math.max(250, Math.min(520, width * 0.55));
+      const height = Math.max(250, Math.min(680, width * 0.55));
       setDimensions({
         ...DEFAULT_DIMENSIONS,
         width,
@@ -111,7 +113,7 @@ export function DEQEditor({
 
       nextBands[index] = {
         ...band,
-        dynamics: normalizeDeqDynamics({ ...band.dynamics, ...updates }),
+        dynamics: normalizeDeqDynamics({ ...band.dynamics, ...updates, enabled: true }),
       };
       onChange(nextBands);
     },
@@ -278,6 +280,14 @@ export function DEQEditor({
 
   const selectedBand = selectedBandIndex !== null ? bands[selectedBandIndex] ?? null : null;
 
+  useEffect(() => {
+    if (selectedBandIndex === null) return;
+    if (!selectedBand) return;
+    if (readOnly) return;
+    if (selectedBand.dynamics.enabled) return;
+    handleDynamicsChange(selectedBandIndex, { enabled: true });
+  }, [handleDynamicsChange, readOnly, selectedBand, selectedBandIndex]);
+
   return (
     <div
       ref={containerRef}
@@ -293,13 +303,12 @@ export function DEQEditor({
         selectedIndex={selectedBandIndex}
         onSelect={onSelectBand}
         onAdd={handleAddBand}
-        onRemove={handleRemoveBand}
-        onToggle={handleToggleBand}
         disabled={readOnly}
+        topRightControls={topRightControls}
       />
 
       <div className="flex flex-col lg:flex-row gap-4">
-        <div ref={canvasContainerRef} className="flex-1 min-w-0">
+        <div ref={canvasContainerRef} className="flex-1 min-w-0 lg:flex-[5]">
           <DEQCanvas
             bands={bands}
             sampleRate={sampleRate}
@@ -315,129 +324,192 @@ export function DEQEditor({
           />
         </div>
 
-        <div className="lg:w-72 shrink-0">
-          <div className="p-4 bg-dsp-bg/50 rounded-lg space-y-4">
-            <h3 className="text-sm font-medium text-dsp-text">
-              {selectedBand ? `Band ${selectedBandIndex! + 1}` : 'Band Parameters'}
-            </h3>
+        <div className="min-w-0 lg:flex-[1] lg:min-w-[300px] lg:max-w-[380px]">
+          <div className="p-4 bg-dsp-bg/50 rounded-lg">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-dsp-text">
+                {selectedBand && selectedBandIndex !== null ? `Band ${selectedBandIndex + 1}` : 'Band Parameters'}
+              </h3>
 
-            <BandParameters
-              band={selectedBand}
-              onChange={handleParameterChange}
-              disabled={readOnly}
-            />
+              {selectedBand && selectedBandIndex !== null && (
+                <div className="flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          'h-7 w-7',
+                          selectedBand.enabled ? 'text-meter-green' : 'text-dsp-text-muted',
+                        )}
+                        aria-label={selectedBand.enabled ? 'Bypass band' : 'Enable band'}
+                        onClick={() => { handleToggleBand(selectedBandIndex); }}
+                        disabled={readOnly}
+                      >
+                        <Power className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {selectedBand.enabled ? 'Bypass band (B)' : 'Enable band (B)'}
+                    </TooltipContent>
+                  </Tooltip>
 
-            <div className="border-t border-dsp-primary/30 pt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-dsp-text">Dynamics</label>
-                  <p className="text-xs text-dsp-text-muted">
-                    Dynamic range per band
-                  </p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-meter-red hover:bg-meter-red/15"
+                        aria-label="Remove band"
+                        onClick={() => { handleRemoveBand(selectedBandIndex); }}
+                        disabled={readOnly}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Remove band (Delete)</TooltipContent>
+                  </Tooltip>
                 </div>
-                <Switch
-                  checked={selectedBand?.dynamics.enabled ?? false}
-                  onCheckedChange={(checked) => {
-                    if (selectedBandIndex === null) return;
-                    handleDynamicsChange(selectedBandIndex, { enabled: checked });
-                  }}
-                  disabled={readOnly || !selectedBand}
-                  aria-label="Enable dynamics"
-                />
-              </div>
+              )}
+            </div>
 
-              {selectedBand && selectedBand.dynamics.enabled && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-dsp-text">Range</label>
-                    <GainInput
-                      value={selectedBand.dynamics.mode === 'upward'
-                        ? selectedBand.dynamics.rangeDb
-                        : -selectedBand.dynamics.rangeDb}
-                      onChange={(v) => {
-                        if (selectedBandIndex === null) return;
-                        const nextMode: DeqBand['dynamics']['mode'] = v > 0
-                          ? 'upward'
-                          : v < 0
-                            ? 'downward'
-                            : selectedBand.dynamics.mode;
-                        handleDynamicsChange(selectedBandIndex, { mode: nextMode, rangeDb: Math.abs(v) });
-                      }}
-                      min={-24}
-                      max={24}
-                    />
-                  </div>
+            <div className="space-y-4">
+              <BandParameters
+                band={selectedBand}
+                onChange={handleParameterChange}
+                disabled={readOnly}
+              />
 
-                  <div className="grid grid-cols-2 gap-3">
+              <div className="border-t border-dsp-primary/30 pt-4">
+                {selectedBand && selectedBandIndex !== null ? (
+                  <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-dsp-text">Threshold</label>
+                      <label className="text-sm font-medium text-dsp-text">Range</label>
                       <GainInput
-                        value={selectedBand.dynamics.thresholdDb}
+                        value={selectedBand.dynamics.mode === 'upward'
+                          ? selectedBand.dynamics.rangeDb
+                          : -selectedBand.dynamics.rangeDb}
                         onChange={(v) => {
-                          if (selectedBandIndex === null) return;
-                          handleDynamicsChange(selectedBandIndex, { thresholdDb: v });
+                          const nextMode: DeqBand['dynamics']['mode'] = v > 0
+                            ? 'upward'
+                            : v < 0
+                              ? 'downward'
+                              : selectedBand.dynamics.mode;
+                          handleDynamicsChange(selectedBandIndex, { mode: nextMode, rangeDb: Math.abs(v) });
                         }}
-                        min={-80}
-                        max={0}
+                        min={-24}
+                        max={24}
+                        disabled={readOnly}
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-dsp-text">Ratio</label>
-                      <NumericInput
-                        value={selectedBand.dynamics.ratio}
-                        onChange={(v) => {
-                          if (selectedBandIndex === null) return;
-                          handleDynamicsChange(selectedBandIndex, { ratio: v });
-                        }}
-                        min={1}
-                        max={20}
-                        step={0.1}
-                        precision={1}
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1">
+                          <label className="text-sm font-medium text-dsp-text">Threshold (dBFS)</label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex h-5 w-5 items-center justify-center rounded text-dsp-text-muted hover:bg-dsp-primary/20 hover:text-dsp-text"
+                                aria-label="Threshold help"
+                                onClick={(e) => { e.preventDefault(); }}
+                              >
+                                <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-64">
+                              Signal-level threshold (in dBFS) where the dynamic EQ starts reacting. Lower values (more
+                              negative) mean it engages more often.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <GainInput
+                          value={selectedBand.dynamics.thresholdDb}
+                          onChange={(v) => {
+                            handleDynamicsChange(selectedBandIndex, { thresholdDb: v });
+                          }}
+                          min={-80}
+                          max={0}
+                          disabled={readOnly}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1">
+                          <label className="text-sm font-medium text-dsp-text">Ratio</label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex h-5 w-5 items-center justify-center rounded text-dsp-text-muted hover:bg-dsp-primary/20 hover:text-dsp-text"
+                                aria-label="Ratio help"
+                                onClick={(e) => { e.preventDefault(); }}
+                              >
+                                <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-64">
+                              Controls how strongly the band reacts once past the threshold (higher = more aggressive).
+                              1.0 means no dynamic change.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <NumericInput
+                          value={selectedBand.dynamics.ratio}
+                          onChange={(v) => {
+                            handleDynamicsChange(selectedBandIndex, { ratio: v });
+                          }}
+                          min={1}
+                          max={20}
+                          step={0.1}
+                          precision={1}
+                          disabled={readOnly}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-dsp-text">Attack</label>
+                        <NumericInput
+                          value={selectedBand.dynamics.attackMs}
+                          onChange={(v) => {
+                            handleDynamicsChange(selectedBandIndex, { attackMs: v });
+                          }}
+                          min={0.1}
+                          max={500}
+                          step={0.1}
+                          precision={1}
+                          unit="ms"
+                          disabled={readOnly}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-dsp-text">Release</label>
+                        <NumericInput
+                          value={selectedBand.dynamics.releaseMs}
+                          onChange={(v) => {
+                            handleDynamicsChange(selectedBandIndex, { releaseMs: v });
+                          }}
+                          min={10}
+                          max={5000}
+                          step={1}
+                          precision={0}
+                          unit="ms"
+                          disabled={readOnly}
+                        />
+                      </div>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-dsp-text">Attack</label>
-                      <NumericInput
-                        value={selectedBand.dynamics.attackMs}
-                        onChange={(v) => {
-                          if (selectedBandIndex === null) return;
-                          handleDynamicsChange(selectedBandIndex, { attackMs: v });
-                        }}
-                        min={0.1}
-                        max={500}
-                        step={0.1}
-                        precision={1}
-                        unit="ms"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-dsp-text">Release</label>
-                      <NumericInput
-                        value={selectedBand.dynamics.releaseMs}
-                        onChange={(v) => {
-                          if (selectedBandIndex === null) return;
-                          handleDynamicsChange(selectedBandIndex, { releaseMs: v });
-                        }}
-                        min={10}
-                        max={5000}
-                        step={1}
-                        precision={0}
-                        unit="ms"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {!selectedBand && (
-                <p className="text-xs text-dsp-text-muted">
-                  Select a band to edit dynamics.
-                </p>
-              )}
+                ) : (
+                  <p className="text-xs text-dsp-text-muted">
+                    Select a band to edit dynamics.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

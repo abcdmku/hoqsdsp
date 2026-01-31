@@ -157,14 +157,6 @@ export const BandParameters = memo(function BandParameters({
           />
         </div>
       )}
-
-      {/* Quick tips */}
-      <div className="pt-2 border-t border-dsp-primary/30">
-        <p className="text-xs text-dsp-text-muted">
-          <span className="font-medium">Tips:</span> Drag node to adjust frequency/gain.
-          Scroll on node to adjust Q. Use arrow keys for fine adjustments.
-        </p>
-      </div>
     </div>
   );
 });

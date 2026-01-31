@@ -20,18 +20,17 @@ describe('DEQEditor', () => {
     expect(screen.getByText('Band Parameters')).toBeInTheDocument();
   });
 
-  it('enables dynamics for a selected band', async () => {
+  it('shows dynamics controls for a selected band', async () => {
     const user = userEvent.setup();
-    const onChange = vi.fn();
-
-    render(<DEQEditor bands={defaultBands} onChange={onChange} sampleRate={48000} />);
+    render(<DEQEditor bands={defaultBands} onChange={vi.fn()} sampleRate={48000} />);
 
     const bandButton = screen.getAllByRole('button', { name: '1' })[0];
     await user.click(bandButton!);
 
-    const dynamicsSwitch = screen.getByRole('switch', { name: /enable dynamics/i });
-    await user.click(dynamicsSwitch);
-
-    expect(onChange).toHaveBeenCalled();
+    expect(screen.getByText('Range')).toBeInTheDocument();
+    expect(screen.getByText('Threshold (dBFS)')).toBeInTheDocument();
+    expect(screen.getByText('Ratio')).toBeInTheDocument();
+    expect(screen.getByText('Attack')).toBeInTheDocument();
+    expect(screen.getByText('Release')).toBeInTheDocument();
   });
 });

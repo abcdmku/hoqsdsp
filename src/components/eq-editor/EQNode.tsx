@@ -216,33 +216,54 @@ export const EQNode = memo(function EQNode({
       {/* Frequency/Gain tooltip when selected or dragging */}
       {(isSelected || isActivelyDragging) && (
         <g>
-          <rect
-            x={x + 16}
-            y={y - 24}
-            width={80}
-            height={36}
-            rx={4}
-            className="fill-dsp-surface stroke-dsp-primary"
-            strokeWidth="1"
-          />
-          <text
-            x={x + 24}
-            y={y - 8}
-            className="fill-dsp-text text-xs"
-            style={{ fontSize: '10px' }}
-          >
-            {freq >= 1000 ? `${(freq / 1000).toFixed(1)}k` : freq.toFixed(0)} Hz
-          </text>
-          {hasGain(band.parameters.type) && (
-            <text
-              x={x + 24}
-              y={y + 4}
-              className="fill-dsp-text-muted text-xs"
-              style={{ fontSize: '10px' }}
-            >
-              {gain > 0 ? '+' : ''}{gain.toFixed(1)} dB
-            </text>
-          )}
+          {(() => {
+            const showGain = hasGain(band.parameters.type);
+            const hzText = freq >= 1000 ? `${(freq / 1000).toFixed(1)}k` : freq.toFixed(0);
+            const gainText = `${gain > 0 ? '+' : ''}${gain.toFixed(1)} dB`;
+            const lines = showGain ? [`${hzText} Hz`, gainText] : [`${hzText} Hz`];
+            const approxCharWidth = 6;
+            const contentWidth = Math.max(...lines.map((line) => line.length)) * approxCharWidth;
+            const boxWidth = Math.max(64, Math.min(118, contentWidth + 16));
+            const boxHeight = showGain ? 36 : 22;
+            const preferLeft = x - 16 - boxWidth >= dimensions.marginLeft + 4;
+            const boxX = preferLeft ? x - 16 - boxWidth : x + 16;
+            const boxY = y - (showGain ? 24 : 16);
+            const textX = boxX + 8;
+            const hzY = y - (showGain ? 8 : 2);
+            const gainY = y + 4;
+
+            return (
+              <>
+                <rect
+                  x={boxX}
+                  y={boxY}
+                  width={boxWidth}
+                  height={boxHeight}
+                  rx={4}
+                  className="fill-dsp-surface stroke-dsp-primary"
+                  strokeWidth="1"
+                />
+                <text
+                  x={textX}
+                  y={hzY}
+                  className="fill-dsp-text text-xs"
+                  style={{ fontSize: '10px' }}
+                >
+                  {hzText} Hz
+                </text>
+                {showGain && (
+                  <text
+                    x={textX}
+                    y={gainY}
+                    className="fill-dsp-text-muted text-xs"
+                    style={{ fontSize: '10px' }}
+                  >
+                    {gainText}
+                  </text>
+                )}
+              </>
+            );
+          })()}
         </g>
       )}
     </g>

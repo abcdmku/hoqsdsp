@@ -9,7 +9,7 @@ export interface DeqBand {
 }
 
 export const DEFAULT_DEQ_DYNAMICS: Required<DeqBandDynamicsUiSettingsV1> = {
-  enabled: false,
+  enabled: true,
   mode: 'downward',
   rangeDb: 6,
   thresholdDb: -24,
@@ -24,6 +24,7 @@ export function normalizeDeqDynamics(
   return {
     ...DEFAULT_DEQ_DYNAMICS,
     ...(dynamics ?? {}),
+    enabled: true,
   };
 }
 
@@ -38,4 +39,3 @@ export function applyDynamicsExtreme(
   const delta = dynamics.mode === 'upward' ? range : -range;
   return { ...params, gain: params.gain + delta };
 }
-

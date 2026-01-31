@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Power, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { BiquadParameters } from '../../types';
 import { EQCanvas } from './EQCanvas';
 import { BandSelector } from './BandSelector';
 import { BandParameters } from './BandParameters';
+import { Button } from '../ui/Button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
 import {
   type EQEditorProps,
   type EQBand,
@@ -51,6 +54,7 @@ export function EQEditor({
   onSelectBand: controlledOnSelectBand,
   className,
   readOnly = false,
+  topRightControls,
 }: EQEditorProps) {
   // Use controlled or uncontrolled selection
   const [internalSelectedIndex, setInternalSelectedIndex] = useState<number | null>(null);
@@ -70,7 +74,7 @@ export function EQEditor({
       if (canvasContainerRef.current) {
         const rect = canvasContainerRef.current.getBoundingClientRect();
         const width = Math.max(400, rect.width);
-        const height = Math.max(250, Math.min(500, width * 0.5));
+        const height = Math.max(250, Math.min(650, width * 0.5));
         setDimensions({
           ...DEFAULT_DIMENSIONS,
           width,
@@ -303,15 +307,14 @@ export function EQEditor({
         selectedIndex={selectedBandIndex}
         onSelect={onSelectBand}
         onAdd={handleAddBand}
-        onRemove={handleRemoveBand}
-        onToggle={handleToggleBand}
         disabled={readOnly}
+        topRightControls={topRightControls}
       />
 
       {/* Main content: Canvas and Parameters */}
       <div className="flex flex-col lg:flex-row gap-4">
         {/* EQ Canvas */}
-        <div ref={canvasContainerRef} className="flex-1 min-w-0">
+        <div ref={canvasContainerRef} className="flex-1 min-w-0 lg:flex-[5]">
           <EQCanvas
             bands={bands}
             sampleRate={sampleRate}
@@ -328,11 +331,55 @@ export function EQEditor({
         </div>
 
         {/* Parameter Panel */}
-        <div className="lg:w-64 shrink-0">
+        <div className="min-w-0 lg:flex-[1] lg:min-w-[280px] lg:max-w-[340px]">
           <div className="p-4 bg-dsp-bg/50 rounded-lg">
-            <h3 className="text-sm font-medium text-dsp-text mb-3">
-              {selectedBand ? `Band ${selectedBandIndex! + 1}` : 'Band Parameters'}
-            </h3>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-dsp-text">
+                {selectedBand && selectedBandIndex !== null ? `Band ${selectedBandIndex + 1}` : 'Band Parameters'}
+              </h3>
+              {selectedBand && selectedBandIndex !== null && (
+                <div className="flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          'h-7 w-7',
+                          selectedBand.enabled ? 'text-meter-green' : 'text-dsp-text-muted',
+                        )}
+                        aria-label={selectedBand.enabled ? 'Bypass band' : 'Enable band'}
+                        onClick={() => { handleToggleBand(selectedBandIndex); }}
+                        disabled={readOnly}
+                      >
+                        <Power className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {selectedBand.enabled ? 'Bypass band (B)' : 'Enable band (B)'}
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-meter-red hover:bg-meter-red/15"
+                        aria-label="Remove band"
+                        onClick={() => { handleRemoveBand(selectedBandIndex); }}
+                        disabled={readOnly}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Remove band (Delete)</TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+            </div>
             <BandParameters
               band={selectedBand}
               onChange={handleParameterChange}

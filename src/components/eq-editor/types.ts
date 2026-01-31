@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { BiquadParameters } from '../../types';
 
 /** EQ band for the visual editor */
@@ -23,6 +24,8 @@ export interface EQEditorProps {
   className?: string;
   /** Read-only mode */
   readOnly?: boolean;
+  /** Optional controls rendered in the top-right of the editor (e.g. close button) */
+  topRightControls?: ReactNode;
 }
 
 /** Canvas dimensions and margins */
@@ -62,9 +65,8 @@ export interface BandSelectorProps {
   selectedIndex: number | null;
   onSelect: (index: number | null) => void;
   onAdd: () => void;
-  onRemove: (index: number) => void;
-  onToggle: (index: number) => void;
   disabled?: boolean;
+  topRightControls?: ReactNode;
 }
 
 /** Band parameters props */

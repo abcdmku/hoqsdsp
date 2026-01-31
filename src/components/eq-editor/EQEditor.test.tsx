@@ -254,8 +254,6 @@ describe('BandSelector', () => {
     selectedIndex: null as number | null,
     onSelect: vi.fn(),
     onAdd: vi.fn(),
-    onRemove: vi.fn(),
-    onToggle: vi.fn(),
   };
 
   beforeEach(() => {
@@ -290,38 +288,6 @@ describe('BandSelector', () => {
     const addButton = screen.getByRole('button', { name: /add band/i });
     await user.click(addButton);
     expect(defaultProps.onAdd).toHaveBeenCalled();
-  });
-
-  it('should show bypass and remove buttons when a band is selected', () => {
-    render(<BandSelector {...defaultProps} selectedIndex={0} />);
-
-    expect(screen.getByRole('button', { name: /bypass band/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove band/i })).toBeInTheDocument();
-  });
-
-  it('should not show bypass and remove buttons when no band is selected', () => {
-    render(<BandSelector {...defaultProps} selectedIndex={null} />);
-
-    expect(screen.queryByRole('button', { name: /bypass band/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /remove band/i })).not.toBeInTheDocument();
-  });
-
-  it('should call onToggle when bypass button is clicked', async () => {
-    render(<BandSelector {...defaultProps} selectedIndex={0} />);
-
-    const user = userEvent.setup();
-    const bypassButton = screen.getByRole('button', { name: /bypass band/i });
-    await user.click(bypassButton);
-    expect(defaultProps.onToggle).toHaveBeenCalledWith(0);
-  });
-
-  it('should call onRemove when remove button is clicked', async () => {
-    render(<BandSelector {...defaultProps} selectedIndex={0} />);
-
-    const user = userEvent.setup();
-    const removeButton = screen.getByRole('button', { name: /remove band/i });
-    await user.click(removeButton);
-    expect(defaultProps.onRemove).toHaveBeenCalledWith(0);
   });
 
   it('should be disabled when disabled prop is true', () => {
