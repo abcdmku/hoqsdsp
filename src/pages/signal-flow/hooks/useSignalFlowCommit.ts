@@ -65,11 +65,16 @@ export function useSignalFlowCommit({
   const sendTimeoutRef = useRef<number | null>(null);
   const pendingSnapshotRef = useRef<PendingSnapshot | null>(null);
   const pendingVersionRef = useRef(0);
+  const mountedRef = useRef(true);
 
-  useEffect(() => () => {
-    if (sendTimeoutRef.current !== null) {
-      window.clearTimeout(sendTimeoutRef.current);
-    }
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (sendTimeoutRef.current !== null) {
+        window.clearTimeout(sendTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Intentionally long to keep mutation flow and error handling in one place.
@@ -108,10 +113,15 @@ export function useSignalFlowCommit({
       pendingChangesRef.current = true;
 
       const send = async () => {
+        // Don't execute if component has unmounted
+        if (!mountedRef.current) return;
+
         const snapshot = pendingSnapshotRef.current;
         const versionAtStart = pendingVersionRef.current;
         if (!snapshot) {
-          pendingChangesRef.current = false;
+          if (mountedRef.current) {
+            pendingChangesRef.current = false;
+          }
           return;
         }
 
@@ -128,7 +138,7 @@ export function useSignalFlowCommit({
         );
         const validation = validateConfig(patched.config);
         if (!validation.valid || !validation.config) {
-          if (pendingVersionRef.current === versionAtStart) {
+          if (mountedRef.current && pendingVersionRef.current === versionAtStart) {
             pendingChangesRef.current = false;
             pendingSnapshotRef.current = null;
           }
@@ -136,15 +146,18 @@ export function useSignalFlowCommit({
           return;
         }
 
+        // Check if still mounted before async operation
+        if (!mountedRef.current) return;
+
         try {
           await setConfigJson.mutateAsync(validation.config);
-          if (pendingVersionRef.current === versionAtStart) {
+          if (mountedRef.current && pendingVersionRef.current === versionAtStart) {
             pendingChangesRef.current = false;
             pendingSnapshotRef.current = null;
           }
           setConfigJson.invalidate();
         } catch (error) {
-          if (pendingVersionRef.current === versionAtStart) {
+          if (mountedRef.current && pendingVersionRef.current === versionAtStart) {
             pendingChangesRef.current = false;
             pendingSnapshotRef.current = null;
           }

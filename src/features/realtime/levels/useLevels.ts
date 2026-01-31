@@ -46,7 +46,11 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
   }, []);
 
   useEffect(() => {
-    if (!enabled || !wsManager) return;
+    if (!enabled || !wsManager) {
+      // Clear peak hold timestamps when disabled
+      peakHoldTimestampRef.current.clear();
+      return;
+    }
 
     const animate = async (timestamp: number) => {
       const timeSinceLastPoll = timestamp - lastPollRef.current;
@@ -59,6 +63,16 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
         ]);
 
         if (newLevels?.capture && newLevels.playback) {
+          // Clean up stale peak hold timestamps for removed channels
+          const validKeys = new Set<string>();
+          newLevels.capture.forEach((_, i) => validKeys.add(`capture-${i}`));
+          newLevels.playback.forEach((_, i) => validKeys.add(`playback-${i}`));
+          for (const key of peakHoldTimestampRef.current.keys()) {
+            if (!validKeys.has(key)) {
+              peakHoldTimestampRef.current.delete(key);
+            }
+          }
+
           setLevels((prev) => ({
             capture: updatePeakHold(
               prev.capture,
@@ -118,6 +132,8 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      // Clear peak hold timestamps on unmount to prevent memory leak
+      peakHoldTimestampRef.current.clear();
     };
   }, [
     enabled,

@@ -3,6 +3,9 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ConnectionStatus, SignalLevels, UnitConnection } from '../types';
 import { websocketService } from '../services/websocketService';
 
+// Track unsubscribe functions to prevent listener accumulation
+const stateChangeUnsubscribers = new Map<string, () => void>();
+
 interface ConnectionState {
   connections: Map<string, UnitConnection>;
   activeUnitId: string | null;
@@ -86,6 +89,13 @@ export const useConnectionStore = create<ConnectionStore>()(
   connectUnit: async (unitId: string, address: string, port: number) => {
     const { setConnection, updateStatus } = get();
 
+    // Clean up any existing subscription before reconnecting
+    const existingUnsubscribe = stateChangeUnsubscribers.get(unitId);
+    if (existingUnsubscribe) {
+      existingUnsubscribe();
+      stateChangeUnsubscribers.delete(unitId);
+    }
+
     // Ensure the unit exists in the store so status updates work reliably.
     setConnection(unitId, { unitId, status: 'connecting' });
 
@@ -97,8 +107,8 @@ export const useConnectionStore = create<ConnectionStore>()(
       const version = await websocketService.getVersion(unitId);
       setConnection(unitId, { version });
 
-      // Subscribe to state changes
-      websocketService.subscribeToStateChanges(unitId, (state) => {
+      // Subscribe to state changes and store the unsubscribe function
+      const unsubscribe = websocketService.subscribeToStateChanges(unitId, (state) => {
         if (state === 'connected') {
           get().updateStatus(unitId, 'connected');
         } else if (state === 'disconnected' || state === 'error') {
@@ -107,6 +117,7 @@ export const useConnectionStore = create<ConnectionStore>()(
           get().updateStatus(unitId, 'connecting');
         }
       });
+      stateChangeUnsubscribers.set(unitId, unsubscribe);
 
       updateStatus(unitId, 'connected');
     } catch (error) {
@@ -117,6 +128,13 @@ export const useConnectionStore = create<ConnectionStore>()(
   },
 
   disconnectUnit: async (unitId: string) => {
+    // Clean up state change subscription before disconnecting
+    const unsubscribe = stateChangeUnsubscribers.get(unitId);
+    if (unsubscribe) {
+      unsubscribe();
+      stateChangeUnsubscribers.delete(unitId);
+    }
+
     websocketService.disconnect(unitId);
     get().updateStatus(unitId, 'disconnected');
   },
@@ -168,16 +186,18 @@ export const selectActiveConnection = (state: ConnectionStore): UnitConnection |
   return state.connections.get(state.activeUnitId);
 };
 
-let cachedConnections: UnitConnection[] = [];
-let lastConnectionsMap: Map<string, UnitConnection> | null = null;
+// Use WeakMap for automatic garbage collection of cached results
+const connectionsCacheWeakMap = new WeakMap<Map<string, UnitConnection>, UnitConnection[]>();
 
 export const selectAllConnections = (state: ConnectionStore): UnitConnection[] => {
-  if (lastConnectionsMap !== state.connections) {
-    cachedConnections = Array.from(state.connections.values());
-    lastConnectionsMap = state.connections;
+  const cached = connectionsCacheWeakMap.get(state.connections);
+  if (cached) {
+    return cached;
   }
 
-  return cachedConnections;
+  const result = Array.from(state.connections.values());
+  connectionsCacheWeakMap.set(state.connections, result);
+  return result;
 };
 
 export const selectConnectionStatus = (unitId: string) => (state: ConnectionStore): ConnectionStatus => {

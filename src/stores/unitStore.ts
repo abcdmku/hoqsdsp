@@ -69,18 +69,16 @@ export const selectUnits = (state: UnitStore): DSPUnit[] => state.units;
 export const selectUnitById = (id: string) => (state: UnitStore): DSPUnit | undefined =>
   state.units.find(u => u.id === id);
 
-let cachedZones: string[] = [];
-let cachedUnitIds: (string | undefined)[] = [];
+// Use WeakMap for automatic garbage collection of cached results
+const zonesCacheWeakMap = new WeakMap<DSPUnit[], string[]>();
 
 export const selectZones = (state: UnitStore): string[] => {
-  const currentUnitIds = state.units.map(u => u.zone);
-
-  if (cachedUnitIds.length !== currentUnitIds.length ||
-      !cachedUnitIds.every((id, i) => id === currentUnitIds[i])) {
-    const zones = new Set(currentUnitIds.filter((z): z is string => !!z));
-    cachedZones = Array.from(zones);
-    cachedUnitIds = currentUnitIds;
+  const cached = zonesCacheWeakMap.get(state.units);
+  if (cached) {
+    return cached;
   }
 
-  return cachedZones;
+  const zones = [...new Set(state.units.map(u => u.zone).filter((z): z is string => !!z))];
+  zonesCacheWeakMap.set(state.units, zones);
+  return zones;
 };

@@ -48,6 +48,11 @@ export function FloatingWindow({
     originX: number;
     originY: number;
   } | null>(null);
+  // Store listener references to ensure cleanup always removes the correct listeners
+  const listenersRef = useRef<{
+    move: ((e: PointerEvent) => void) | null;
+    up: ((e: PointerEvent) => void) | null;
+  }>({ move: null, up: null });
 
   const style = useMemo(() => {
     return {
@@ -82,19 +87,28 @@ export function FloatingWindow({
     [boundsRef, onMove],
   );
 
+  // Cleanup function that uses refs to ensure correct listener removal
+  const cleanupDrag = useCallback(() => {
+    if (listenersRef.current.move) {
+      window.removeEventListener('pointermove', listenersRef.current.move);
+      listenersRef.current.move = null;
+    }
+    if (listenersRef.current.up) {
+      window.removeEventListener('pointerup', listenersRef.current.up);
+      listenersRef.current.up = null;
+    }
+    dragSessionRef.current = null;
+  }, []);
+
   const handlePointerUp = useCallback((event: PointerEvent) => {
     const session = dragSessionRef.current;
     if (session?.pointerId !== event.pointerId) return;
-    dragSessionRef.current = null;
-    window.removeEventListener('pointermove', handlePointerMove);
-  }, [handlePointerMove]);
+    cleanupDrag();
+  }, [cleanupDrag]);
 
   useEffect(() => {
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [handlePointerMove, handlePointerUp]);
+    return cleanupDrag;
+  }, [cleanupDrag]);
 
   return (
     <div
@@ -121,6 +135,9 @@ export function FloatingWindow({
           if (!rootEl || !boundsEl) return;
           onRequestFocus();
 
+          // Clean up any existing drag session first
+          cleanupDrag();
+
           dragSessionRef.current = {
             pointerId: event.pointerId,
             startX: event.clientX,
@@ -128,6 +145,10 @@ export function FloatingWindow({
             originX: position.x,
             originY: position.y,
           };
+
+          // Store listener references for proper cleanup
+          listenersRef.current.move = handlePointerMove;
+          listenersRef.current.up = handlePointerUp;
 
           window.addEventListener('pointermove', handlePointerMove);
           window.addEventListener('pointerup', handlePointerUp, { once: true });

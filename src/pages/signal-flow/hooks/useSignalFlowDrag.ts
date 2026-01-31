@@ -94,8 +94,8 @@ export function useSignalFlowDrag({
       window.addEventListener('pointermove', handleMove);
       window.addEventListener('pointerup', handleUp, { once: true });
       window.addEventListener('pointercancel', handleCancel, { once: true });
-      window.addEventListener('blur', handleCancel);
-      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('blur', handleCancel, { once: true });
+      document.addEventListener('visibilitychange', handleVisibilityChange, { once: true });
     },
     [addRoute, canvasRef, openConnectionWindow],
   );
