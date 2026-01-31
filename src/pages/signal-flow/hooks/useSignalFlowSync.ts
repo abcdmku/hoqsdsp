@@ -4,7 +4,7 @@ import type { FromConfigResult, RouteEdge, ChannelNode } from '../../../lib/sign
 import { defaultColorForKey } from '../../../lib/signalflow/colorUtils';
 import { portKey } from '../../../lib/signalflow/endpointUtils';
 import type { SignalFlowMirrorGroups } from '../../../stores/signalFlowUiStore';
-import type { FirPhaseCorrectionUiSettingsV1, SignalFlowUiMetadata } from '../../../types';
+import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1, SignalFlowUiMetadata } from '../../../types';
 import type { DockedFilterEditorState, SignalFlowWindow } from '../windows/types';
 
 interface SignalFlowSyncParams {
@@ -23,6 +23,7 @@ interface SignalFlowSyncParams {
   setChannelNames: Dispatch<SetStateAction<Record<string, string>>>;
   setMirrorGroups: Dispatch<SetStateAction<SignalFlowMirrorGroups>>;
   setFirPhaseCorrection: Dispatch<SetStateAction<Record<string, FirPhaseCorrectionUiSettingsV1>>>;
+  setDeq: Dispatch<SetStateAction<Record<string, DeqBandUiSettingsV1>>>;
 }
 
 function collectPortKeys(flow: FromConfigResult): string[] {
@@ -77,17 +78,20 @@ function applyUiMetadata(
   setChannelNames: Dispatch<SetStateAction<Record<string, string>>>,
   setMirrorGroups: Dispatch<SetStateAction<SignalFlowMirrorGroups>>,
   setFirPhaseCorrection: Dispatch<SetStateAction<Record<string, FirPhaseCorrectionUiSettingsV1>>>,
+  setDeq: Dispatch<SetStateAction<Record<string, DeqBandUiSettingsV1>>>,
 ) {
   const uiMeta: SignalFlowUiMetadata | undefined = flow.uiMetadata;
   const serverColors = uiMeta?.channelColors ?? {};
   const serverNames = uiMeta?.channelNames ?? {};
   const serverMirrorGroups = uiMeta?.mirrorGroups ?? { input: [], output: [] };
-  const serverFirPhaseCorrection = uiMeta?.firPhaseCorrection ?? {};
+  const serverFirPhaseCorrection = uiMeta?.firPhaseCorrection;
+  const serverDeq = uiMeta?.deq;
 
   setChannelColors(buildDefaultColors(flow, activeUnitId, serverColors));
   setChannelNames(serverNames);
   setMirrorGroups(serverMirrorGroups);
-  setFirPhaseCorrection(serverFirPhaseCorrection);
+  setFirPhaseCorrection((prev) => serverFirPhaseCorrection ?? prev);
+  setDeq((prev) => serverDeq ?? prev);
 }
 
 export function useSignalFlowSync({
@@ -106,6 +110,7 @@ export function useSignalFlowSync({
   setChannelNames,
   setMirrorGroups,
   setFirPhaseCorrection,
+  setDeq,
 }: SignalFlowSyncParams) {
   useEffect(() => {
     if (!flow) return;
@@ -119,7 +124,7 @@ export function useSignalFlowSync({
       if (isUnitSwitch) {
         resetUiState(setSelectedRouteIndex, setSelectedChannelKey, setWindows, setDockedFilterEditor);
       }
-      applyUiMetadata(flow, activeUnitId, setChannelColors, setChannelNames, setMirrorGroups, setFirPhaseCorrection);
+      applyUiMetadata(flow, activeUnitId, setChannelColors, setChannelNames, setMirrorGroups, setFirPhaseCorrection, setDeq);
     });
   }, [
     activeUnitId,
@@ -137,5 +142,6 @@ export function useSignalFlowSync({
     setChannelNames,
     setMirrorGroups,
     setFirPhaseCorrection,
+    setDeq,
   ]);
 }

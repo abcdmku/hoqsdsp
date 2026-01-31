@@ -1,11 +1,13 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ChannelNode, ChannelProcessingFilter } from '../../lib/signalflow';
 import { upsertSingleFilterOfType } from '../../lib/signalflow/filterUtils';
-import type { FirPhaseCorrectionUiSettingsV1, FilterConfig, FilterType } from '../../types';
+import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1, FilterConfig, FilterType } from '../../types';
 import type { EQBand } from '../eq-editor/types';
 import { EQEditor } from '../eq-editor/EQEditor';
+import { DEQEditor } from '../deq-editor/DEQEditor';
 import { SignalFlowFilterEditorPanel } from './SignalFlowFilterEditorPanel';
 import { buildEqBands, mergeEqBandsIntoFilters } from './eqUtils';
+import { buildDeqBands, deqBandToUiSettings, mergeDeqBandsIntoFilters } from './deqUtils';
 
 const DEFAULT_FILTER_CONFIGS: Record<FilterType, FilterConfig> = {
   Biquad: { type: 'Biquad', parameters: { type: 'Peaking', freq: 1000, gain: 0, q: 1.0 } },
@@ -41,6 +43,8 @@ export interface SignalFlowFilterWindowContentProps {
   onChange: (filters: ChannelProcessingFilter[], options?: { debounce?: boolean }) => void;
   firPhaseCorrection?: Record<string, FirPhaseCorrectionUiSettingsV1>;
   onPersistFirPhaseCorrectionSettings?: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
+  deq?: Record<string, DeqBandUiSettingsV1>;
+  onPersistDeqSettings?: (filterName: string, settings: DeqBandUiSettingsV1 | null) => void;
 }
 
 export function SignalFlowFilterWindowContent({
@@ -51,8 +55,11 @@ export function SignalFlowFilterWindowContent({
   onChange,
   firPhaseCorrection,
   onPersistFirPhaseCorrectionSettings,
+  deq,
+  onPersistDeqSettings,
 }: SignalFlowFilterWindowContentProps) {
   const filters = node.processing.filters;
+  const deqUi = deq ?? {};
 
   const eqBands = useMemo(() => buildEqBands(filters), [filters]);
   const eqChange = useCallback(
@@ -61,6 +68,12 @@ export function SignalFlowFilterWindowContent({
     },
     [node, onChange],
   );
+
+  const deqBands = useMemo(() => buildDeqBands(filters, deqUi), [filters, deqUi]);
+  const prevDeqBandsRef = useRef(deqBands);
+  useEffect(() => {
+    prevDeqBandsRef.current = deqBands;
+  }, [deqBands]);
 
   const firstFilterOfType = useMemo(() => {
     const index = filters.findIndex((f) => f.config.type === filterType);
@@ -83,6 +96,41 @@ export function SignalFlowFilterWindowContent({
         onChange={eqChange}
         sampleRate={sampleRate}
         className="bg-transparent p-0"
+      />
+    );
+  }
+
+  if (filterType === 'DiffEq') {
+    return (
+      <DEQEditor
+        bands={deqBands}
+        sampleRate={sampleRate}
+        className="bg-transparent p-0"
+        onChange={(nextBands) => {
+          const { filters: nextFilters, bands: normalizedBands } = mergeDeqBandsIntoFilters(node, nextBands, sampleRate);
+          onChange(nextFilters, { debounce: true });
+
+          if (onPersistDeqSettings) {
+            const prev = prevDeqBandsRef.current;
+            const prevById = new Map(prev.map((b) => [b.id, b]));
+            const nextIds = new Set(normalizedBands.map((b) => b.id));
+
+            for (const band of normalizedBands) {
+              const prevBand = prevById.get(band.id) ?? null;
+              const changed = !prevBand || JSON.stringify(prevBand) !== JSON.stringify(band);
+              if (!changed) continue;
+              onPersistDeqSettings(band.id, deqBandToUiSettings(band));
+            }
+
+            for (const prevBand of prev) {
+              if (!nextIds.has(prevBand.id)) {
+                onPersistDeqSettings(prevBand.id, null);
+              }
+            }
+
+            prevDeqBandsRef.current = normalizedBands;
+          }
+        }}
       />
     );
   }

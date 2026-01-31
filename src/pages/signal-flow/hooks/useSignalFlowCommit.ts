@@ -6,7 +6,7 @@ import { toConfig } from '../../../lib/signalflow';
 import { validateConfig } from '../../../lib/config';
 import { showToast } from '../../../components/feedback';
 import type { SignalFlowMirrorGroups } from '../../../stores/signalFlowUiStore';
-import type { FirPhaseCorrectionUiSettingsV1 } from '../../../types';
+import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../../types';
 
 interface ConfigMutation {
   mutateAsync: (config: CamillaConfig) => Promise<unknown>;
@@ -18,6 +18,7 @@ interface UiMetadataState {
   channelNames: Record<string, string>;
   mirrorGroups: SignalFlowMirrorGroups;
   firPhaseCorrection: Record<string, FirPhaseCorrectionUiSettingsV1>;
+  deq: Record<string, DeqBandUiSettingsV1>;
 }
 
 interface CommitParams {
@@ -34,13 +35,21 @@ interface CommitParams {
 function buildNextUiMetadata(
   current: UiMetadataState,
   updates?: Partial<SignalFlowUiMetadata>,
-): SignalFlowUiMetadata {
+): UiMetadataState {
   return {
     channelColors: updates?.channelColors ?? current.channelColors,
     channelNames: updates?.channelNames ?? current.channelNames,
     mirrorGroups: updates?.mirrorGroups ?? current.mirrorGroups,
     firPhaseCorrection: updates?.firPhaseCorrection ?? current.firPhaseCorrection,
+    deq: updates?.deq ?? current.deq,
   };
+}
+
+interface PendingSnapshot {
+  routes: RouteEdge[];
+  inputs: ChannelNode[];
+  outputs: ChannelNode[];
+  uiMetadata: UiMetadataState;
 }
 
 export function useSignalFlowCommit({
@@ -54,6 +63,8 @@ export function useSignalFlowCommit({
   setConfigJson,
 }: CommitParams) {
   const sendTimeoutRef = useRef<number | null>(null);
+  const pendingSnapshotRef = useRef<PendingSnapshot | null>(null);
+  const pendingVersionRef = useRef(0);
 
   useEffect(() => () => {
     if (sendTimeoutRef.current !== null) {
@@ -79,37 +90,64 @@ export function useSignalFlowCommit({
         return;
       }
 
-      const nextRoutes = next.routes ?? routes;
-      const nextInputs = next.inputs ?? inputs;
-      const nextOutputs = next.outputs ?? outputs;
-      const nextUiMetadata = buildNextUiMetadata(uiMetadata, next.uiMetadata);
+      const base: PendingSnapshot = pendingSnapshotRef.current ?? { routes, inputs, outputs, uiMetadata };
+
+      const nextRoutes = next.routes ?? base.routes;
+      const nextInputs = next.inputs ?? base.inputs;
+      const nextOutputs = next.outputs ?? base.outputs;
+      const nextUiMetadata = buildNextUiMetadata(base.uiMetadata, next.uiMetadata);
+
+      pendingVersionRef.current += 1;
+      pendingSnapshotRef.current = {
+        routes: nextRoutes,
+        inputs: nextInputs,
+        outputs: nextOutputs,
+        uiMetadata: nextUiMetadata,
+      };
+
       pendingChangesRef.current = true;
 
       const send = async () => {
+        const snapshot = pendingSnapshotRef.current;
+        const versionAtStart = pendingVersionRef.current;
+        if (!snapshot) {
+          pendingChangesRef.current = false;
+          return;
+        }
+
         const patched = toConfig(
           currentConfig,
           {
             inputGroups: currentFlow.model.inputGroups,
             outputGroups: currentFlow.model.outputGroups,
-            inputs: nextInputs,
-            outputs: nextOutputs,
-            routes: nextRoutes,
+            inputs: snapshot.inputs,
+            outputs: snapshot.outputs,
+            routes: snapshot.routes,
           },
-          nextUiMetadata,
+          snapshot.uiMetadata,
         );
         const validation = validateConfig(patched.config);
         if (!validation.valid || !validation.config) {
-          pendingChangesRef.current = false;
+          if (pendingVersionRef.current === versionAtStart) {
+            pendingChangesRef.current = false;
+            pendingSnapshotRef.current = null;
+          }
           showToast.error('Invalid config', validation.errors[0]?.message);
           return;
         }
 
         try {
           await setConfigJson.mutateAsync(validation.config);
-          pendingChangesRef.current = false;
+          if (pendingVersionRef.current === versionAtStart) {
+            pendingChangesRef.current = false;
+            pendingSnapshotRef.current = null;
+          }
           setConfigJson.invalidate();
         } catch (error) {
-          pendingChangesRef.current = false;
+          if (pendingVersionRef.current === versionAtStart) {
+            pendingChangesRef.current = false;
+            pendingSnapshotRef.current = null;
+          }
           showToast.error(
             'Failed to send config',
             error instanceof Error ? error.message : String(error),

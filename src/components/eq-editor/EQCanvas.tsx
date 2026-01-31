@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, useState } from 'react';
+import { useMemo, useRef, useCallback, useEffect, useState } from 'react';
 import { cn } from '../../lib/utils';
 import { calculateCompositeResponse, formatFrequency, formatGain } from '../../lib/dsp';
 import type { BiquadParameters } from '../../types';
@@ -7,10 +7,14 @@ import {
   type CanvasDimensions,
   FREQUENCY_MARKERS,
   GAIN_MARKERS,
+  MIN_FREQUENCY,
+  MAX_FREQUENCY,
   MIN_GAIN,
   MAX_GAIN,
   freqToX,
   gainToY,
+  xToFreq,
+  yToGain,
   getBandColor,
   hasGain,
 } from './types';
@@ -22,6 +26,10 @@ export interface EQCanvasProps {
   selectedBandIndex: number | null;
   onSelectBand: (index: number | null) => void;
   onBandChange: (index: number, updates: Partial<BiquadParameters>) => void;
+  onBackgroundClick?: (freq: number, gain: number) => void;
+  onBackgroundPointerDown?: (freq: number, gain: number) => void;
+  onBackgroundPointerMove?: (freq: number, gain: number) => void;
+  onBackgroundPointerUp?: () => void;
   dimensions: CanvasDimensions;
   readOnly?: boolean;
   className?: string;
@@ -33,37 +41,52 @@ export function EQCanvas({
   selectedBandIndex,
   onSelectBand,
   onBandChange,
+  onBackgroundClick,
+  onBackgroundPointerDown,
+  onBackgroundPointerMove,
+  onBackgroundPointerUp,
   dimensions,
   readOnly = false,
   className,
 }: EQCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [, setIsDragging] = useState(false);
+  const isPlacingRef = useRef(false);
+  const [isPlacing, setIsPlacing] = useState(false);
+  const onBackgroundPointerMoveRef = useRef<EQCanvasProps['onBackgroundPointerMove']>(onBackgroundPointerMove);
+  const onBackgroundPointerUpRef = useRef<EQCanvasProps['onBackgroundPointerUp']>(onBackgroundPointerUp);
+  useEffect(() => {
+    onBackgroundPointerMoveRef.current = onBackgroundPointerMove;
+  }, [onBackgroundPointerMove]);
+  useEffect(() => {
+    onBackgroundPointerUpRef.current = onBackgroundPointerUp;
+  }, [onBackgroundPointerUp]);
+  const [hoverPoint, setHoverPoint] = useState<{ x: number; y: number; frequency: number; gain: number } | null>(
+    null,
+  );
 
   const { width, height, marginLeft, marginRight, marginTop, marginBottom } = dimensions;
   const plotWidth = width - marginLeft - marginRight;
   const plotHeight = height - marginTop - marginBottom;
 
   // Generate frequency response curve points
-  const responseCurve = useMemo(() => {
+  const responseData = useMemo(() => {
     const enabledBands = bands
       .filter((b) => b.enabled)
       .map((b) => b.parameters);
-
-    if (enabledBands.length === 0) {
-      // Return flat line at 0dB
-      return `M ${marginLeft} ${gainToY(0, dimensions)} L ${width - marginRight} ${gainToY(0, dimensions)}`;
-    }
 
     const response = calculateCompositeResponse(enabledBands, sampleRate);
     const points = response.map(({ frequency, magnitude }) => {
       const x = freqToX(frequency, dimensions);
       const y = gainToY(Math.max(MIN_GAIN, Math.min(MAX_GAIN, magnitude)), dimensions);
-      return `${x},${y}`;
+      return { x, y, frequency, gain: magnitude };
     });
 
-    return `M ${points.join(' L ')}`;
-  }, [bands, sampleRate, dimensions, marginLeft, marginRight, width]);
+    return {
+      path: `M ${points.map((point) => `${point.x},${point.y}`).join(' L ')}`,
+      points,
+    };
+  }, [bands, sampleRate, dimensions]);
 
   // Generate individual band curves for visualization
   const bandCurves = useMemo(() => {
@@ -85,12 +108,163 @@ export function EQCanvas({
     }).filter(Boolean);
   }, [bands, sampleRate, dimensions]);
 
-  // Handle canvas click for deselection
-  const handleCanvasClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.target === svgRef.current || (e.target as SVGElement).tagName === 'rect') {
-      onSelectBand(null);
+  const findClosestPoint = useCallback(
+    (svgX: number, svgY: number) => {
+      let closest: { x: number; y: number; frequency: number; gain: number } | null = null;
+      let minDist = Number.POSITIVE_INFINITY;
+      for (const point of responseData.points) {
+        const dx = point.x - svgX;
+        const dy = point.y - svgY;
+        const dist = dx * dx + dy * dy;
+        if (dist < minDist) {
+          minDist = dist;
+          closest = point;
+        }
+      }
+      return { closest, minDist };
+    },
+    [responseData.points],
+  );
+
+  const getPointerFreqGain = useCallback(
+    (svgX: number, svgY: number) => {
+      const clampedX = Math.max(marginLeft, Math.min(width - marginRight, svgX));
+      const clampedY = Math.max(marginTop, Math.min(height - marginBottom, svgY));
+      const freq = Math.max(MIN_FREQUENCY, Math.min(MAX_FREQUENCY, xToFreq(clampedX, dimensions)));
+      const gain = Math.max(MIN_GAIN, Math.min(MAX_GAIN, yToGain(clampedY, dimensions)));
+      return { freq, gain };
+    },
+    [dimensions, height, marginBottom, marginLeft, marginRight, marginTop, width],
+  );
+
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.button !== 0) return;
+    const target = e.target as Element | null;
+    const isNode = target?.closest?.('.eq-node');
+    if (isNode) return;
+    e.preventDefault();
+
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const svgX = e.clientX - rect.left;
+    const svgY = e.clientY - rect.top;
+    const inPlot = svgX >= marginLeft
+      && svgX <= width - marginRight
+      && svgY >= marginTop
+      && svgY <= height - marginBottom;
+
+    if (!readOnly && (onBackgroundPointerDown || onBackgroundClick) && inPlot) {
+      const threshold = 14;
+      const { closest, minDist } = findClosestPoint(svgX, svgY);
+      const candidate = hoverPoint ?? closest;
+      const distance = hoverPoint ? 0 : minDist;
+      if (candidate && distance <= threshold * threshold) {
+        const { freq, gain } = getPointerFreqGain(svgX, svgY);
+         if (onBackgroundPointerDown) {
+           onBackgroundPointerDown(freq, gain);
+         } else {
+           onBackgroundClick?.(candidate.frequency, candidate.gain);
+         }
+         isPlacingRef.current = true;
+         setIsPlacing(true);
+
+         const handleMouseMove = (moveEvent: MouseEvent) => {
+           if (!isPlacingRef.current) return;
+           const svgEl = svgRef.current;
+           if (!svgEl) return;
+           const moveRect = svgEl.getBoundingClientRect();
+           const moveX = moveEvent.clientX - moveRect.left;
+           const moveY = moveEvent.clientY - moveRect.top;
+          const { freq: moveFreq, gain: moveGain } = getPointerFreqGain(moveX, moveY);
+          onBackgroundPointerMoveRef.current?.(moveFreq, moveGain);
+        };
+
+         const handleMouseUp = () => {
+           if (!isPlacingRef.current) return;
+           isPlacingRef.current = false;
+           setIsPlacing(false);
+           onBackgroundPointerUpRef.current?.();
+           window.removeEventListener('mousemove', handleMouseMove);
+           window.removeEventListener('mouseup', handleMouseUp);
+         };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp, { once: true });
+        return;
+      }
     }
-  }, [onSelectBand]);
+
+    onSelectBand(null);
+  }, [
+    getPointerFreqGain,
+    findClosestPoint,
+    height,
+    hoverPoint,
+    marginBottom,
+    marginLeft,
+    marginRight,
+    marginTop,
+    onBackgroundClick,
+    onBackgroundPointerDown,
+    onBackgroundPointerMove,
+    onBackgroundPointerUp,
+    onSelectBand,
+    readOnly,
+    width,
+  ]);
+
+  const handleCanvasMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (isPlacingRef.current) {
+        setHoverPoint(null);
+        return;
+      }
+      if (readOnly || !onBackgroundClick) {
+        setHoverPoint(null);
+        return;
+      }
+      const target = e.target as Element | null;
+      const isNode = target?.closest?.('.eq-node');
+      if (isNode) {
+        setHoverPoint(null);
+        return;
+      }
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const svgX = e.clientX - rect.left;
+      const svgY = e.clientY - rect.top;
+      const inPlot = svgX >= marginLeft
+        && svgX <= width - marginRight
+        && svgY >= marginTop
+        && svgY <= height - marginBottom;
+      if (!inPlot) {
+        setHoverPoint(null);
+        return;
+      }
+
+      const { closest, minDist } = findClosestPoint(svgX, svgY);
+      const threshold = 14;
+      if (closest && minDist <= threshold * threshold) {
+        setHoverPoint(closest);
+      } else {
+        setHoverPoint(null);
+      }
+    },
+    [
+      height,
+      marginBottom,
+      marginLeft,
+      marginRight,
+      marginTop,
+      onBackgroundClick,
+      readOnly,
+      findClosestPoint,
+      width,
+    ],
+  );
+
 
   // Handle band frequency/gain drag
   const handleBandDrag = useCallback((index: number, freq: number, gain: number) => {
@@ -134,7 +308,9 @@ export function EQCanvas({
       width={width}
       height={height}
       className={cn('bg-dsp-surface rounded-lg', className)}
-      onClick={handleCanvasClick}
+      onMouseDown={handleCanvasMouseDown}
+      onMouseMove={handleCanvasMove}
+      onMouseLeave={() => { setHoverPoint(null); }}
     >
       {/* Plot area background */}
       <rect
@@ -199,6 +375,19 @@ export function EQCanvas({
       })}
 
       {/* Individual band response curves (faded) */}
+      {selectedBandIndex === null && bandCurves.map((curve) => {
+        if (!curve) return null;
+        return (
+          <path
+            key={`band-curve-idle-${curve.index}`}
+            d={curve.path}
+            fill="none"
+            stroke={curve.color}
+            strokeWidth="1"
+            opacity="0.12"
+          />
+        );
+      })}
       {selectedBandIndex !== null && bandCurves.map((curve) => {
         if (!curve || curve.index === selectedBandIndex) return null;
         return (
@@ -226,7 +415,7 @@ export function EQCanvas({
 
       {/* Composite response curve */}
       <path
-        d={responseCurve}
+        d={responseData.path}
         fill="none"
         stroke="#22d3ee"
         strokeWidth="2.5"
@@ -235,7 +424,7 @@ export function EQCanvas({
 
       {/* Filled area under composite curve */}
       <path
-        d={`${responseCurve} L ${width - marginRight},${gainToY(0, dimensions)} L ${marginLeft},${gainToY(0, dimensions)} Z`}
+        d={`${responseData.path} L ${width - marginRight},${gainToY(0, dimensions)} L ${marginLeft},${gainToY(0, dimensions)} Z`}
         fill="url(#responseGradient)"
         opacity="0.15"
       />
@@ -255,6 +444,7 @@ export function EQCanvas({
           band={band}
           index={index}
           isSelected={selectedBandIndex === index}
+          isExternalDragging={isPlacing && selectedBandIndex === index}
           dimensions={dimensions}
           onSelect={() => { onSelectBand(index); }}
           onDrag={(freq, gain) => { handleBandDrag(index, freq, gain); }}
@@ -263,6 +453,27 @@ export function EQCanvas({
           disabled={readOnly}
         />
       ))}
+
+      {hoverPoint && (
+        <g style={{ pointerEvents: 'none' }}>
+          <circle
+            cx={hoverPoint.x}
+            cy={hoverPoint.y}
+            r={6}
+            fill="#0ea5e9"
+            opacity={0.7}
+          />
+          <circle
+            cx={hoverPoint.x}
+            cy={hoverPoint.y}
+            r={9}
+            fill="none"
+            stroke="#22d3ee"
+            strokeWidth="2"
+            opacity={0.6}
+          />
+        </g>
+      )}
 
       {/* Axis labels */}
       <text

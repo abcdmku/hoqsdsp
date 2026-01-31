@@ -2,7 +2,7 @@ import type { Dispatch, MutableRefObject, PointerEvent as ReactPointerEvent, Ref
 import type { ChannelNode, ChannelSide, DeviceGroup, RouteEdge, RouteEndpoint } from '../../lib/signalflow';
 import type { DragState } from '../../components/signal-flow/ConnectionsCanvas';
 import type { SignalFlowClipboardPayload, SignalFlowMirrorGroups } from '../../stores/signalFlowUiStore';
-import type { FirPhaseCorrectionUiSettingsV1 } from '../../types';
+import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../types';
 import type { FilterType } from '../../types';
 import { SignalFlowWindows } from './windows/SignalFlowWindows';
 import type { SignalFlowWindow } from './windows/types';
@@ -17,9 +17,11 @@ interface SignalFlowWorkspaceProps {
   connectionCounts: Record<string, number>;
   dragState: DragState | null;
   firPhaseCorrection: Record<string, FirPhaseCorrectionUiSettingsV1>;
+  deq: Record<string, DeqBandUiSettingsV1>;
   handleSetChannelColor: (key: string, color: string) => void;
   handleSetMirrorGroup: (side: ChannelSide, members: RouteEndpoint[]) => void;
   handlePersistFirPhaseCorrectionSettings: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
+  handlePersistDeqSettings: (filterName: string, settings: DeqBandUiSettingsV1 | null) => void;
   highlightedPortKey: string | null;
   inputBankRef: RefObject<HTMLElement | null>;
   inputGroups: DeviceGroup[];
@@ -78,9 +80,11 @@ export function SignalFlowWorkspace({
   connectionCounts,
   dragState,
   firPhaseCorrection,
+  deq,
   handleSetChannelColor,
   handleSetMirrorGroup,
   handlePersistFirPhaseCorrectionSettings,
+  handlePersistDeqSettings,
   highlightedPortKey,
   inputBankRef,
   inputGroups,
@@ -165,6 +169,7 @@ export function SignalFlowWorkspace({
         channelColors={channelColors}
         mirrorGroups={mirrorGroups}
         firPhaseCorrection={firPhaseCorrection}
+        deq={deq}
         labelFor={labelFor}
         copyClipboard={copyClipboard}
         readClipboard={readClipboard}
@@ -176,6 +181,7 @@ export function SignalFlowWorkspace({
         handleSetChannelColor={handleSetChannelColor}
         handleSetMirrorGroup={handleSetMirrorGroup}
         handlePersistFirPhaseCorrectionSettings={handlePersistFirPhaseCorrectionSettings}
+        handlePersistDeqSettings={handlePersistDeqSettings}
         setWindows={setWindows}
         setSelectedRouteIndex={setSelectedRouteIndex}
         setSelectedChannelKey={setSelectedChannelKey}

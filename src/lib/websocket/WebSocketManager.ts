@@ -193,7 +193,7 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
 
       let errorMessage: string;
       if (error === undefined || error === null) {
-        errorMessage = 'Server returned an error without details';
+        errorMessage = `Server returned an error without details for ${commandName}`;
       } else if (typeof error === 'string') {
         errorMessage = error;
       } else if (typeof error === 'object') {

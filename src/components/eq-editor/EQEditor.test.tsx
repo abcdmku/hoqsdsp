@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useRef, useState } from 'react';
 import { render, screen, fireEvent } from '../../test/setup';
 import userEvent from '@testing-library/user-event';
 import { EQEditor } from './EQEditor';
@@ -597,9 +598,88 @@ describe('EQCanvas', () => {
     const { container } = render(<EQCanvas {...defaultProps} />);
     const svg = container.querySelector('svg');
     if (svg) {
-      fireEvent.click(svg);
+      fireEvent.mouseDown(svg, { button: 0 });
       expect(defaultProps.onSelectBand).toHaveBeenCalledWith(null);
     }
+  });
+
+  it('should keep updating newly-added band while dragging', () => {
+    function AddBandDragHarness() {
+      const [bands, setBands] = useState<EQBand[]>([]);
+      const [selectedBandIndex, setSelectedBandIndex] = useState<number | null>(null);
+      const dragIndexRef = useRef<number | null>(null);
+
+      return (
+        <>
+          <EQCanvas
+            bands={bands}
+            sampleRate={defaultProps.sampleRate}
+            selectedBandIndex={selectedBandIndex}
+            onSelectBand={defaultProps.onSelectBand}
+            onBandChange={defaultProps.onBandChange}
+            onBackgroundPointerDown={(freq, gain) => {
+              const newBand = createTestBand({
+                id: 'new-band',
+                parameters: {
+                  type: 'Peaking',
+                  freq: Math.round(freq),
+                  gain: Math.round(gain * 10) / 10,
+                  q: 1.0,
+                },
+              });
+              const nextBands = [...bands, newBand];
+              setBands(nextBands);
+              dragIndexRef.current = nextBands.length - 1;
+              setSelectedBandIndex(dragIndexRef.current);
+            }}
+            onBackgroundPointerMove={(freq, gain) => {
+              const index = dragIndexRef.current;
+              if (index === null) return;
+              const nextBands = [...bands];
+              const band = nextBands[index];
+              if (!band) return;
+              nextBands[index] = {
+                ...band,
+                parameters: {
+                  ...band.parameters,
+                  freq: Math.round(freq),
+                  gain: Math.round(gain * 10) / 10,
+                } as any,
+              };
+              setBands(nextBands);
+            }}
+            onBackgroundPointerUp={() => { dragIndexRef.current = null; }}
+            dimensions={defaultProps.dimensions}
+            readOnly={defaultProps.readOnly}
+          />
+          <div data-testid="band-freq">{bands[0] ? String(getBandFrequency(bands[0].parameters)) : ''}</div>
+        </>
+      );
+    }
+
+    const { container } = render(<AddBandDragHarness />);
+    const svg = container.querySelector('svg');
+    expect(svg).toBeInTheDocument();
+
+    const startX = freqToX(1000, testDimensions);
+    const startY = gainToY(0, testDimensions);
+    fireEvent.mouseDown(svg!, { clientX: startX, clientY: startY, button: 0 });
+
+    const nodeGroup = container.querySelector('g.eq-node');
+    expect(nodeGroup).toBeInTheDocument();
+    const circles = nodeGroup!.querySelectorAll('circle');
+    const mainCircle = circles[1];
+    expect(mainCircle).toBeInTheDocument();
+    expect(mainCircle).not.toHaveClass('transition-all');
+
+    const moveX = freqToX(2000, testDimensions);
+    const moveY = gainToY(6, testDimensions);
+    fireEvent.mouseMove(window, { clientX: moveX, clientY: moveY });
+
+    expect(screen.getByTestId('band-freq')).toHaveTextContent(String(Math.round(xToFreq(moveX, testDimensions))));
+
+    fireEvent.mouseUp(window);
+    expect(mainCircle).toHaveClass('transition-all');
   });
 });
 

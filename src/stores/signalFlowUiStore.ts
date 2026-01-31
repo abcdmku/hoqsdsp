@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ChannelSide, ChannelProcessingFilter, RouteEndpoint, RouteEdge } from '../lib/signalflow';
 import { sameEndpoint } from '../lib/signalflow/endpointUtils';
 import { defaultColorForKey, normalizeHexColor } from '../lib/signalflow/colorUtils';
-import type { FilterConfig, FilterType } from '../types';
+import type { DeqBandUiSettingsV1, FilterConfig, FilterType } from '../types';
 
 export type SignalFlowClipboardPayload =
   | {
@@ -12,7 +12,10 @@ export type SignalFlowClipboardPayload =
     }
   | {
       kind: 'filter';
-      data: { filterType: FilterType; config: FilterConfig } | { filterType: 'Biquad'; bands: ChannelProcessingFilter[] };
+      data:
+        | { filterType: FilterType; config: FilterConfig }
+        | { filterType: 'Biquad'; bands: ChannelProcessingFilter[] }
+        | { filterType: 'DiffEq'; bands: ChannelProcessingFilter[]; deq?: Record<string, DeqBandUiSettingsV1> };
     }
   | {
       kind: 'channel';

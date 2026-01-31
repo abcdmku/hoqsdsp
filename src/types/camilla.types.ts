@@ -1,6 +1,6 @@
 // CamillaDSP Configuration Types
 
-import type { FilterConfig } from './filters.types';
+import type { BiquadParameters, FilterConfig } from './filters.types';
 
 // Signal Flow UI metadata - preserved by CamillaDSP but ignored by DSP engine
 export type FirPhaseCorrectionWindowType = 'Rectangular' | 'Hann' | 'Hamming' | 'Blackman' | 'Kaiser';
@@ -23,6 +23,25 @@ export interface FirPhaseCorrectionUiSettingsV1 {
   selectedFilterNames?: string[];
 }
 
+export type DeqDynamicsMode = 'downward' | 'upward';
+
+export interface DeqBandDynamicsUiSettingsV1 {
+  enabled?: boolean;
+  mode?: DeqDynamicsMode;
+  rangeDb?: number;
+  thresholdDb?: number;
+  ratio?: number;
+  attackMs?: number;
+  releaseMs?: number;
+}
+
+export interface DeqBandUiSettingsV1 {
+  version: 1;
+  enabled?: boolean;
+  biquad: BiquadParameters;
+  dynamics?: DeqBandDynamicsUiSettingsV1;
+}
+
 export interface SignalFlowUiMetadata {
   channelColors?: Record<string, string>;  // key: "input:deviceId:0" or "output:deviceId:1"
   channelNames?: Record<string, string>;   // custom display names
@@ -34,6 +53,7 @@ export interface SignalFlowUiMetadata {
   // key: "input:channelIndex" or "output:channelIndex"
   channelGains?: Record<string, { gain: number; inverted: boolean }>;
   firPhaseCorrection?: Record<string, FirPhaseCorrectionUiSettingsV1>;
+  deq?: Record<string, DeqBandUiSettingsV1>;
 }
 
 export interface CamillaConfigUi {

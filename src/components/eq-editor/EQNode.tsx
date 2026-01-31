@@ -19,6 +19,7 @@ export const EQNode = memo(function EQNode({
   band,
   index,
   isSelected,
+  isExternalDragging = false,
   dimensions,
   onSelect,
   onDrag,
@@ -119,6 +120,7 @@ export const EQNode = memo(function EQNode({
   // Node radius based on state
   const radius = isSelected ? 12 : 10;
   const strokeWidth = isSelected ? 3 : 2;
+  const isActivelyDragging = isDragging || isExternalDragging;
 
   // Show filter type indicator
   const getFilterTypeSymbol = () => {
@@ -157,7 +159,7 @@ export const EQNode = memo(function EQNode({
   return (
     <g
       ref={nodeRef}
-      className={`eq-node ${disabled ? 'cursor-default' : 'cursor-grab'} ${isDragging ? 'cursor-grabbing' : ''}`}
+      className={`eq-node ${disabled ? 'cursor-default' : 'cursor-grab'} ${isActivelyDragging ? 'cursor-grabbing' : ''}`}
       onMouseDown={handleMouseDown}
       onWheel={handleWheel}
       style={{ opacity: band.enabled ? 1 : 0.4 }}
@@ -184,7 +186,7 @@ export const EQNode = memo(function EQNode({
         fill={band.enabled ? color : '#4b5563'}
         stroke={isSelected ? '#ffffff' : color}
         strokeWidth={strokeWidth}
-        className="transition-all duration-100"
+        className={isActivelyDragging ? '' : 'transition-all duration-100'}
       />
 
       {/* Filter type symbol */}
@@ -212,7 +214,7 @@ export const EQNode = memo(function EQNode({
       </text>
 
       {/* Frequency/Gain tooltip when selected or dragging */}
-      {(isSelected || isDragging) && (
+      {(isSelected || isActivelyDragging) && (
         <g>
           <rect
             x={x + 16}

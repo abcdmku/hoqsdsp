@@ -27,6 +27,23 @@ export function replaceBiquadBlock<T extends { config: { type: string } }>(
   return [...filters.slice(0, block.start), ...biquads, ...filters.slice(block.end + 1)];
 }
 
+export function getDiffEqBlock(filters: { config: { type: string } }[]): { start: number; end: number } | null {
+  const indices: number[] = [];
+  for (let i = 0; i < filters.length; i++) {
+    if (filters[i]?.config.type === 'DiffEq') indices.push(i);
+  }
+  return indices.length > 0 ? { start: indices[0]!, end: indices[indices.length - 1]! } : null;
+}
+
+export function replaceDiffEqBlock<T extends { config: { type: string } }>(
+  filters: T[],
+  diffeqs: T[],
+): T[] {
+  const block = getDiffEqBlock(filters);
+  if (!block) return [...filters, ...diffeqs];
+  return [...filters.slice(0, block.start), ...diffeqs, ...filters.slice(block.end + 1)];
+}
+
 export function upsertSingleFilterOfType(
   filters: ChannelProcessingFilter[],
   config: FilterConfig,

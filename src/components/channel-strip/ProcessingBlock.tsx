@@ -109,6 +109,7 @@ function getFilterColorCategory(filterType: FilterType): keyof typeof FILTER_COL
     case 'Dither':
       return 'dither';
     case 'DiffEq':
+      return 'eq';
     default:
       return 'inactive';
   }

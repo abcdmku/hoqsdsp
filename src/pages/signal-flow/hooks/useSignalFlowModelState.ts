@@ -3,7 +3,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { CamillaConfig } from '../../../types';
 import type { ChannelNode, FromConfigResult, RouteEdge } from '../../../lib/signalflow';
 import type { SignalFlowMirrorGroups, UnitSignalFlowPrefs } from '../../../stores/signalFlowUiStore';
-import type { FirPhaseCorrectionUiSettingsV1 } from '../../../types';
+import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../../types';
 import type { DockedFilterEditorState, SignalFlowWindow } from '../windows/types';
 import { useSignalFlowCommit } from './useSignalFlowCommit';
 import { useSignalFlowFilters } from './useSignalFlowFilters';
@@ -51,6 +51,7 @@ export function useSignalFlowModelState({
   const [channelNames, setChannelNames] = useState<Record<string, string>>({});
   const [mirrorGroups, setMirrorGroups] = useState<SignalFlowMirrorGroups>({ input: [], output: [] });
   const [firPhaseCorrection, setFirPhaseCorrection] = useState<Record<string, FirPhaseCorrectionUiSettingsV1>>({});
+  const [deq, setDeq] = useState<Record<string, DeqBandUiSettingsV1>>({});
 
   const pendingChangesRef = useRef(false);
   const prevUnitIdRef = useRef<string | null>(null);
@@ -72,6 +73,7 @@ export function useSignalFlowModelState({
     setChannelNames,
     setMirrorGroups,
     setFirPhaseCorrection,
+    setDeq,
   });
 
   useSignalFlowMigration({
@@ -97,6 +99,7 @@ export function useSignalFlowModelState({
       channelNames,
       mirrorGroups,
       firPhaseCorrection,
+      deq,
     },
     setConfigJson,
   });
@@ -109,6 +112,7 @@ export function useSignalFlowModelState({
 
   const {
     handlePersistFirPhaseCorrectionSettings,
+    handlePersistDeqSettings,
     handleSetChannelColor,
     handleSetChannelName,
     handleSetMirrorGroup,
@@ -118,6 +122,7 @@ export function useSignalFlowModelState({
     setChannelNames,
     setMirrorGroups,
     setFirPhaseCorrection,
+    setDeq,
     setInputs,
     setOutputs,
   });
@@ -147,8 +152,10 @@ export function useSignalFlowModelState({
     channelColors,
     channelNames,
     connectionCounts,
+    deq,
     deleteRoute,
     firPhaseCorrection,
+    handlePersistDeqSettings,
     handlePersistFirPhaseCorrectionSettings,
     handleSetChannelColor,
     handleSetChannelName,

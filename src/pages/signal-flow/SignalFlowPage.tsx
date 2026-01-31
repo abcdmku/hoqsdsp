@@ -124,12 +124,14 @@ export function SignalFlowPage() {
       <SignalFlowDockedFilterEditor
         dockedFilterEditor={windows.dockedFilterEditor}
         firPhaseCorrection={model.firPhaseCorrection}
+        deq={model.deq}
         inputs={model.inputs}
         outputs={model.outputs}
         sampleRate={configState.sampleRate}
         labelFor={model.labelFor}
         onClose={() => windows.setDockedFilterEditor(null)}
         onPersistFirPhaseCorrectionSettings={model.handlePersistFirPhaseCorrectionSettings}
+        onPersistDeqSettings={model.handlePersistDeqSettings}
         onUpdateFilters={model.updateChannelFilters}
       />
 
@@ -142,9 +144,11 @@ export function SignalFlowPage() {
         connectionCounts={model.connectionCounts}
         dragState={drag.dragState}
         firPhaseCorrection={model.firPhaseCorrection}
+        deq={model.deq}
         handleSetChannelColor={model.handleSetChannelColor}
         handleSetMirrorGroup={model.handleSetMirrorGroup}
         handlePersistFirPhaseCorrectionSettings={model.handlePersistFirPhaseCorrectionSettings}
+        handlePersistDeqSettings={model.handlePersistDeqSettings}
         highlightedPortKey={drag.highlightedPortKey}
         inputBankRef={inputBankRef}
         inputGroups={configState.flow.model.inputGroups}

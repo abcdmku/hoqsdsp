@@ -52,10 +52,10 @@ export const FILTER_UI: Record<FilterType, FilterUiMeta> = {
   },
   DiffEq: {
     type: 'DiffEq',
-    label: 'Difference Eq',
+    label: 'Dynamic EQ',
     shortLabel: 'DEQ',
     icon: Sigma,
-    color: 'inactive',
+    color: 'eq',
   },
   Conv: {
     type: 'Conv',

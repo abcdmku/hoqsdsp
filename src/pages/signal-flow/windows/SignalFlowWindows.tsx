@@ -16,6 +16,7 @@ export function SignalFlowWindows({
   channelColors,
   mirrorGroups,
   firPhaseCorrection,
+  deq,
   labelFor,
   copyClipboard,
   readClipboard,
@@ -27,6 +28,7 @@ export function SignalFlowWindows({
   handleSetChannelColor,
   handleSetMirrorGroup,
   handlePersistFirPhaseCorrectionSettings,
+  handlePersistDeqSettings,
   setWindows,
   setSelectedRouteIndex,
   setSelectedChannelKey,
@@ -109,6 +111,8 @@ export function SignalFlowWindows({
               updateChannelFilters={updateChannelFilters}
               firPhaseCorrection={firPhaseCorrection}
               onPersistFirPhaseCorrectionSettings={handlePersistFirPhaseCorrectionSettings}
+              deq={deq}
+              onPersistDeqSettings={handlePersistDeqSettings}
               onMove={(pos) => {
                 moveWindow(win.id, pos);
               }}

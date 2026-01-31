@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import type { ChannelNode, ChannelSide, RouteEndpoint } from '../../lib/signalflow';
 import type { DockedFilterEditorState } from './windows/types';
-import type { FirPhaseCorrectionUiSettingsV1 } from '../../types';
+import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../types';
 import { FILTER_UI } from '../../components/signal-flow/filterUi';
 import { SignalFlowFilterWindowContent } from '../../components/signal-flow/SignalFlowFilterWindowContent';
 import { Button } from '../../components/ui/Button';
@@ -9,12 +9,14 @@ import { Button } from '../../components/ui/Button';
 interface SignalFlowDockedFilterEditorProps {
   dockedFilterEditor: DockedFilterEditorState | null;
   firPhaseCorrection: Record<string, FirPhaseCorrectionUiSettingsV1>;
+  deq: Record<string, DeqBandUiSettingsV1>;
   inputs: ChannelNode[];
   outputs: ChannelNode[];
   sampleRate: number;
   labelFor: (side: ChannelSide, endpoint: RouteEndpoint) => string;
   onClose: () => void;
   onPersistFirPhaseCorrectionSettings: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
+  onPersistDeqSettings: (filterName: string, settings: DeqBandUiSettingsV1 | null) => void;
   onUpdateFilters: (
     side: ChannelSide,
     endpoint: RouteEndpoint,
@@ -26,12 +28,14 @@ interface SignalFlowDockedFilterEditorProps {
 export function SignalFlowDockedFilterEditor({
   dockedFilterEditor,
   firPhaseCorrection,
+  deq,
   inputs,
   outputs,
   sampleRate,
   labelFor,
   onClose,
   onPersistFirPhaseCorrectionSettings,
+  onPersistDeqSettings,
   onUpdateFilters,
 }: SignalFlowDockedFilterEditorProps) {
   const isOpen = !!dockedFilterEditor;
@@ -87,6 +91,8 @@ export function SignalFlowDockedFilterEditor({
                 onClose={onClose}
                 firPhaseCorrection={firPhaseCorrection}
                 onPersistFirPhaseCorrectionSettings={onPersistFirPhaseCorrectionSettings}
+                deq={deq}
+                onPersistDeqSettings={onPersistDeqSettings}
                 onChange={(nextFilters, options) => {
                   onUpdateFilters(dockedFilterEditor.side, endpoint, nextFilters, options);
                 }}

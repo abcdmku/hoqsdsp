@@ -29,11 +29,12 @@ export function useSetConfigJson(unitId: string) {
       const wsManager = websocketService.getManager(unitId);
       if (!wsManager) throw new Error('WebSocket not connected');
       if (!wsManager.isConnected) throw new Error('WebSocket connection lost');
-      // Strip 'ui' field - it's frontend-only metadata that CamillaDSP doesn't understand
-      const { ui: _ui, ...configWithoutUi } = config;
       // Clean null values from config before sending to CamillaDSP
-      const cleanedConfig = cleanNullValues(configWithoutUi);
+      const cleanedConfig = cleanNullValues(config);
+      const { ui: _ui, ...configWithoutUi } = config;
+      const cleanedWithoutUi = cleanNullValues(configWithoutUi);
       const jsonString = JSON.stringify(cleanedConfig);
+      const fallbackJsonString = _ui ? JSON.stringify(cleanedWithoutUi) : null;
 
       try {
         // SetConfigJson validates and applies the config directly
@@ -42,12 +43,22 @@ export function useSetConfigJson(unitId: string) {
           await wsManager.send({ SetConfigJson: jsonString });
           return;
         } catch (directError) {
-          console.warn('[SetConfigJson] Direct apply failed, trying Stop/Set/Start:', directError);
+          if (fallbackJsonString) {
+            try {
+              await wsManager.send({ SetConfigJson: fallbackJsonString });
+              return;
+            } catch (fallbackError) {
+              console.warn('[SetConfigJson] Direct apply failed (with and without ui), trying Stop/Set/Start:', fallbackError);
+            }
+          } else {
+            console.warn('[SetConfigJson] Direct apply failed, trying Stop/Set/Start:', directError);
+          }
         }
 
         // If direct apply fails (e.g., pipeline structure changed), try Stop -> Set -> Reload
+        const jsonForReload = fallbackJsonString ?? jsonString;
         await wsManager.send('Stop');
-        await wsManager.send({ SetConfigJson: jsonString });
+        await wsManager.send({ SetConfigJson: jsonForReload });
         await wsManager.send({ Reload: null });
       } catch (error) {
         console.error('[SetConfigJson] Failed to apply config:', error);

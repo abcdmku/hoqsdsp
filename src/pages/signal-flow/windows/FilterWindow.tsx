@@ -2,13 +2,14 @@ import type { RefObject } from 'react';
 import { ClipboardPaste, Copy } from 'lucide-react';
 import type { ChannelNode, ChannelSide, RouteEndpoint } from '../../../lib/signalflow';
 import type { SignalFlowClipboardPayload } from '../../../stores/signalFlowUiStore';
-import type { FirPhaseCorrectionUiSettingsV1 } from '../../../types';
+import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { FloatingWindow } from '../../../components/signal-flow/FloatingWindow';
 import { SignalFlowFilterWindowContent } from '../../../components/signal-flow/SignalFlowFilterWindowContent';
 import { FILTER_UI } from '../../../components/signal-flow/filterUi';
 import { showToast } from '../../../components/feedback';
 import { ensureUniqueName, replaceBiquadBlock } from '../utils';
+import { replaceDiffEqBlock } from '../../../lib/signalflow/filterUtils';
 import type { FilterWindow as FilterWindowType } from './types';
 
 interface SignalFlowFilterWindowProps {
@@ -29,6 +30,8 @@ interface SignalFlowFilterWindowProps {
   ) => void;
   firPhaseCorrection: Record<string, FirPhaseCorrectionUiSettingsV1>;
   onPersistFirPhaseCorrectionSettings: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
+  deq: Record<string, DeqBandUiSettingsV1>;
+  onPersistDeqSettings: (filterName: string, settings: DeqBandUiSettingsV1 | null) => void;
   onMove: (position: FilterWindowType['position']) => void;
   onRequestClose: () => void;
   onRequestFocus: () => void;
@@ -47,6 +50,8 @@ export function SignalFlowFilterWindow({
   updateChannelFilters,
   firPhaseCorrection,
   onPersistFirPhaseCorrectionSettings,
+  deq,
+  onPersistDeqSettings,
   onMove,
   onRequestClose,
   onRequestFocus,
@@ -86,6 +91,30 @@ export function SignalFlowFilterWindow({
                   return;
                 }
                 void copyClipboard({ kind: 'filter', data: { filterType: 'Biquad', bands } });
+                return;
+              }
+
+              if (window.filterType === 'DiffEq') {
+                const bands = node.processing.filters.filter((f) => f.config.type === 'DiffEq');
+                if (bands.length === 0) {
+                  showToast.info('Nothing to copy');
+                  return;
+                }
+                const deqUi: Record<string, DeqBandUiSettingsV1> = {};
+                for (const band of bands) {
+                  const settings = deq[band.name];
+                  if (settings) {
+                    deqUi[band.name] = settings;
+                  }
+                }
+                void copyClipboard({
+                  kind: 'filter',
+                  data: {
+                    filterType: 'DiffEq',
+                    bands,
+                    ...(Object.keys(deqUi).length > 0 ? { deq: deqUi } : {}),
+                  },
+                });
                 return;
               }
 
@@ -133,6 +162,37 @@ export function SignalFlowFilterWindow({
                   return;
                 }
 
+                if (window.filterType === 'DiffEq') {
+                  if (!('bands' in payload.data) || payload.data.filterType !== 'DiffEq') {
+                    showToast.warning('Clipboard does not contain DEQ bands.');
+                    return;
+                  }
+
+                  const diffeqs = payload.data.bands.filter((f) => f.config.type === 'DiffEq');
+                  const nextFilters = replaceDiffEqBlock(node.processing.filters, diffeqs);
+                  updateChannelFilters(window.side, endpoint, nextFilters);
+
+                  const prevNames = new Set(
+                    node.processing.filters.filter((f) => f.config.type === 'DiffEq').map((f) => f.name),
+                  );
+                  const nextNames = new Set(diffeqs.map((f) => f.name));
+
+                  for (const prevName of prevNames) {
+                    if (!nextNames.has(prevName)) {
+                      onPersistDeqSettings(prevName, null);
+                    }
+                  }
+
+                  if ('deq' in payload.data && payload.data.deq) {
+                    for (const [name, settings] of Object.entries(payload.data.deq)) {
+                      onPersistDeqSettings(name, settings);
+                    }
+                  }
+
+                  showToast.success('Pasted');
+                  return;
+                }
+
                 if (!('config' in payload.data) || payload.data.filterType !== window.filterType) {
                   showToast.warning('Clipboard filter type does not match.');
                   return;
@@ -159,7 +219,11 @@ export function SignalFlowFilterWindow({
           </Button>
         </>
       }
-      className={window.filterType === 'Biquad' ? 'w-[800px]' : 'w-[560px]'}
+      className={
+        window.filterType === 'Biquad' || window.filterType === 'DiffEq'
+          ? 'w-[960px] max-w-[95vw]'
+          : 'w-[560px]'
+      }
     >
       <SignalFlowFilterWindowContent
         node={node}
@@ -168,6 +232,8 @@ export function SignalFlowFilterWindow({
         onClose={onRequestClose}
         firPhaseCorrection={firPhaseCorrection}
         onPersistFirPhaseCorrectionSettings={onPersistFirPhaseCorrectionSettings}
+        deq={deq}
+        onPersistDeqSettings={onPersistDeqSettings}
         onChange={(nextFilters, options) => {
           updateChannelFilters(window.side, endpoint, nextFilters, options);
         }}

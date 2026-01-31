@@ -46,6 +46,8 @@ export interface EQNodeProps {
   band: EQBand;
   index: number;
   isSelected: boolean;
+  /** Used when dragging is handled outside of EQNode (e.g., click-to-add placement). */
+  isExternalDragging?: boolean;
   dimensions: CanvasDimensions;
   onSelect: () => void;
   onDrag: (freq: number, gain: number) => void;

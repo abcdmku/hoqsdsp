@@ -12,6 +12,7 @@ import {
   hasQ,
   getBandFrequency,
 } from './types';
+import { useAddBandDrag } from './useAddBandDrag';
 
 /** Default dimensions for the EQ canvas */
 const DEFAULT_DIMENSIONS: CanvasDimensions = {
@@ -29,14 +30,14 @@ function generateBandId(): string {
 }
 
 /** Create a default peaking EQ band */
-function createDefaultBand(freq = 1000): EQBand {
+function createDefaultBand(freq = 1000, gain = 0): EQBand {
   return {
     id: generateBandId(),
     enabled: true,
     parameters: {
       type: 'Peaking',
       freq,
-      gain: 0,
+      gain,
       q: 1.0,
     },
   };
@@ -117,11 +118,22 @@ export function EQEditor({
       }
     }
 
-    const newBand = createDefaultBand(newFreq);
+    const newBand = createDefaultBand(newFreq, 0);
     const newBands = [...bands, newBand];
     onChange(newBands);
     onSelectBand(newBands.length - 1);
   }, [bands, onChange, onSelectBand, readOnly]);
+
+  const { handleAddBandStart, handleAddBandMove, handleAddBandEnd } = useAddBandDrag({
+    readOnly,
+    bands,
+    onChange,
+    onSelectBand,
+    createBand: createDefaultBand,
+    updateBand: (index, freq, gain) => {
+      handleBandChange(index, { freq, gain });
+    },
+  });
 
   // Handle removing a band
   const handleRemoveBand = useCallback((index: number) => {
@@ -306,6 +318,10 @@ export function EQEditor({
             selectedBandIndex={selectedBandIndex}
             onSelectBand={onSelectBand}
             onBandChange={handleBandChange}
+            onBackgroundPointerDown={handleAddBandStart}
+            onBackgroundPointerMove={handleAddBandMove}
+            onBackgroundPointerUp={handleAddBandEnd}
+            onBackgroundClick={handleAddBandStart}
             dimensions={dimensions}
             readOnly={readOnly}
           />

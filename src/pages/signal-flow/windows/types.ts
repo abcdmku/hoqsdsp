@@ -1,6 +1,6 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
 import type { ChannelNode, ChannelSide, RouteEdge, RouteEndpoint } from '../../../lib/signalflow';
-import type { FirPhaseCorrectionUiSettingsV1 } from '../../../types';
+import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../../types';
 import type { SignalFlowClipboardPayload, SignalFlowMirrorGroups } from '../../../stores/signalFlowUiStore';
 import type { FilterType } from '../../../types';
 import type { FloatingWindowPosition } from '../../../components/signal-flow/FloatingWindow';
@@ -69,6 +69,7 @@ export interface SignalFlowWindowsProps {
   channelColors: Record<string, string>;
   mirrorGroups: SignalFlowMirrorGroups;
   firPhaseCorrection: Record<string, FirPhaseCorrectionUiSettingsV1>;
+  deq: Record<string, DeqBandUiSettingsV1>;
   labelFor: (side: ChannelSide, endpoint: RouteEndpoint) => string;
   copyClipboard: (payload: SignalFlowClipboardPayload) => Promise<void>;
   readClipboard: () => Promise<SignalFlowClipboardPayload | null>;
@@ -85,6 +86,7 @@ export interface SignalFlowWindowsProps {
   handleSetChannelColor: (key: string, color: string) => void;
   handleSetMirrorGroup: (side: ChannelSide, members: RouteEndpoint[]) => void;
   handlePersistFirPhaseCorrectionSettings: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
+  handlePersistDeqSettings: (filterName: string, settings: DeqBandUiSettingsV1 | null) => void;
   setWindows: Dispatch<SetStateAction<SignalFlowWindow[]>>;
   setSelectedRouteIndex: Dispatch<SetStateAction<number | null>>;
   setSelectedChannelKey: Dispatch<SetStateAction<string | null>>;
