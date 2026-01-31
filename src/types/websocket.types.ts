@@ -46,10 +46,11 @@ export type WSCommand =
 
 // Response wrappers
 // CamillaDSP v3 uses an externally-tagged response keyed by command name,
-// and an inner enum-like object with either `Ok` or `Error`.
+// and an inner enum-like object with either `Ok` or `Err`/`Error`.
 // Example: {"GetVersion": {"Ok": "3.0.0"}}
+//          {"GetVersion": {"Err": "Command failed"}}
 //          {"GetVersion": {"Error": "Command failed"}}
-export type WSResponse<T = unknown> = { Ok: T } | { Error: unknown };
+export type WSResponse<T = unknown> = { Ok: T } | { Err: unknown } | { Error: unknown };
 
 // Back-compat: some implementations/older versions used a {result,value} wrapper.
 export interface WSLegacyResponse<T = unknown> {

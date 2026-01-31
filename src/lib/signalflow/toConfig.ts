@@ -1,5 +1,6 @@
 import type { CamillaConfig, MixerConfig, MixerMapping, MixerSource, SignalFlowUiMetadata } from '../../types';
 import type { RouteEdge, SignalFlowModel, SignalFlowWarning, ToConfigResult } from './model';
+import { upsertDeqSettingsInStepDescription } from './deqStepMetadata';
 
 const ROUTING_MIXER_NAME = 'routing';
 
@@ -84,6 +85,16 @@ export function toConfig(
 ): ToConfigResult {
   const warnings: SignalFlowWarning[] = [];
 
+  const existingStepDescriptions = new Map<string, string>();
+  for (const step of config.pipeline) {
+    if (step.type !== 'Filter') continue;
+    if (!step.description) continue;
+    if (step.names.length !== 1) continue;
+    const name = step.names[0];
+    if (!name) continue;
+    existingStepDescriptions.set(name, step.description);
+  }
+
   // Debug logging for filter issues
   const inputChannels = config.devices.capture.channels;
   const outputChannels = config.devices.playback.channels;
@@ -148,7 +159,22 @@ export function toConfig(
   for (const node of model.inputs) {
     for (const filter of node.processing.filters) {
       nextFilters[filter.name] = filter.config;
-      nextInputSteps.push({ type: 'Filter', names: [filter.name], channels: [node.channelIndex] });
+
+      const priorDescription = existingStepDescriptions.get(filter.name);
+      const deqSettings = filter.config.type === 'DiffEq'
+        ? (uiMetadata?.deq?.[filter.name] ?? null)
+        : null;
+
+      const description = deqSettings
+        ? upsertDeqSettingsInStepDescription(priorDescription, deqSettings)
+        : priorDescription;
+
+      nextInputSteps.push({
+        type: 'Filter',
+        names: [filter.name],
+        channels: [node.channelIndex],
+        ...(description ? { description } : {}),
+      });
     }
   }
 
@@ -156,7 +182,22 @@ export function toConfig(
   for (const node of model.outputs) {
     for (const filter of node.processing.filters) {
       nextFilters[filter.name] = filter.config;
-      nextOutputSteps.push({ type: 'Filter', names: [filter.name], channels: [node.channelIndex] });
+
+      const priorDescription = existingStepDescriptions.get(filter.name);
+      const deqSettings = filter.config.type === 'DiffEq'
+        ? (uiMetadata?.deq?.[filter.name] ?? null)
+        : null;
+
+      const description = deqSettings
+        ? upsertDeqSettingsInStepDescription(priorDescription, deqSettings)
+        : priorDescription;
+
+      nextOutputSteps.push({
+        type: 'Filter',
+        names: [filter.name],
+        channels: [node.channelIndex],
+        ...(description ? { description } : {}),
+      });
     }
   }
 

@@ -71,7 +71,7 @@ export function SignalFlowFilterWindowContent({
     [node, onChange],
   );
 
-  const deqBands = useMemo(() => buildDeqBands(filters, deqUi), [filters, deqUi]);
+  const deqBands = useMemo(() => buildDeqBands(filters, deqUi, sampleRate), [filters, deqUi, sampleRate]);
   const prevDeqBandsRef = useRef(deqBands);
   useEffect(() => {
     prevDeqBandsRef.current = deqBands;

@@ -43,7 +43,7 @@ interface CurvePoints {
 }
 
 interface GuideCurve {
-  db: number;
+  levelDbfs: number;
   opacity: number;
   strokeWidth: number;
   path: string;
@@ -184,9 +184,10 @@ export function DEQCanvas({
     const { staticPoints, staticPath } = overallCurves;
     if (staticPoints.length === 0) {
       return {
-        ceilingPoints: [] as CurvePoints[],
-        ceilingPath: '',
-        ceilingArea: '',
+        rangePath: '',
+        rangeArea: '',
+        capPath: '',
+        capArea: '',
         guideCurves: [] as GuideCurve[],
       };
     }
@@ -199,53 +200,78 @@ export function DEQCanvas({
         gain: magnitude,
       }));
 
-    const bandMaxDeltaAt0 = enabledBands.map((band) => {
-      if (!hasGain(band.parameters.type) || !('gain' in band.parameters)) return 0;
-      return getMaxDeltaAtDbfs(band.dynamics, 0);
+    const dynMeta = enabledBands.map((band) => {
+      const canDyn = hasGain(band.parameters.type) && 'gain' in band.parameters;
+      const rangeAbs = Math.abs(Number.isFinite(band.dynamics.rangeDb) ? band.dynamics.rangeDb : 0);
+      const ratio = clampNumber(
+        Number.isFinite(band.dynamics.ratio) ? band.dynamics.ratio : MIN_RATIO,
+        MIN_RATIO,
+        MAX_RATIO,
+      );
+      const strength = getRatioStrength(ratio);
+      return { canDyn, rangeAbs, strength };
     });
 
-    const hasAnyDynamics = bandMaxDeltaAt0.some((d) => d > 0.001);
+    const hasAnyDynamics = dynMeta.some((m) => m.canDyn && m.rangeAbs > 0.001 && m.strength > 0.0001);
     if (!hasAnyDynamics) {
       return {
-        ceilingPoints: [] as CurvePoints[],
-        ceilingPath: '',
-        ceilingArea: '',
+        rangePath: '',
+        rangeArea: '',
+        capPath: '',
+        capArea: '',
         guideCurves: [] as GuideCurve[],
       };
     }
 
-    const ceilingFilters = enabledBands.map((band, idx) =>
-      applyDynamicsDelta(band.parameters, band.dynamics, bandMaxDeltaAt0[idx]!)
-    );
-    const ceilingResponse = calculateCompositeResponse(ceilingFilters, sampleRate);
-    const ceilingPoints = ceilingResponse ? toPoints(ceilingResponse) : [];
-    const ceilingPath = buildLinePath(ceilingPoints);
-    const ceilingArea = buildAreaBetween(staticPoints, ceilingPoints);
+    const rangeFilters = enabledBands.map((band, idx) => {
+      const meta = dynMeta[idx]!;
+      if (!meta.canDyn || meta.rangeAbs <= 0.001 || meta.strength <= 0.0001) return band.parameters;
+      return applyDynamicsDelta(band.parameters, band.dynamics, meta.rangeAbs);
+    });
+    const rangeResponse = calculateCompositeResponse(rangeFilters, sampleRate);
+    const rangePoints = rangeResponse ? toPoints(rangeResponse) : [];
+    const rangePath = buildLinePath(rangePoints);
+    const rangeArea = buildAreaBetween(staticPoints, rangePoints);
 
-    const guideSpecs: Array<{ db: number; opacity: number; strokeWidth: number }> = [
-      { db: 3, opacity: 0.20, strokeWidth: 1.3 },
-      { db: 6, opacity: 0.26, strokeWidth: 1.35 },
-      { db: 12, opacity: 0.34, strokeWidth: 1.45 },
-      { db: 24, opacity: 0.46, strokeWidth: 1.7 },
+    const capFilters = enabledBands.map((band, idx) => {
+      const meta = dynMeta[idx]!;
+      if (!meta.canDyn || meta.rangeAbs <= 0.001 || meta.strength <= 0.0001) return band.parameters;
+      const deltaAt0 = getMaxDeltaAtDbfs(band.dynamics, 0);
+      return applyDynamicsDelta(band.parameters, band.dynamics, deltaAt0);
+    });
+    const capResponse = calculateCompositeResponse(capFilters, sampleRate);
+    const capPoints = capResponse ? toPoints(capResponse) : [];
+    const capPath = buildLinePath(capPoints);
+    const capArea = buildAreaBetween(staticPoints, capPoints);
+
+    // Fixed input levels (dBFS). Threshold shifts the spacing because "over-threshold" changes.
+    const guideSpecs: Array<{ levelDbfs: number; opacity: number; strokeWidth: number }> = [
+      { levelDbfs: -3, opacity: 0.20, strokeWidth: 1.3 },
+      { levelDbfs: -6, opacity: 0.26, strokeWidth: 1.35 },
+      { levelDbfs: -12, opacity: 0.34, strokeWidth: 1.45 },
+      { levelDbfs: -24, opacity: 0.46, strokeWidth: 1.7 },
+      { levelDbfs: -48, opacity: 0.56, strokeWidth: 1.9 },
     ];
 
-    const guideCurves = guideSpecs.map(({ db, opacity, strokeWidth }) => {
+    const guideCurves = guideSpecs.map(({ levelDbfs, opacity, strokeWidth }) => {
       const guideFilters = enabledBands.map((band, idx) => {
-        const maxAt0 = bandMaxDeltaAt0[idx]!;
-        const delta = Math.min(db, maxAt0);
+        const meta = dynMeta[idx]!;
+        if (!meta.canDyn || meta.rangeAbs <= 0.001 || meta.strength <= 0.0001) return band.parameters;
+        const delta = getMaxDeltaAtDbfs(band.dynamics, levelDbfs);
         return applyDynamicsDelta(band.parameters, band.dynamics, delta);
       });
       const response = calculateCompositeResponse(guideFilters, sampleRate);
       const points = response ? toPoints(response) : [];
       const path = buildLinePath(points);
-      if (!path || path === staticPath) return null;
-      return { db, opacity, strokeWidth, path };
+      if (!path) return null;
+      return { levelDbfs, opacity, strokeWidth, path };
     }).filter((curve): curve is GuideCurve => curve !== null);
 
     return {
-      ceilingPoints,
-      ceilingPath,
-      ceilingArea,
+      rangePath,
+      rangeArea,
+      capPath,
+      capArea,
       guideCurves,
     };
   }, [dimensions, enabledBands, overallCurves, sampleRate]);
@@ -267,16 +293,24 @@ export function DEQCanvas({
       const staticPoints = toPoints(staticResponse);
 
       const canDyn = hasGain(band.parameters.type) && 'gain' in band.parameters;
-      const maxDeltaAt0 = canDyn ? getMaxDeltaAtDbfs(band.dynamics, 0) : 0;
-      const dynParams = maxDeltaAt0 > 0.001
-        ? applyDynamicsDelta(band.parameters, band.dynamics, maxDeltaAt0)
+      const rangeAbs = Math.abs(Number.isFinite(band.dynamics.rangeDb) ? band.dynamics.rangeDb : 0);
+      const ratio = clampNumber(
+        Number.isFinite(band.dynamics.ratio) ? band.dynamics.ratio : MIN_RATIO,
+        MIN_RATIO,
+        MAX_RATIO,
+      );
+      const strength = getRatioStrength(ratio);
+      const dynPossible = canDyn && rangeAbs > 0.001 && strength > 0.0001;
+
+      const extremeParams = dynPossible
+        ? applyDynamicsDelta(band.parameters, band.dynamics, rangeAbs)
         : band.parameters;
-      const dynResponse = maxDeltaAt0 > 0.001
-        ? calculateCompositeResponse([dynParams], sampleRate)
+      const extremeResponse = dynPossible
+        ? calculateCompositeResponse([extremeParams], sampleRate)
         : null;
-      const dynPoints = dynResponse ? toPoints(dynResponse) : [];
-      const dynArea = dynPoints.length === staticPoints.length && maxDeltaAt0 > 0.001
-        ? buildAreaBetween(staticPoints, dynPoints)
+      const extremePoints = extremeResponse ? toPoints(extremeResponse) : [];
+      const dynArea = extremePoints.length === staticPoints.length && dynPossible
+        ? buildAreaBetween(staticPoints, extremePoints)
         : '';
 
       return {
@@ -610,13 +644,49 @@ export function DEQCanvas({
       })}
 
       {/* Overall dynamics envelope */}
-      {overallEnvelope.ceilingArea && (
+      {overallEnvelope.rangeArea && overallEnvelope.rangeArea !== overallEnvelope.capArea && (
         <path
-          d={overallEnvelope.ceilingArea}
+          d={overallEnvelope.rangeArea}
           fill="#facc15"
-          opacity="0.10"
+          opacity="0.06"
         />
       )}
+
+      {/* 0 dBFS envelope (moves with Threshold/Ratio) */}
+      {overallEnvelope.capArea && (
+        <path
+          d={overallEnvelope.capArea}
+          fill="#facc15"
+          opacity="0.12"
+        />
+      )}
+
+      {/* Gain envelope guide curves (-3/-6/-12/-24/-48 dBFS) */}
+      {overallEnvelope.guideCurves.map(({ levelDbfs, opacity, strokeWidth, path }) => (
+        <path
+          key={`env-dbfs-${String(levelDbfs)}`}
+          d={path}
+          fill="none"
+          stroke="#facc15"
+          strokeWidth={strokeWidth}
+          strokeDasharray="6 4"
+          opacity={opacity}
+        />
+      ))}
+
+      {/* 0 dBFS curve */}
+      {overallEnvelope.capPath
+        && overallEnvelope.capPath !== overallCurves.staticPath
+        && (
+          <path
+            d={overallEnvelope.capPath}
+            fill="none"
+            stroke="#facc15"
+            strokeWidth="2"
+            strokeDasharray="2 3"
+            opacity={0.7}
+          />
+        )}
 
       {/* Composite response curve (static) */}
       {overallCurves.staticPath && (
@@ -629,58 +699,73 @@ export function DEQCanvas({
         />
       )}
 
-      {/* Gain envelope guide curves (+/-3/6/12/24 dB, capped by 0 dBFS) */}
-      {overallEnvelope.guideCurves.map(({ db, opacity, strokeWidth, path }) => (
-        <path
-          key={`env-db-${String(db)}`}
-          d={path}
-          fill="none"
-          stroke="#facc15"
-          strokeWidth={strokeWidth}
-          strokeDasharray="6 4"
-          opacity={opacity}
-        />
-      ))}
+      {/* 0 dBFS curve (when it overlaps Static) */}
+      {overallEnvelope.capPath
+        && overallCurves.staticPath
+        && overallEnvelope.capPath === overallCurves.staticPath
+        && (
+          <path
+            d={overallEnvelope.capPath}
+            fill="none"
+            stroke="#facc15"
+            strokeWidth="2"
+            strokeDasharray="2 3"
+            opacity={0.85}
+          />
+        )}
 
       {/* Legend for composite curves */}
       {overallCurves.staticPath && (
         <g style={{ pointerEvents: 'none' }}>
           {(() => {
             const selected = selectedBand;
-            const thresholdDb = selected?.dynamics.thresholdDb ?? null;
-            const ratio = selected?.dynamics.ratio ?? null;
-            const rangeDb = selected?.dynamics.rangeDb ?? null;
+            const selectedThresholdDb = selected
+              ? clampNumber(
+                  Number.isFinite(selected.dynamics.thresholdDb) ? selected.dynamics.thresholdDb : -24,
+                  MIN_THRESHOLD_DB,
+                  MAX_THRESHOLD_DB,
+                )
+              : null;
 
-            const strength = typeof ratio === 'number' && Number.isFinite(ratio)
-              ? getRatioStrength(clampNumber(ratio, MIN_RATIO, MAX_RATIO))
-              : 0;
+            const minThresholdDb = (() => {
+              let min: number | null = null;
+              for (const band of enabledBands) {
+                if (!hasGain(band.parameters.type) || !('gain' in band.parameters)) continue;
+                const rangeAbs = Math.abs(Number.isFinite(band.dynamics.rangeDb) ? band.dynamics.rangeDb : 0);
+                if (rangeAbs <= 0.001) continue;
+                const ratioStrength = getRatioStrength(
+                  clampNumber(
+                    Number.isFinite(band.dynamics.ratio) ? band.dynamics.ratio : MIN_RATIO,
+                    MIN_RATIO,
+                    MAX_RATIO,
+                  ),
+                );
+                if (ratioStrength <= 0.0001) continue;
+                const th = clampNumber(
+                  Number.isFinite(band.dynamics.thresholdDb) ? band.dynamics.thresholdDb : -24,
+                  MIN_THRESHOLD_DB,
+                  MAX_THRESHOLD_DB,
+                );
+                min = min === null ? th : Math.min(min, th);
+              }
+              return min;
+            })();
 
-            const clampDbfs = (value: number) => clampNumber(value, MIN_THRESHOLD_DB, MAX_THRESHOLD_DB);
+            const staticLabel = selectedThresholdDb !== null
+              ? `≤ Th (${selectedThresholdDb.toFixed(1)} dBFS)`
+              : minThresholdDb !== null
+                ? `≤ min Th (${minThresholdDb.toFixed(1)} dBFS)`
+                : 'No dynamics';
 
-            const legendGuides = overallEnvelope.guideCurves.slice().sort((a, b) => b.db - a.db);
-            const maxDeltaAt0 = selected && hasGain(selected.parameters.type) && 'gain' in selected.parameters
-              ? getMaxDeltaAtDbfs(selected.dynamics, 0)
-              : 0;
-            const rangeAbs = typeof rangeDb === 'number' && Number.isFinite(rangeDb) ? Math.abs(rangeDb) : 0;
-            const showCap = Boolean(selected && rangeAbs > 0.001 && maxDeltaAt0 < rangeAbs - 0.01);
+            const legendGuides = overallEnvelope.guideCurves
+              .slice()
+              .sort((a, b) => b.levelDbfs - a.levelDbfs);
+            const show0DbfsRow = Boolean(overallEnvelope.capPath);
 
-            const formatLevelForDelta = (deltaDb: number) => {
-              if (!selected) return null;
-              if (typeof thresholdDb !== 'number' || !Number.isFinite(thresholdDb)) return null;
-              if (strength <= 0.0001) return null;
-              if (!Number.isFinite(deltaDb) || deltaDb <= 0) return null;
-
-              const usedDelta = Math.min(deltaDb, maxDeltaAt0);
-              if (usedDelta <= 0.0001) return null;
-
-              const level = thresholdDb + usedDelta / strength;
-              return `~ ${clampDbfs(level).toFixed(0)} dBFS`;
-            };
-
-            const rows = 1 + legendGuides.length + (showCap ? 1 : 0);
+            const rows = 1 + legendGuides.length + (show0DbfsRow ? 1 : 0);
             const rowHeight = 14;
             const padding = 8;
-            const boxW = selected ? 260 : 150;
+            const boxW = selected || minThresholdDb !== null ? 260 : 150;
             const boxH = padding * 2 + rows * rowHeight;
             const x = width - marginRight - boxW;
             const y = marginTop + 6;
@@ -707,26 +792,37 @@ export function DEQCanvas({
                     <>
                       <line x1={x + 10} y1={cy} x2={x + 42} y2={cy} stroke="#facc15" strokeWidth={2.5} />
                       <text x={x + 50} y={cy + 4} className="fill-dsp-text-muted" style={{ fontSize: '10px' }}>
-                        Static
+                        {staticLabel}
                       </text>
                     </>
                   );
                 })()}
 
-                {showCap && (() => {
+                {show0DbfsRow && (() => {
                   const cy = nextY();
                   return (
-                    <text x={x + 10} y={cy + 4} className="fill-dsp-text-muted" style={{ fontSize: '10px' }}>
-                      0 dBFS max: +/-{maxDeltaAt0.toFixed(1)} dB
-                    </text>
+                    <>
+                      <line
+                        x1={x + 10}
+                        y1={cy}
+                        x2={x + 42}
+                        y2={cy}
+                        stroke="#facc15"
+                        strokeWidth={2}
+                        strokeDasharray="2 3"
+                        opacity={0.7}
+                      />
+                      <text x={x + 50} y={cy + 4} className="fill-dsp-text-muted" style={{ fontSize: '10px' }}>
+                        0 dBFS
+                      </text>
+                    </>
                   );
                 })()}
 
-                {legendGuides.map(({ db, opacity, strokeWidth }) => {
+                {legendGuides.map(({ levelDbfs, opacity, strokeWidth }) => {
                   const cy = nextY();
-                  const level = selected ? formatLevelForDelta(db) : null;
                   return (
-                    <g key={`legend-db-${String(db)}`}>
+                    <g key={`legend-dbfs-${String(levelDbfs)}`}>
                       <line
                         x1={x + 10}
                         y1={cy}
@@ -738,8 +834,7 @@ export function DEQCanvas({
                         opacity={opacity}
                       />
                       <text x={x + 50} y={cy + 4} className="fill-dsp-text-muted" style={{ fontSize: '10px' }}>
-                        +/-{db} dB
-                        {level ? `  ${level}` : ''}
+                        {levelDbfs.toFixed(0)} dBFS
                       </text>
                     </g>
                   );
@@ -754,13 +849,13 @@ export function DEQCanvas({
       {showBandDetails && bands.map((band, index) => {
         if (!band.enabled) return null;
         if (!hasGain(band.parameters.type) || !('gain' in band.parameters)) return null;
-        const maxDeltaAt0 = getMaxDeltaAtDbfs(band.dynamics, 0);
-        if (!Number.isFinite(maxDeltaAt0) || maxDeltaAt0 <= 0.01) return null;
+        const rangeAbs = Math.abs(Number.isFinite(band.dynamics.rangeDb) ? band.dynamics.rangeDb : 0);
+        if (!Number.isFinite(rangeAbs) || rangeAbs <= 0.01) return null;
 
         const freq = 'freq' in band.parameters ? band.parameters.freq : 1000;
         const x = freqToX(freq, dimensions);
         const startY = gainToY(band.parameters.gain, dimensions);
-        const delta = band.dynamics.mode === 'upward' ? maxDeltaAt0 : -maxDeltaAt0;
+        const delta = band.dynamics.mode === 'upward' ? rangeAbs : -rangeAbs;
         const endY = gainToY(band.parameters.gain + delta, dimensions);
         const color = getBandColor(index);
 
@@ -774,7 +869,8 @@ export function DEQCanvas({
           MIN_THRESHOLD_DB,
           MAX_THRESHOLD_DB,
         );
-        const ratioStrength = 1 - 1 / ratio;
+        const ratioStrength = getRatioStrength(ratio);
+        if (ratioStrength <= 0.0001) return null;
         const thresholdStrength = clampNumber((-thresholdDb) / Math.abs(MIN_THRESHOLD_DB), 0, 1);
         const strokeWidth = 1.5 + ratioStrength * 1.6;
         const arrowOpacity = 0.6 + thresholdStrength * 0.3;

@@ -1,4 +1,5 @@
-import type { CamillaConfig, PipelineStep, SignalFlowUiMetadata } from '../../types';
+import type { CamillaConfig, DeqBandUiSettingsV1, PipelineStep, SignalFlowUiMetadata } from '../../types';
+import { parseDeqSettingsFromStepDescription } from './deqStepMetadata';
 import {
   emptyChannelProcessing,
   emptyProcessingSummary,
@@ -75,6 +76,26 @@ function channelLabel(side: 'input' | 'output', channelIndex: number): string {
   return side === 'input' ? `In ${channelIndex + 1}` : `Out ${channelIndex + 1}`;
 }
 
+function collectDeqStepMetadata(config: CamillaConfig): Record<string, DeqBandUiSettingsV1> {
+  const deq: Record<string, DeqBandUiSettingsV1> = {};
+  for (const step of config.pipeline) {
+    if (step.type !== 'Filter') continue;
+    if (!step.description) continue;
+    if (step.names.length !== 1) continue;
+    const filterName = step.names[0];
+    if (!filterName) continue;
+
+    const filter = config.filters?.[filterName];
+    if (!filter || filter.type !== 'DiffEq') continue;
+
+    const settings = parseDeqSettingsFromStepDescription(step.description);
+    if (!settings) continue;
+
+    deq[filterName] = settings;
+  }
+  return deq;
+}
+
 export function fromConfig(config: CamillaConfig): FromConfigResult {
   const warnings: SignalFlowWarning[] = [];
 
@@ -90,7 +111,14 @@ export function fromConfig(config: CamillaConfig): FromConfigResult {
   const outputChannels = config.devices.playback.channels;
 
   // Read UI metadata from config
-  const uiMetadata: SignalFlowUiMetadata | undefined = config.ui?.signalFlow;
+  const baseUiMetadata: SignalFlowUiMetadata | undefined = config.ui?.signalFlow;
+  const pipelineDeq = collectDeqStepMetadata(config);
+  const mergedDeq = { ...pipelineDeq, ...(baseUiMetadata?.deq ?? {}) };
+  const hasDeq = Object.keys(mergedDeq).length > 0;
+
+  const uiMetadata: SignalFlowUiMetadata | undefined = baseUiMetadata || hasDeq
+    ? { ...(baseUiMetadata ?? {}), ...(hasDeq ? { deq: mergedDeq } : {}) }
+    : undefined;
   const channelNames = uiMetadata?.channelNames ?? {};
 
   const inputs: ChannelNode[] = Array.from({ length: inputChannels }, (_, idx) => {

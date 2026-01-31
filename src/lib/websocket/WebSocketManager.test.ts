@@ -200,6 +200,36 @@ describe('WebSocketManager', () => {
       await expect(responsePromise).rejects.toThrow('Command failed');
     });
 
+    it('should handle Err error variant', async () => {
+      const responsePromise = manager.send<string>('GetVersion');
+
+      const ws = (manager as any).ws as MockWebSocket;
+      expect(JSON.parse(ws.lastSentMessage)).toBe('GetVersion');
+
+      setTimeout(() => {
+        ws.simulateMessage({
+          GetVersion: {
+            Err: 'Command failed',
+          },
+        });
+      }, 10);
+
+      await expect(responsePromise).rejects.toThrow('Command failed');
+    });
+
+    it('should handle direct primitive responses', async () => {
+      const responsePromise = manager.send<string>({ SetConfigJson: '{}' });
+
+      const ws = (manager as any).ws as MockWebSocket;
+      expect(JSON.parse(ws.lastSentMessage)).toEqual({ SetConfigJson: '{}' });
+
+      setTimeout(() => {
+        ws.simulateMessage({ SetConfigJson: 'Ok' });
+      }, 10);
+
+      await expect(responsePromise).resolves.toBe('Ok');
+    });
+
     it('should resolve Ok response with no value', async () => {
       const responsePromise = manager.send<void>({ SetMute: true });
 

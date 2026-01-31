@@ -33,42 +33,52 @@ export function useSetConfigJson(unitId: string) {
       if (!wsManager.isConnected) throw new Error('WebSocket connection lost');
       // Clean null values from config before sending to CamillaDSP
       const cleanedConfig = cleanNullValues(config);
-      const { ui: _ui, ...configWithoutUi } = config;
-      const cleanedWithoutUi = cleanNullValues(configWithoutUi);
+      const { ui: uiMetadata, ...cleanedWithoutUi } = cleanedConfig;
       const jsonString = JSON.stringify(cleanedConfig);
-      const fallbackJsonString = _ui ? JSON.stringify(cleanedWithoutUi) : null;
+      const fallbackJsonString = uiMetadata ? JSON.stringify(cleanedWithoutUi) : null;
+      const setConfigTimeoutMs = 30000;
+      const controlTimeoutMs = 15000;
+      let lastAttempt = 'direct';
+      let lastJsonSent = jsonString;
 
       try {
         // SetConfigJson validates and applies the config directly
         // (Note: Reload is not needed - SetConfigJson applies the config immediately)
         try {
-          await wsManager.send({ SetConfigJson: jsonString });
+          lastAttempt = 'direct';
+          lastJsonSent = jsonString;
+          await wsManager.send({ SetConfigJson: jsonString }, 'high', { timeout: setConfigTimeoutMs });
           saveConfig(unitId, cleanedConfig);
           return;
         } catch (directError) {
           if (fallbackJsonString) {
             try {
-              await wsManager.send({ SetConfigJson: fallbackJsonString });
+              lastAttempt = 'direct (without ui)';
+              lastJsonSent = fallbackJsonString;
+              await wsManager.send({ SetConfigJson: fallbackJsonString }, 'high', { timeout: setConfigTimeoutMs });
               saveConfig(unitId, cleanedConfig);
               return;
             } catch (fallbackError) {
-              console.warn('[SetConfigJson] Direct apply failed (with and without ui), trying Stop/Set/Start:', fallbackError);
+              console.warn('[SetConfigJson] Direct apply failed (with and without ui), trying Stop/Set/Reload:', fallbackError);
             }
           } else {
-            console.warn('[SetConfigJson] Direct apply failed, trying Stop/Set/Start:', directError);
+            console.warn('[SetConfigJson] Direct apply failed, trying Stop/Set/Reload:', directError);
           }
         }
 
         // If direct apply fails (e.g., pipeline structure changed), try Stop -> Set -> Reload
         const jsonForReload = fallbackJsonString ?? jsonString;
-        await wsManager.send('Stop');
-        await wsManager.send({ SetConfigJson: jsonForReload });
-        await wsManager.send({ Reload: null });
+        lastAttempt = fallbackJsonString ? 'stop/set/reload (without ui)' : 'stop/set/reload';
+        lastJsonSent = jsonForReload;
+        await wsManager.send('Stop', 'high', { timeout: controlTimeoutMs });
+        await wsManager.send({ SetConfigJson: jsonForReload }, 'high', { timeout: setConfigTimeoutMs });
+        await wsManager.send({ Reload: null }, 'high', { timeout: setConfigTimeoutMs });
         saveConfig(unitId, cleanedConfig);
       } catch (error) {
         console.error('[SetConfigJson] Failed to apply config:', error);
+        console.error('[SetConfigJson] Last attempt:', lastAttempt);
         console.error('[SetConfigJson] Config that failed:', cleanedConfig);
-        console.error('[SetConfigJson] JSON that failed:', jsonString);
+        console.error('[SetConfigJson] JSON that failed:', lastJsonSent);
         throw error;
       }
     },
