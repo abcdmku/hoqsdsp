@@ -62,7 +62,43 @@ describe('SignalFlowFilterWindowContent', () => {
     }).not.toThrow();
 
     const logged = consoleErrorSpy.mock.calls.flat().join(' ');
-    expect(logged).not.toMatch(/Rendered (fewer|more) hooks than expected/i);
+    expect(logged).not.toMatch(/Rendered (fewer|more) hooks than/i);
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('does not throw when switching filterType from Loudness to DiffEq', () => {
+    const node = createOutputNode(0);
+    const onChange = vi.fn();
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { rerender } = render(
+      <SignalFlowFilterWindowContent
+        node={node}
+        camillaConfig={createBaseConfig()}
+        sampleRate={48000}
+        filterType="Loudness"
+        onClose={() => {}}
+        onChange={onChange}
+      />,
+    );
+
+    expect(() => {
+      rerender(
+        <SignalFlowFilterWindowContent
+          node={node}
+          camillaConfig={createBaseConfig()}
+          sampleRate={48000}
+          filterType="DiffEq"
+          onClose={() => {}}
+          onChange={onChange}
+        />,
+      );
+    }).not.toThrow();
+
+    const logged = consoleErrorSpy.mock.calls.flat().join(' ');
+    expect(logged).not.toMatch(/Rendered (fewer|more) hooks than/i);
 
     consoleErrorSpy.mockRestore();
   });
