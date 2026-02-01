@@ -180,7 +180,6 @@ export function SignalFlowWorkspace({
         updateRoute={updateRoute}
         deleteRoute={deleteRoute}
         addRoute={addRoute}
-        openConnectionWindow={openConnectionWindow}
         updateChannelFilters={updateChannelFilters}
         handleSetChannelColor={handleSetChannelColor}
         handleSetMirrorGroup={handleSetMirrorGroup}

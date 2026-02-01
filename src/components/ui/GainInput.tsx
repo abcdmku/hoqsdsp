@@ -9,6 +9,7 @@ export interface GainInputProps {
   min?: number;
   max?: number;
   showSlider?: boolean;
+  ariaLabel?: string;
   className?: string;
   disabled?: boolean;
 }
@@ -20,6 +21,7 @@ export const GainInput = forwardRef<HTMLInputElement, GainInputProps>(
     min = -24,
     max = 24,
     showSlider = true,
+    ariaLabel,
     className,
     disabled,
   }, ref) => {
@@ -46,6 +48,7 @@ export const GainInput = forwardRef<HTMLInputElement, GainInputProps>(
             precision={1}
             unit="dB"
             disabled={disabled}
+            aria-label={ariaLabel}
           />
           <span className={cn("text-sm font-mono", gainColor)}>
             {value > 0 ? '+' : ''}{value.toFixed(1)}
@@ -59,6 +62,7 @@ export const GainInput = forwardRef<HTMLInputElement, GainInputProps>(
             max={max}
             step={0.1}
             disabled={disabled}
+            aria-label={ariaLabel}
           />
         )}
       </div>

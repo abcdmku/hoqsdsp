@@ -7,7 +7,7 @@ export interface CrosspointEditorProps {
   inputChannel: number;
   inputLabel: string;
   outputLabel: string;
-  onSourceChange: (source: Partial<MixerSource> | null) => void;
+  onSourceChange: (source: Partial<MixerSource> | null, options?: { debounce?: boolean }) => void;
   onAddConnection: () => void;
   onClose: () => void;
 }
@@ -62,7 +62,7 @@ export function CrosspointEditor({
           <div className="flex items-center gap-2">
             <Slider
               value={[source.gain]}
-              onValueChange={([gain]) => { onSourceChange({ ...source, gain }); }}
+              onValueChange={([gain]) => { onSourceChange({ ...source, gain }, { debounce: true }); }}
               min={-40}
               max={12}
               step={0.5}
@@ -82,7 +82,7 @@ export function CrosspointEditor({
             onClick={() => { onSourceChange({ ...source, inverted: !source.inverted }); }}
             className="w-full"
           >
-            {source.inverted ? 'Inverted (φ)' : 'Normal'}
+            {source.inverted ? '180°' : '0°'}
           </Button>
         </div>
 

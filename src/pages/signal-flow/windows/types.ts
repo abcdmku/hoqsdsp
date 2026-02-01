@@ -76,7 +76,6 @@ export interface SignalFlowWindowsProps {
   updateRoute: (index: number, updates: Partial<RouteEdge>, options?: { debounce?: boolean }) => void;
   deleteRoute: (index: number) => void;
   addRoute: (from: RouteEndpoint, to: RouteEndpoint) => void;
-  openConnectionWindow: (route: RouteEdge) => void;
   updateChannelFilters: (
     side: ChannelSide,
     endpoint: RouteEndpoint,

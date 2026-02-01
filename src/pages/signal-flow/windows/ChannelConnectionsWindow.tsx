@@ -12,8 +12,8 @@ interface SignalFlowChannelConnectionsWindowProps {
   workspaceRef: RefObject<HTMLDivElement | null>;
   labelFor: (side: ChannelSide, endpoint: RouteEndpoint) => string;
   addRoute: (from: RouteEndpoint, to: RouteEndpoint) => void;
+  updateRoute: (index: number, updates: Partial<RouteEdge>, options?: { debounce?: boolean }) => void;
   deleteRoute: (routeIndex: number) => void;
-  openConnectionWindow: (route: RouteEdge) => void;
   onMove: (position: ChannelConnectionsWindowType['position']) => void;
   onRequestClose: () => void;
   onRequestFocus: () => void;
@@ -27,8 +27,8 @@ export function SignalFlowChannelConnectionsWindow({
   workspaceRef,
   labelFor,
   addRoute,
+  updateRoute,
   deleteRoute,
-  openConnectionWindow,
   onMove,
   onRequestClose,
   onRequestFocus,
@@ -61,13 +61,11 @@ export function SignalFlowChannelConnectionsWindow({
         onAddRoute={(from, to) => {
           addRoute(from, to);
         }}
+        onUpdateRoute={(routeIndex, updates, options) => {
+          updateRoute(routeIndex, updates, options);
+        }}
         onDeleteRoute={(routeIndex) => {
           deleteRoute(routeIndex);
-        }}
-        onEditRoute={(routeIndex) => {
-          const route = routes[routeIndex];
-          if (!route) return;
-          openConnectionWindow(route);
         }}
       />
     </FloatingWindow>

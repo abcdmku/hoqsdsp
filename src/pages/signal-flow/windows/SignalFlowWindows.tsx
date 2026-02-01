@@ -23,7 +23,6 @@ export function SignalFlowWindows({
   updateRoute,
   deleteRoute,
   addRoute,
-  openConnectionWindow,
   updateChannelFilters,
   handleSetChannelColor,
   handleSetMirrorGroup,
@@ -167,8 +166,8 @@ export function SignalFlowWindows({
               workspaceRef={workspaceRef}
               labelFor={labelFor}
               addRoute={addRoute}
+              updateRoute={updateRoute}
               deleteRoute={deleteRoute}
-              openConnectionWindow={openConnectionWindow}
               onMove={(pos) => {
                 moveWindow(win.id, pos);
               }}

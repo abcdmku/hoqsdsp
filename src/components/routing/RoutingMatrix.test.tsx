@@ -30,7 +30,6 @@ describe('CrosspointCell', () => {
     outputIndex: 0,
     onClick: vi.fn(),
     onToggle: vi.fn(),
-    onPhaseToggle: vi.fn(),
   };
 
   beforeEach(() => {
@@ -47,25 +46,25 @@ describe('CrosspointCell', () => {
   it('should render connected cell with gain display', () => {
     const source = createTestSource({ gain: 3 });
     render(<CrosspointCell {...defaultProps} source={source} />);
-    expect(screen.getByText('+3.0')).toBeInTheDocument();
+    expect(screen.getByText('+3.0 dB')).toBeInTheDocument();
   });
 
   it('should render negative gain correctly', () => {
     const source = createTestSource({ gain: -6 });
     render(<CrosspointCell {...defaultProps} source={source} />);
-    expect(screen.getByText('-6.0')).toBeInTheDocument();
+    expect(screen.getByText('-6.0 dB')).toBeInTheDocument();
   });
 
   it('should render zero gain correctly', () => {
     const source = createTestSource({ gain: 0 });
     render(<CrosspointCell {...defaultProps} source={source} />);
-    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText('0.0 dB')).toBeInTheDocument();
   });
 
   it('should show phase invert indicator', () => {
     const source = createTestSource({ inverted: true });
     render(<CrosspointCell {...defaultProps} source={source} />);
-    expect(screen.getByText('φ')).toBeInTheDocument();
+    expect(screen.getByText('180°')).toBeInTheDocument();
   });
 
   it('should call onClick when clicked', async () => {
@@ -82,15 +81,6 @@ describe('CrosspointCell', () => {
 
     await user.dblClick(screen.getByRole('gridcell'));
     expect(defaultProps.onToggle).toHaveBeenCalled();
-  });
-
-  it('should call onPhaseToggle when shift-clicked with source', async () => {
-    const source = createTestSource();
-    render(<CrosspointCell {...defaultProps} source={source} />);
-
-    const button = screen.getByRole('gridcell');
-    fireEvent.click(button, { shiftKey: true });
-    expect(defaultProps.onPhaseToggle).toHaveBeenCalled();
   });
 
   it('should have selected styling when isSelected is true', () => {
@@ -174,19 +164,19 @@ describe('CrosspointEditor', () => {
         outputLabel="Main L"
       />
     );
-    expect(screen.getByText('Left → Main L')).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('Left') && content.includes('Main L'))).toBeInTheDocument();
   });
 
   it('should show inverted state in phase button', () => {
     const source = createTestSource({ inverted: true });
     render(<CrosspointEditor {...defaultProps} source={source} />);
-    expect(screen.getByRole('button', { name: 'Inverted (φ)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '180°' })).toBeInTheDocument();
   });
 
   it('should show normal state in phase button', () => {
     const source = createTestSource({ inverted: false });
     render(<CrosspointEditor {...defaultProps} source={source} />);
-    expect(screen.getByRole('button', { name: 'Normal' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '0°' })).toBeInTheDocument();
   });
 
   it('should show muted state in mute button', () => {
@@ -206,7 +196,7 @@ describe('CrosspointEditor', () => {
     const source = createTestSource({ inverted: false });
     render(<CrosspointEditor {...defaultProps} source={source} />);
 
-    await user.click(screen.getByRole('button', { name: 'Normal' }));
+    await user.click(screen.getByRole('button', { name: '0°' }));
     expect(defaultProps.onSourceChange).toHaveBeenCalledWith(
       expect.objectContaining({ inverted: true })
     );
@@ -258,6 +248,184 @@ describe('RoutingMatrix', () => {
     vi.clearAllMocks();
   });
 
+  describe('Toolbar tools', () => {
+    it('should toggle a tool active state when clicked', async () => {
+      const user = userEvent.setup();
+      render(<RoutingMatrix {...defaultProps} />);
+
+      const phase = screen.getByRole('button', { name: 'Phase' });
+      expect(phase).toHaveAttribute('aria-pressed', 'false');
+
+      await user.click(phase);
+      expect(phase).toHaveAttribute('aria-pressed', 'true');
+
+      await user.click(phase);
+      expect(phase).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('should apply gain tool on cell click and not open the editor', async () => {
+      const user = userEvent.setup();
+      const onMixerChange = vi.fn();
+      render(<RoutingMatrix mixer={createTestMixer({ channels: { in: 2, out: 2 } })} onMixerChange={onMixerChange} />);
+
+      await user.click(screen.getByRole('button', { name: 'Gain' }));
+
+      const gainInput = screen.getByRole('textbox', { name: 'Tool gain' });
+      await user.clear(gainInput);
+      await user.type(gainInput, '-6');
+      fireEvent.blur(gainInput);
+
+      const cells = screen.getAllByRole('gridcell');
+      await user.click(cells[0]!);
+
+      expect(onMixerChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mapping: expect.arrayContaining([
+            expect.objectContaining({
+              dest: 0,
+              sources: expect.arrayContaining([
+                expect.objectContaining({ channel: 0, gain: -6 }),
+              ]),
+            }),
+          ]),
+        }),
+      );
+
+      expect(screen.queryByText(/No connection/)).not.toBeInTheDocument();
+    });
+
+    it('should toggle phase with shift+click when no tool is active', () => {
+      const onMixerChange = vi.fn();
+      const mixer = createTestMixer({
+        channels: { in: 2, out: 2 },
+        mapping: [
+          { dest: 0, sources: [{ channel: 0, gain: 0, inverted: false, mute: false }] },
+        ],
+      });
+
+      render(<RoutingMatrix mixer={mixer} onMixerChange={onMixerChange} />);
+      const cell = screen.getAllByRole('gridcell')[0]!;
+      fireEvent.click(cell, { shiftKey: true });
+
+      expect(onMixerChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mapping: expect.arrayContaining([
+            expect.objectContaining({
+              dest: 0,
+              sources: expect.arrayContaining([
+                expect.objectContaining({ inverted: true }),
+              ]),
+            }),
+          ]),
+        }),
+      );
+
+      expect(screen.queryByText(/No connection/)).not.toBeInTheDocument();
+    });
+
+    it('should disconnect an existing connection when disconnect tool is active', async () => {
+      const user = userEvent.setup();
+      const onMixerChange = vi.fn();
+      const mixer = createTestMixer({
+        channels: { in: 1, out: 1 },
+        mapping: [
+          { dest: 0, sources: [{ channel: 0, gain: 0, inverted: false, mute: false }] },
+        ],
+      });
+
+      render(<RoutingMatrix mixer={mixer} onMixerChange={onMixerChange} />);
+
+      await user.click(screen.getByRole('button', { name: 'Disconnect' }));
+      await user.click(screen.getAllByRole('gridcell')[0]!);
+
+      expect(onMixerChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mapping: [],
+        }),
+      );
+    });
+
+    it('should apply gain to all connections in an input channel when clicking its header', async () => {
+      const user = userEvent.setup();
+      const onMixerChange = vi.fn();
+      const mixer = createTestMixer({
+        channels: { in: 2, out: 2 },
+        mapping: [
+          { dest: 0, sources: [{ channel: 0, gain: 0, inverted: false, mute: false }, { channel: 1, gain: 0, inverted: false, mute: false }] },
+          { dest: 1, sources: [{ channel: 0, gain: -3, inverted: false, mute: false }] },
+        ],
+      });
+
+      render(<RoutingMatrix mixer={mixer} onMixerChange={onMixerChange} />);
+
+      await user.click(screen.getByRole('button', { name: 'Gain' }));
+      const gainInput = screen.getByRole('textbox', { name: 'Tool gain' });
+      await user.clear(gainInput);
+      await user.type(gainInput, '6');
+      fireEvent.blur(gainInput);
+
+      const inputHeader = screen.getByText('In 1').closest('button');
+      expect(inputHeader).toBeTruthy();
+      await user.click(inputHeader!);
+
+      expect(onMixerChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mapping: expect.arrayContaining([
+            expect.objectContaining({
+              dest: 0,
+              sources: expect.arrayContaining([
+                expect.objectContaining({ channel: 0, gain: 6 }),
+                expect.objectContaining({ channel: 1, gain: 0 }),
+              ]),
+            }),
+            expect.objectContaining({
+              dest: 1,
+              sources: expect.arrayContaining([
+                expect.objectContaining({ channel: 0, gain: 6 }),
+              ]),
+            }),
+          ]),
+        }),
+      );
+    });
+
+    it('should apply mute to all connections when clicking a device action', async () => {
+      const user = userEvent.setup();
+      const onMixerChange = vi.fn();
+      const mixer = createTestMixer({
+        channels: { in: 2, out: 2 },
+        mapping: [
+          { dest: 0, sources: [{ channel: 0, gain: 0, inverted: false, mute: false }] },
+          { dest: 1, sources: [{ channel: 1, gain: 0, inverted: false, mute: true }] },
+        ],
+      });
+
+      render(<RoutingMatrix mixer={mixer} onMixerChange={onMixerChange} />);
+
+      await user.click(screen.getByRole('button', { name: 'Mute' }));
+      await user.click(screen.getByRole('button', { name: 'Capture' }));
+
+      expect(onMixerChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mapping: expect.arrayContaining([
+            expect.objectContaining({
+              dest: 0,
+              sources: expect.arrayContaining([
+                expect.objectContaining({ mute: true }),
+              ]),
+            }),
+            expect.objectContaining({
+              dest: 1,
+              sources: expect.arrayContaining([
+                expect.objectContaining({ mute: true }),
+              ]),
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+
   it('should render matrix with correct dimensions', () => {
     const mixer = createTestMixer({ channels: { in: 2, out: 3 } });
     render(<RoutingMatrix mixer={mixer} onMixerChange={vi.fn()} />);
@@ -294,7 +462,7 @@ describe('RoutingMatrix', () => {
     render(<RoutingMatrix mixer={mixer} onMixerChange={vi.fn()} />);
 
     // Check for gain display in connected cell
-    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText('0.0 dB')).toBeInTheDocument();
   });
 
   it('should show crosspoint editor when cell is selected', async () => {
@@ -354,7 +522,7 @@ describe('RoutingMatrix', () => {
     render(<RoutingMatrix {...defaultProps} />);
     expect(screen.getByText(/Connected/)).toBeInTheDocument();
     expect(screen.getByText(/Muted/)).toBeInTheDocument();
-    expect(screen.getByText('φ')).toBeInTheDocument();
+    expect(screen.getByText('180°')).toBeInTheDocument();
   });
 
   it('should render keyboard shortcuts help', () => {
@@ -501,8 +669,8 @@ describe('RoutingMatrix', () => {
       });
       render(<RoutingMatrix mixer={mixer} onMixerChange={vi.fn()} />);
 
-      expect(screen.getByText('0')).toBeInTheDocument();
-      expect(screen.getByText('-6.0')).toBeInTheDocument();
+      expect(screen.getByText('0.0 dB')).toBeInTheDocument();
+      expect(screen.getByText('-6.0 dB')).toBeInTheDocument();
     });
   });
 
@@ -517,8 +685,8 @@ describe('RoutingMatrix', () => {
       });
       render(<RoutingMatrix mixer={mixer} onMixerChange={vi.fn()} />);
 
-      expect(screen.getByText('0')).toBeInTheDocument();
-      expect(screen.getByText('-3.0')).toBeInTheDocument();
+      expect(screen.getByText('0.0 dB')).toBeInTheDocument();
+      expect(screen.getByText('-3.0 dB')).toBeInTheDocument();
     });
   });
 
@@ -539,8 +707,8 @@ describe('RoutingMatrix', () => {
     it('should have row and columnheader roles', () => {
       render(<RoutingMatrix {...defaultProps} />);
       expect(screen.getAllByRole('row').length).toBeGreaterThan(0);
-      // 4 output columns + 1 "INPUTS" header = 5 columnheaders
-      expect(screen.getAllByRole('columnheader').length).toBe(5);
+      // 4 output columns + input/output device headers = 7 columnheaders
+      expect(screen.getAllByRole('columnheader').length).toBe(7);
     });
   });
 });
