@@ -5,6 +5,7 @@ import type { DockedFilterEditorState } from './windows/types';
 import type { CamillaConfig, DeqBandUiSettingsV1, FilterConfig, FirPhaseCorrectionUiSettingsV1 } from '../../types';
 import { SignalFlowFilterWindowContent } from '../../components/signal-flow/SignalFlowFilterWindowContent';
 import { Button } from '../../components/ui/Button';
+import { cn } from '../../lib/utils';
 
 interface SignalFlowDockedFilterEditorProps {
   dockedFilterEditor: DockedFilterEditorState | null;
@@ -71,7 +72,11 @@ export function SignalFlowDockedFilterEditor({
 
   return (
     <div
-      className="overflow-hidden border-b border-dsp-primary/20 bg-dsp-surface transition-[height] duration-300 ease-in-out"
+      className={cn(
+        'overflow-hidden bg-dsp-bg transition-[height] duration-300 ease-in-out',
+        isOpen &&
+          'relative z-10 border-b border-dsp-primary/30 bg-dsp-primary/15 shadow-sm ring-1 ring-inset ring-dsp-primary/25',
+      )}
       style={{ height: isOpen ? `${contentHeight}px` : '0px' }}
       data-floating-window
       onPointerDown={(event) => event.stopPropagation()}

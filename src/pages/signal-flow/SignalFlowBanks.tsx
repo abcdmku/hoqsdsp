@@ -82,7 +82,7 @@ export function SignalFlowBanks({
 }: SignalFlowBanksProps) {
   return (
     <div
-      className="relative flex overflow-hidden"
+      className="relative flex flex-1 overflow-hidden"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClearSelection();

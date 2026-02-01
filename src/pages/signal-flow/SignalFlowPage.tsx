@@ -99,7 +99,7 @@ export function SignalFlowPage() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-dsp-bg">
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
+      <div ref={scrollContainerRef} className="flex flex-1 flex-col overflow-auto">
         <SignalFlowDockedFilterEditor
           dockedFilterEditor={windows.dockedFilterEditor}
           config={configState.config}
