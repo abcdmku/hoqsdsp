@@ -7,8 +7,9 @@ import type { DitherFilter } from '../../types';
 const defaultDitherFilter: DitherFilter = {
   type: 'Dither',
   parameters: {
-    type: 'Simple',
+    type: 'Flat',
     bits: 16,
+    amplitude: 2,
   },
 };
 
@@ -50,6 +51,19 @@ describe('DitherEditor', () => {
     );
 
     expect(screen.getByText('Target Bit Depth')).toBeInTheDocument();
+  });
+
+  it('shows amplitude input for Flat dither', () => {
+    render(
+      <DitherEditor
+        open={true}
+        onClose={() => {}}
+        filter={defaultDitherFilter}
+        onSave={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Amplitude')).toBeInTheDocument();
   });
 
   it('shows quick presets', () => {

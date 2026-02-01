@@ -8,8 +8,9 @@ describe('DitherFilterHandler', () => {
       const filter: DitherFilter = {
         type: 'Dither',
         parameters: {
-          type: 'Simple',
+          type: 'Flat',
           bits: 16,
+          amplitude: 2,
         },
       };
 
@@ -18,38 +19,32 @@ describe('DitherFilterHandler', () => {
     });
 
     it('should validate all dither types', () => {
-      const ditherTypes = [
-        'Simple',
-        'Uniform',
-        'Lipshitz441',
-        'Fweighted441',
-        'Shibata441',
-        'Shibata48',
-        'ShibataLow441',
-        'ShibataLow48',
-        'None',
-      ] as const;
+      const examples: DitherFilter['parameters'][] = [
+        { type: 'Flat', bits: 16, amplitude: 2 },
+        { type: 'Highpass', bits: 16 },
+        { type: 'Lipshitz441', bits: 16 },
+        { type: 'Fweighted441', bits: 16 },
+        { type: 'Shibata441', bits: 16 },
+        { type: 'Shibata48', bits: 16 },
+        { type: 'ShibataLow441', bits: 16 },
+        { type: 'ShibataLow48', bits: 16 },
+        { type: 'None', bits: 16 },
+      ];
 
-      ditherTypes.forEach((ditherType) => {
-        const filter: DitherFilter = {
-          type: 'Dither',
-          parameters: {
-            type: ditherType,
-            bits: 16,
-          },
-        };
-
+      for (const parameters of examples) {
+        const filter: DitherFilter = { type: 'Dither', parameters };
         const result = ditherFilterSchema.safeParse(filter);
         expect(result.success).toBe(true);
-      });
+      }
     });
 
     it('should validate minimum bits', () => {
       const filter: DitherFilter = {
         type: 'Dither',
         parameters: {
-          type: 'Simple',
+          type: 'Flat',
           bits: 1,
+          amplitude: 2,
         },
       };
 
@@ -61,13 +56,27 @@ describe('DitherFilterHandler', () => {
       const filter: DitherFilter = {
         type: 'Dither',
         parameters: {
-          type: 'Simple',
+          type: 'Flat',
           bits: 32,
+          amplitude: 2,
         },
       };
 
       const result = ditherFilterSchema.safeParse(filter);
       expect(result.success).toBe(true);
+    });
+
+    it('should reject Flat without amplitude', () => {
+      const filter = {
+        type: 'Dither',
+        parameters: {
+          type: 'Flat',
+          bits: 16,
+        },
+      };
+
+      const result = ditherFilterSchema.safeParse(filter);
+      expect(result.success).toBe(false);
     });
 
     it('should reject invalid dither type', () => {
@@ -87,8 +96,9 @@ describe('DitherFilterHandler', () => {
       const filter = {
         type: 'Dither',
         parameters: {
-          type: 'Simple',
+          type: 'Flat',
           bits: 0,
+          amplitude: 2,
         },
       };
 
@@ -100,8 +110,9 @@ describe('DitherFilterHandler', () => {
       const filter = {
         type: 'Dither',
         parameters: {
-          type: 'Simple',
+          type: 'Flat',
           bits: 33,
+          amplitude: 2,
         },
       };
 
@@ -113,8 +124,9 @@ describe('DitherFilterHandler', () => {
       const filter = {
         type: 'Dither',
         parameters: {
-          type: 'Simple',
+          type: 'Flat',
           bits: 16.5,
+          amplitude: 2,
         },
       };
 
@@ -131,8 +143,9 @@ describe('DitherFilterHandler', () => {
         expect(defaultFilter).toEqual({
           type: 'Dither',
           parameters: {
-            type: 'Simple',
+            type: 'Flat',
             bits: 16,
+            amplitude: 2,
           },
         });
       });
@@ -188,14 +201,15 @@ describe('DitherFilterHandler', () => {
         const filter: DitherFilter = {
           type: 'Dither',
           parameters: {
-            type: 'Simple',
+            type: 'Flat',
             bits: 16,
+            amplitude: 2,
           },
         };
 
         const summary = ditherHandler.getSummary(filter);
 
-        expect(summary).toBe('Simple (16-bit)');
+        expect(summary).toBe('Flat (16-bit)');
       });
 
       it('should return summary for 24-bit', () => {

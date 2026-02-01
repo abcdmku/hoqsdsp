@@ -97,10 +97,16 @@ export interface DitherFilter {
   parameters: DitherParameters;
 }
 
-export interface DitherParameters {
-  type: 'Simple' | 'Uniform' | 'Lipshitz441' | 'Fweighted441' | 'Shibata441' | 'Shibata48' | 'ShibataLow441' | 'ShibataLow48' | 'None';
-  bits: number;
-}
+export type DitherParameters =
+  | { type: 'Flat'; bits: number; amplitude: number }
+  | { type: 'Highpass'; bits: number }
+  | { type: 'Lipshitz441'; bits: number }
+  | { type: 'Fweighted441'; bits: number }
+  | { type: 'Shibata441'; bits: number }
+  | { type: 'Shibata48'; bits: number }
+  | { type: 'ShibataLow441'; bits: number }
+  | { type: 'ShibataLow48'; bits: number }
+  | { type: 'None'; bits: number };
 
 // DiffEq Filter (generic difference equation)
 export interface DiffEqFilter {

@@ -31,8 +31,8 @@ const DITHER_TYPES: {
   label: string;
   description: string;
 }[] = [
-  { value: 'Simple', label: 'Simple', description: 'Basic triangular dither' },
-  { value: 'Uniform', label: 'Uniform', description: 'Uniform distribution (rectangular)' },
+  { value: 'Flat', label: 'Flat', description: 'Triangular dither (no noise shaping)' },
+  { value: 'Highpass', label: 'Highpass', description: 'High-pass noise shaping' },
   { value: 'Lipshitz441', label: 'Lipshitz 44.1kHz', description: 'Noise-shaped for 44.1kHz' },
   { value: 'Fweighted441', label: 'F-weighted 44.1kHz', description: 'F-weighted for 44.1kHz' },
   { value: 'Shibata441', label: 'Shibata 44.1kHz', description: 'Shibata curve for 44.1kHz' },
@@ -55,9 +55,12 @@ function DitherEditorContent() {
 
   const updateType = useCallback(
     (type: DitherParameters['type']) => {
+      const nextParams: DitherFilter['parameters'] = type === 'Flat'
+        ? { type: 'Flat', bits: params.bits, amplitude: params.type === 'Flat' ? params.amplitude : 2 }
+        : { type, bits: params.bits };
       updateFilter({
         ...filter,
-        parameters: { ...params, type },
+        parameters: nextParams,
       });
     },
     [filter, params, updateFilter],
@@ -68,6 +71,17 @@ function DitherEditorContent() {
       updateFilter({
         ...filter,
         parameters: { ...params, bits },
+      });
+    },
+    [filter, params, updateFilter],
+  );
+
+  const updateAmplitude = useCallback(
+    (amplitude: number) => {
+      if (params.type !== 'Flat') return;
+      updateFilter({
+        ...filter,
+        parameters: { ...params, amplitude },
       });
     },
     [filter, params, updateFilter],
@@ -123,6 +137,25 @@ function DitherEditorContent() {
           unit="bits"
         />
       </div>
+
+      {/* Flat amplitude */}
+      {params.type === 'Flat' && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-dsp-text">Amplitude</label>
+          <NumericInput
+            value={params.amplitude}
+            onChange={updateAmplitude}
+            min={0}
+            max={32}
+            step={1}
+            precision={0}
+            unit="LSB"
+          />
+          <p className="text-xs text-dsp-text-muted">
+            Recommended: 2 LSB
+          </p>
+        </div>
+      )}
 
       {/* Quick presets */}
       <div className="space-y-2">

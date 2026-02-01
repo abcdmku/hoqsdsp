@@ -6,6 +6,7 @@ import { websocketService } from '../../services/websocketService';
 import { cleanNullValues } from '../../lib/config/cleanConfig';
 import { stringifyConfig } from '../../lib/config/yaml';
 import { useConfigBackupStore } from '../../stores/configBackupStore';
+import { useConnectionStore } from '../../stores/connectionStore';
 
 export function useSetConfig(unitId: string) {
   const queryClient = useQueryClient();
@@ -79,11 +80,16 @@ export function useSetConfigJson(unitId: string) {
         await wsManager.send({ Reload: null }, 'high', { timeout: setConfigTimeoutMs });
         saveConfig(unitId, cleanedConfig);
       } catch (error) {
+        const camillaVersion = useConnectionStore.getState().connections.get(unitId)?.version;
         console.error('[SetConfigJson] Failed to apply config:', error);
         console.error('[SetConfigJson] Last attempt:', lastAttempt);
+        console.error('[SetConfigJson] CamillaDSP version:', camillaVersion ?? '(unknown)');
         console.error('[SetConfigJson] Config that failed:', cleanedConfig);
         console.error('[SetConfigJson] Payload that failed:', lastJsonSent);
-        throw error;
+
+        const baseMessage = error instanceof Error ? error.message : String(error);
+        const prefix = camillaVersion ? `CamillaDSP v${camillaVersion}` : 'CamillaDSP (version unknown)';
+        throw new Error(`${prefix}: ${baseMessage} (attempt: ${lastAttempt})`);
       }
     },
     // Note: onSuccess is NOT used here to avoid a race condition.

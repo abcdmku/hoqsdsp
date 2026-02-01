@@ -89,7 +89,7 @@ export function useChannelInlineFilters({
   const phaseInverted = gainFilter?.parameters.inverted ?? false;
   const ditherEnabled = ditherFilter ? ditherFilter.parameters.type !== 'None' : false;
   const ditherBits = ditherFilter?.parameters.bits ?? 16;
-  const lastDitherParamsRef = useRef<DitherFilter['parameters']>({ type: 'Simple', bits: 16 });
+  const lastDitherParamsRef = useRef<DitherFilter['parameters']>({ type: 'Flat', bits: 16, amplitude: 2 });
 
   useEffect(() => {
     if (ditherFilter && ditherFilter.parameters.type !== 'None') {
@@ -166,9 +166,12 @@ export function useChannelInlineFilters({
       return;
     }
     const last = lastDitherParamsRef.current;
+    const parameters: DitherFilter['parameters'] = last.type === 'None'
+      ? { type: 'Flat', bits: last.bits, amplitude: 2 }
+      : last;
     const config: DitherFilter = {
       type: 'Dither',
-      parameters: { ...last, type: last.type === 'None' ? 'Simple' : last.type },
+      parameters,
     };
     upsertFilter(config);
   }, [ditherEnabled, removeFilter, upsertFilter]);
@@ -176,8 +179,11 @@ export function useChannelInlineFilters({
   const updateDitherBits = useCallback(
     (bits: number, options?: { debounce?: boolean }) => {
       if (!Number.isFinite(bits)) return;
-      const type = ditherFilter?.parameters.type ?? 'Simple';
-      upsertFilter({ type: 'Dither', parameters: { type, bits } }, options);
+      const base = ditherFilter?.parameters ?? lastDitherParamsRef.current;
+      const nextParams: DitherFilter['parameters'] = base.type === 'Flat'
+        ? { ...base, bits }
+        : { ...base, bits };
+      upsertFilter({ type: 'Dither', parameters: nextParams }, options);
     },
     [ditherFilter, upsertFilter],
   );

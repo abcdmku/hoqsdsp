@@ -2,10 +2,8 @@ import { z } from 'zod';
 import type { DitherFilter } from '../../types';
 import { BaseFilterHandler } from './types';
 
-// Dither type schema
-const ditherTypeSchema = z.enum([
-  'Simple',
-  'Uniform',
+const ditherNonFlatTypeSchema = z.enum([
+  'Highpass',
   'Lipshitz441',
   'Fweighted441',
   'Shibata441',
@@ -16,10 +14,20 @@ const ditherTypeSchema = z.enum([
 ]);
 
 // Dither parameters schema
-export const ditherParametersSchema = z.object({
-  type: ditherTypeSchema,
-  bits: z.number().int().min(1).max(32),
-});
+const ditherBitsSchema = z.number().int().min(1).max(32);
+const ditherAmplitudeSchema = z.number().int().min(0).max(32);
+
+export const ditherParametersSchema = z.union([
+  z.object({
+    type: z.literal('Flat'),
+    bits: ditherBitsSchema,
+    amplitude: ditherAmplitudeSchema,
+  }),
+  z.object({
+    type: ditherNonFlatTypeSchema,
+    bits: ditherBitsSchema,
+  }),
+]);
 
 // Complete dither filter schema
 export const ditherFilterSchema = z.object({
@@ -43,8 +51,9 @@ class DitherFilterHandler extends BaseFilterHandler<DitherFilter> {
     return {
       type: 'Dither',
       parameters: {
-        type: 'Simple',
+        type: 'Flat',
         bits: 16,
+        amplitude: 2,
       },
     };
   }

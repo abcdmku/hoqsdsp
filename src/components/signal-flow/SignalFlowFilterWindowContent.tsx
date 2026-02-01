@@ -16,7 +16,7 @@ const DEFAULT_FILTER_CONFIGS: Record<FilterType, FilterConfig> = {
   Compressor: { type: 'Compressor', parameters: { threshold: -20, factor: 4, attack: 5, release: 100 } },
   NoiseGate: { type: 'NoiseGate', parameters: { threshold: -60, attack: 1, release: 50, attenuation: 50 } },
   Conv: { type: 'Conv', parameters: { type: 'Values', values: [1] } },
-  Dither: { type: 'Dither', parameters: { type: 'Simple', bits: 16 } },
+  Dither: { type: 'Dither', parameters: { type: 'Flat', bits: 16, amplitude: 2 } },
   Volume: { type: 'Volume', parameters: {} },
   Loudness: { type: 'Loudness', parameters: { reference_level: -25, high_boost: 5, low_boost: 10 } },
   DiffEq: { type: 'DiffEq', parameters: { a: [1], b: [1] } },
