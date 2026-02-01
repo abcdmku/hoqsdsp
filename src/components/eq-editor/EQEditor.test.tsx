@@ -634,9 +634,13 @@ describe('EQCanvas', () => {
     const nodeGroup = container.querySelector('g.eq-node');
     expect(nodeGroup).toBeInTheDocument();
     const circles = nodeGroup!.querySelectorAll('circle');
-    const mainCircle = circles[1];
-    expect(mainCircle).toBeInTheDocument();
-    expect(mainCircle).not.toHaveClass('transition-all');
+    const mainCircle = Array.from(circles).find((circle) => {
+      const fill = circle.getAttribute('fill');
+      return fill && fill !== 'none' && fill !== 'transparent';
+    });
+    expect(mainCircle).toBeTruthy();
+    const mainCircleEl = mainCircle as SVGCircleElement;
+    expect(mainCircleEl).not.toHaveClass('transition-all');
 
     const moveX = freqToX(2000, testDimensions);
     const moveY = gainToY(6, testDimensions);
@@ -677,9 +681,14 @@ describe('EQNode', () => {
     expect(circles.length).toBeGreaterThan(0);
 
     // Check the main circle position
-    const mainCircle = circles[0]!;
-    const cx = parseFloat(mainCircle.getAttribute('cx') || '0');
-    const cy = parseFloat(mainCircle.getAttribute('cy') || '0');
+    const mainCircle = Array.from(circles).find((circle) => {
+      const fill = circle.getAttribute('fill');
+      return fill && fill !== 'none' && fill !== 'transparent';
+    });
+    expect(mainCircle).toBeTruthy();
+    const mainCircleEl = mainCircle as SVGCircleElement;
+    const cx = parseFloat(mainCircleEl.getAttribute('cx') || '0');
+    const cy = parseFloat(mainCircleEl.getAttribute('cy') || '0');
 
     expect(cx).toBeCloseTo(freqToX(1000, testDimensions), 0);
     expect(cy).toBeCloseTo(gainToY(3, testDimensions), 0);

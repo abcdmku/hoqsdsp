@@ -39,6 +39,24 @@ const unitSchema = z.object({
     .string()
     .max(30, 'Zone must be 30 characters or less')
     .optional(),
+  systemMetricsUrl: z
+    .string()
+    .trim()
+    .max(300, 'System metrics URL must be 300 characters or less')
+    .optional()
+    .refine(
+      (val) => {
+        if (!val) return true;
+        if (val.startsWith('/')) return true;
+        try {
+          const parsedUrl = new URL(val);
+          return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+        } catch {
+          return false;
+        }
+      },
+      'System metrics URL must be a valid URL or a path starting with /'
+    ),
 });
 
 type UnitFormData = z.infer<typeof unitSchema>;
@@ -58,6 +76,7 @@ interface FormErrors {
   address?: string;
   port?: string;
   zone?: string;
+  systemMetricsUrl?: string;
 }
 
 /**
@@ -77,6 +96,7 @@ export function AddUnitDialog({
     address: editingUnit?.address ?? '',
     port: editingUnit?.port ?? 1234,
     zone: editingUnit?.zone ?? '',
+    systemMetricsUrl: editingUnit?.systemMetricsUrl ?? '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [showZoneSuggestions, setShowZoneSuggestions] = useState(false);
@@ -89,6 +109,7 @@ export function AddUnitDialog({
         address: editingUnit?.address ?? '',
         port: editingUnit?.port ?? 1234,
         zone: editingUnit?.zone ?? '',
+        systemMetricsUrl: editingUnit?.systemMetricsUrl ?? '',
       });
       setErrors({});
     }
@@ -136,6 +157,7 @@ export function AddUnitDialog({
           address: formData.address,
           port: formData.port,
           zone: formData.zone ?? undefined,
+          systemMetricsUrl: formData.systemMetricsUrl?.trim() || undefined,
         });
         onOpenChange(false);
       }
@@ -246,6 +268,40 @@ export function AddUnitDialog({
             {errors.port && (
               <p id="port-error" className="text-xs text-meter-red">
                 {errors.port}
+              </p>
+            )}
+          </div>
+
+          {/* System Metrics URL */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="unit-system-metrics-url"
+              className="text-sm font-medium text-dsp-text"
+            >
+              System metrics URL{' '}
+              <span className="font-normal text-dsp-text-muted">(optional)</span>
+            </label>
+            <input
+              id="unit-system-metrics-url"
+              type="text"
+              value={formData.systemMetricsUrl ?? ''}
+              onChange={handleInputChange('systemMetricsUrl')}
+              placeholder="http://192.168.1.100:9925/api/system or /api/system"
+              className={cn(
+                'w-full rounded-md border bg-dsp-bg px-3 py-2 text-sm text-dsp-text placeholder:text-dsp-text-muted',
+                'focus:outline-none focus:ring-2 focus:ring-dsp-accent',
+                errors.systemMetricsUrl ? 'border-meter-red' : 'border-dsp-primary/30'
+              )}
+              aria-invalid={!!errors.systemMetricsUrl}
+              aria-describedby={errors.systemMetricsUrl ? 'system-metrics-url-error' : undefined}
+              autoComplete="off"
+            />
+            <p className="text-xs text-dsp-text-muted">
+              Enables RAM and temperature readings in the status bar.
+            </p>
+            {errors.systemMetricsUrl && (
+              <p id="system-metrics-url-error" className="text-xs text-meter-red">
+                {errors.systemMetricsUrl}
               </p>
             )}
           </div>

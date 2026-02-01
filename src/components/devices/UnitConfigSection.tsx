@@ -9,6 +9,7 @@ interface UnitFormState {
   address: string;
   port: number;
   zone: string;
+  systemMetricsUrl: string;
 }
 
 interface UnitConfigSectionProps {
@@ -38,6 +39,7 @@ export function UnitConfigSection({ unitId }: UnitConfigSectionProps) {
       address: localEdits.address ?? unit.address,
       port: localEdits.port ?? unit.port,
       zone: localEdits.zone ?? unit.zone ?? '',
+      systemMetricsUrl: localEdits.systemMetricsUrl ?? unit.systemMetricsUrl ?? '',
     };
   }, [unit, localEdits]);
 
@@ -63,6 +65,25 @@ export function UnitConfigSection({ unitId }: UnitConfigSectionProps) {
       return;
     }
 
+    const trimmedSystemMetricsUrl = formState.systemMetricsUrl.trim();
+    if (trimmedSystemMetricsUrl) {
+      const isValid =
+        trimmedSystemMetricsUrl.startsWith('/') ||
+        (() => {
+          try {
+            const parsedUrl = new URL(trimmedSystemMetricsUrl);
+            return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+          } catch {
+            return false;
+          }
+        })();
+
+      if (!isValid) {
+        setError('System metrics URL must be a valid URL or a path starting with /');
+        return;
+      }
+    }
+
     setIsSaving(true);
     setError(null);
 
@@ -75,6 +96,7 @@ export function UnitConfigSection({ unitId }: UnitConfigSectionProps) {
         address: formState.address,
         port: formState.port,
         zone: formState.zone || undefined,
+        systemMetricsUrl: trimmedSystemMetricsUrl || undefined,
       });
 
       // If address/port changed, reconnect
@@ -218,6 +240,23 @@ export function UnitConfigSection({ unitId }: UnitConfigSectionProps) {
             placeholder="FOH, Monitors, etc."
             className="w-full rounded border border-dsp-primary/30 bg-dsp-bg px-3 py-2 text-sm text-dsp-text focus:border-dsp-accent focus:outline-none"
           />
+        </div>
+
+        {/* System Metrics URL */}
+        <div>
+          <label className="mb-1.5 block text-xs text-dsp-text-muted">
+            System metrics URL <span className="text-dsp-text-muted">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={formState.systemMetricsUrl}
+            onChange={(e) => { updateField('systemMetricsUrl', e.target.value); }}
+            placeholder="http://192.168.1.100:9925/api/system or /api/system"
+            className="w-full rounded border border-dsp-primary/30 bg-dsp-bg px-3 py-2 text-sm text-dsp-text focus:border-dsp-accent focus:outline-none"
+          />
+          <p className="mt-1 text-xs text-dsp-text-muted">
+            Enables RAM and temperature readings in the status bar.
+          </p>
         </div>
 
         {/* Error Display */}

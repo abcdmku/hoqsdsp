@@ -123,6 +123,51 @@ server:
 
 Then add the unit in the dashboard using the address (e.g., `ws://192.168.1.100:1234`).
 
+## Optional: Raspberry Pi RAM / Temperature
+
+CamillaDSP does not expose host system metrics (RAM / temperature) over its WebSocket API. This UI can show them if you provide a **System metrics URL** for the unit (Dashboard > Add Unit, or Settings > Unit Configuration).
+
+This repo includes a tiny metrics server you can run on the Pi:
+
+```bash
+# On the Raspberry Pi (from this repo checkout)
+node scripts/pi-system-metrics.mjs
+```
+
+It listens on `http://0.0.0.0:9925` by default and serves:
+
+- `GET /api/system` (JSON + permissive CORS headers)
+- `GET /health`
+
+Set the unit’s **System metrics URL** to `http://<pi-ip>:9925/api/system` to show **RAM%** and **Temp°C** in the status bar.
+
+### Prebuilt-style binary (no Node.js needed on the Pi)
+
+If you’d rather run a single static binary on the Pi, there’s a Go version in `tools/pi-system-metrics/`.
+
+1) On the Pi, check architecture:
+
+```bash
+uname -m
+```
+
+- `aarch64` → use `GOARCH=arm64`
+- `armv7l` / `armv6l` → use `GOARCH=arm` (and set `GOARM=7` or `GOARM=6`)
+
+2) Build on your dev machine (cross-compile) and copy to the Pi:
+
+```bash
+cd tools/pi-system-metrics
+GOOS=linux GOARCH=arm64 go build -o pi-system-metrics ./
+scp ./pi-system-metrics pi@<pi-ip>:/usr/local/bin/pi-system-metrics
+```
+
+3) Run on the Pi:
+
+```bash
+/usr/local/bin/pi-system-metrics
+```
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
