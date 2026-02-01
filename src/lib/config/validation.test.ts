@@ -130,9 +130,7 @@ describe('camillaConfigSchema', () => {
       'Volume',
       'Dither',
       'DiffEq',
-      'Compressor',
       'Loudness',
-      'NoiseGate',
     ];
 
     for (const filterType of filterTypes) {
@@ -151,6 +149,20 @@ describe('camillaConfigSchema', () => {
       const result = camillaConfigSchema.safeParse(config);
       expect(result.success).toBe(true);
     }
+  });
+
+  it('accepts processors section', () => {
+    const config = createValidConfig({
+      processors: {
+        demo: { type: 'Compressor', parameters: {} },
+      },
+      pipeline: [
+        { type: 'Processor', name: 'demo' },
+      ],
+    });
+
+    const result = camillaConfigSchema.safeParse(config);
+    expect(result.success).toBe(true);
   });
 
   it('rejects invalid filter types', () => {
@@ -180,9 +192,9 @@ describe('camillaConfigSchema', () => {
         },
       },
       pipeline: [
-        { type: 'Filter', name: 'eq', channel: 0 },
+        { type: 'Filter', names: ['eq'], channels: [0] },
         { type: 'Mixer', name: 'main' },
-        { type: 'Filter', name: 'eq', channels: [0, 1] },
+        { type: 'Filter', names: ['eq'], channels: [0, 1] },
       ],
     } as unknown;
     const result = camillaConfigSchema.safeParse(config);
@@ -292,7 +304,7 @@ describe('validateConfig', () => {
         },
       },
       pipeline: [
-        { type: 'Filter', name: 'eq', channel: 0 },
+        { type: 'Filter', names: ['eq'], channels: [0] },
         { type: 'Mixer', name: 'main' },
       ],
     } as unknown;

@@ -4,11 +4,10 @@ import { BaseFilterHandler } from './types';
 
 // NoiseGate parameters schema
 export const noisegateParametersSchema = z.object({
-  channels: z.number().int().min(1),
   threshold: z.number(),
   attack: z.number().min(0, 'Attack time must be non-negative'),
   release: z.number().min(0, 'Release time must be non-negative'),
-  hold: z.number().min(0, 'Hold time must be non-negative'),
+  attenuation: z.number().min(0, 'Attenuation must be non-negative'),
 });
 
 // Complete noisegate filter schema
@@ -32,11 +31,10 @@ class NoiseGateFilterHandler extends BaseFilterHandler<NoiseGateFilter> {
     return {
       type: 'NoiseGate',
       parameters: {
-        channels: 2,
         threshold: -60,
         attack: 5,
         release: 100,
-        hold: 50,
+        attenuation: 50,
       },
     };
   }

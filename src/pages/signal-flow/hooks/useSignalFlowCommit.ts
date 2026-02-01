@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
-import type { CamillaConfig, SignalFlowUiMetadata } from '../../../types';
+import type { CamillaConfig, FilterConfig, SignalFlowUiMetadata } from '../../../types';
 import type { FromConfigResult, RouteEdge, ChannelNode } from '../../../lib/signalflow';
 import { toConfig } from '../../../lib/signalflow';
 import { validateConfig } from '../../../lib/config';
@@ -50,6 +50,7 @@ interface PendingSnapshot {
   inputs: ChannelNode[];
   outputs: ChannelNode[];
   uiMetadata: UiMetadataState;
+  filterOverrides: Record<string, FilterConfig>;
 }
 
 export function useSignalFlowCommit({
@@ -85,6 +86,7 @@ export function useSignalFlowCommit({
         inputs?: ChannelNode[];
         outputs?: ChannelNode[];
         uiMetadata?: Partial<SignalFlowUiMetadata>;
+        filterOverrides?: Record<string, FilterConfig>;
       },
       options?: { debounce?: boolean },
     ) => {
@@ -95,12 +97,13 @@ export function useSignalFlowCommit({
         return;
       }
 
-      const base: PendingSnapshot = pendingSnapshotRef.current ?? { routes, inputs, outputs, uiMetadata };
+      const base: PendingSnapshot = pendingSnapshotRef.current ?? { routes, inputs, outputs, uiMetadata, filterOverrides: {} };
 
       const nextRoutes = next.routes ?? base.routes;
       const nextInputs = next.inputs ?? base.inputs;
       const nextOutputs = next.outputs ?? base.outputs;
       const nextUiMetadata = buildNextUiMetadata(base.uiMetadata, next.uiMetadata);
+      const nextFilterOverrides = next.filterOverrides ? { ...base.filterOverrides, ...next.filterOverrides } : base.filterOverrides;
 
       pendingVersionRef.current += 1;
       pendingSnapshotRef.current = {
@@ -108,6 +111,7 @@ export function useSignalFlowCommit({
         inputs: nextInputs,
         outputs: nextOutputs,
         uiMetadata: nextUiMetadata,
+        filterOverrides: nextFilterOverrides,
       };
 
       pendingChangesRef.current = true;
@@ -136,7 +140,20 @@ export function useSignalFlowCommit({
           },
           snapshot.uiMetadata,
         );
-        const validation = validateConfig(patched.config);
+
+        const filtersOverrideEntries = Object.entries(snapshot.filterOverrides);
+        const configWithOverrides: CamillaConfig =
+          filtersOverrideEntries.length > 0
+            ? {
+                ...patched.config,
+                filters: {
+                  ...(patched.config.filters ?? {}),
+                  ...Object.fromEntries(filtersOverrideEntries),
+                },
+              }
+            : patched.config;
+
+        const validation = validateConfig(configWithOverrides);
         if (!validation.valid || !validation.config) {
           if (mountedRef.current && pendingVersionRef.current === versionAtStart) {
             pendingChangesRef.current = false;

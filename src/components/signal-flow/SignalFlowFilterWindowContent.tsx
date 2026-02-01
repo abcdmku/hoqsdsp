@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { ChannelNode, ChannelProcessingFilter } from '../../lib/signalflow';
 import { upsertSingleFilterOfType } from '../../lib/signalflow/filterUtils';
-import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1, FilterConfig, FilterType } from '../../types';
+import type { CamillaConfig, DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1, FilterConfig, FilterType } from '../../types';
 import type { EQBand } from '../eq-editor/types';
 import { EQEditor } from '../eq-editor/EQEditor';
 import { DEQEditor } from '../deq-editor/DEQEditor';
@@ -13,8 +13,8 @@ const DEFAULT_FILTER_CONFIGS: Record<FilterType, FilterConfig> = {
   Biquad: { type: 'Biquad', parameters: { type: 'Peaking', freq: 1000, gain: 0, q: 1.0 } },
   Delay: { type: 'Delay', parameters: { delay: 0, unit: 'ms', subsample: true } },
   Gain: { type: 'Gain', parameters: { gain: 0, scale: 'dB' } },
-  Compressor: { type: 'Compressor', parameters: { channels: 1, threshold: -20, factor: 4, attack: 5, release: 100 } },
-  NoiseGate: { type: 'NoiseGate', parameters: { channels: 1, threshold: -60, attack: 1, release: 50, hold: 100 } },
+  Compressor: { type: 'Compressor', parameters: { threshold: -20, factor: 4, attack: 5, release: 100 } },
+  NoiseGate: { type: 'NoiseGate', parameters: { threshold: -60, attack: 1, release: 50, attenuation: 50 } },
   Conv: { type: 'Conv', parameters: { type: 'Values', values: [1] } },
   Dither: { type: 'Dither', parameters: { type: 'Simple', bits: 16 } },
   Volume: { type: 'Volume', parameters: {} },
@@ -35,12 +35,57 @@ function buildFilterNameBase(node: ChannelNode, filterType: FilterType): string 
   return `sf-${node.side}-ch${String(node.channelIndex + 1)}-${filterType.toLowerCase()}-${String(Date.now())}`;
 }
 
+type PipelineFilterMatch = {
+  filterName: string;
+  filter: FilterConfig;
+  kind: 'global' | 'multi-channel' | 'single-channel';
+};
+
+function findFirstPipelineFilterOfTypeForChannel(
+  config: CamillaConfig,
+  side: ChannelNode['side'],
+  channelIndex: number,
+  filterType: FilterType,
+): PipelineFilterMatch | null {
+  const routingIndex = config.pipeline.findIndex(
+    (step) => step.type === 'Mixer' && step.name === 'routing',
+  );
+
+  const start = routingIndex >= 0 && side === 'output' ? routingIndex + 1 : 0;
+  const end = routingIndex >= 0 && side === 'input' ? routingIndex : config.pipeline.length;
+
+  for (let i = start; i < end; i++) {
+    const step = config.pipeline[i];
+    if (!step || step.type !== 'Filter') continue;
+
+    const affectsChannel = !step.channels || step.channels.includes(channelIndex);
+    if (!affectsChannel) continue;
+
+    for (const name of step.names) {
+      const filter = config.filters?.[name];
+      if (!filter || filter.type !== filterType) continue;
+
+      const kind: PipelineFilterMatch['kind'] = !step.channels
+        ? 'global'
+        : step.channels.length > 1
+          ? 'multi-channel'
+          : 'single-channel';
+
+      return { filterName: name, filter, kind };
+    }
+  }
+
+  return null;
+}
+
 export interface SignalFlowFilterWindowContentProps {
   node: ChannelNode;
+  camillaConfig?: CamillaConfig | null;
   sampleRate: number;
   filterType: FilterType;
   onClose: () => void;
   onChange: (filters: ChannelProcessingFilter[], options?: { debounce?: boolean }) => void;
+  onUpdateFilterDefinition?: (filterName: string, config: FilterConfig, options?: { debounce?: boolean }) => void;
   topRightControls?: ReactNode;
   firPhaseCorrection?: Record<string, FirPhaseCorrectionUiSettingsV1>;
   onPersistFirPhaseCorrectionSettings?: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
@@ -50,10 +95,12 @@ export interface SignalFlowFilterWindowContentProps {
 
 export function SignalFlowFilterWindowContent({
   node,
+  camillaConfig,
   sampleRate,
   filterType,
   onClose,
   onChange,
+  onUpdateFilterDefinition,
   topRightControls,
   firPhaseCorrection,
   onPersistFirPhaseCorrectionSettings,
@@ -90,6 +137,11 @@ export function SignalFlowFilterWindowContent({
     },
     [filterType, filters, node, onChange],
   );
+
+  const pipelineMatch = useMemo(() => {
+    if (!camillaConfig) return null;
+    return findFirstPipelineFilterOfTypeForChannel(camillaConfig, node.side, node.channelIndex, filterType);
+  }, [camillaConfig, filterType, node.channelIndex, node.side]);
 
   if (filterType === 'Biquad') {
     return (
@@ -140,12 +192,18 @@ export function SignalFlowFilterWindowContent({
   }
 
   const fallback = createDefaultFilter(filterType);
-  const currentConfig = firstFilterOfType.filter?.config ?? fallback;
-  const currentFilterName = firstFilterOfType.filter?.name;
+
+  const unmanagedFilter = firstFilterOfType.filter ? null : pipelineMatch;
+  const currentConfig = firstFilterOfType.filter?.config ?? unmanagedFilter?.filter ?? fallback;
+  const currentFilterName = firstFilterOfType.filter?.name ?? unmanagedFilter?.filterName;
   const currentFirPhaseCorrectionSettings = currentFilterName ? firPhaseCorrection?.[currentFilterName] : undefined;
 
   const warning = firstFilterOfType.count > 1
     ? `Multiple ${filterType} filters found; editing the first one in the chain.`
+    : null;
+
+  const unmanagedWarning = unmanagedFilter
+    ? `Editing "${unmanagedFilter.filterName}" from a ${unmanagedFilter.kind} pipeline step.`
     : null;
 
   return (
@@ -153,6 +211,11 @@ export function SignalFlowFilterWindowContent({
       {warning && (
         <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">
           {warning}
+        </div>
+      )}
+      {unmanagedWarning && (
+        <div className="rounded-md border border-dsp-primary/30 bg-dsp-bg px-3 py-2 text-xs text-dsp-text-muted">
+          {unmanagedWarning}
         </div>
       )}
       <SignalFlowFilterEditorPanel
@@ -164,8 +227,20 @@ export function SignalFlowFilterWindowContent({
         firPhaseCorrectionSettings={currentFirPhaseCorrectionSettings}
         onPersistFirPhaseCorrectionSettings={onPersistFirPhaseCorrectionSettings}
         onClose={onClose}
-        onApply={(updated) => { applySingle(updated, { debounce: true }); }}
-        onSave={(updated) => { applySingle(updated); }}
+        onApply={(updated) => {
+          if (unmanagedFilter && onUpdateFilterDefinition) {
+            onUpdateFilterDefinition(unmanagedFilter.filterName, updated, { debounce: true });
+            return;
+          }
+          applySingle(updated, { debounce: true });
+        }}
+        onSave={(updated) => {
+          if (unmanagedFilter && onUpdateFilterDefinition) {
+            onUpdateFilterDefinition(unmanagedFilter.filterName, updated);
+            return;
+          }
+          applySingle(updated);
+        }}
       />
     </div>
   );

@@ -84,7 +84,7 @@ const mockChannels: ChannelData[] = [
         name: 'Compressor',
         config: {
           type: 'Compressor',
-          parameters: { channels: 1, threshold: -20, factor: 4, attack: 5, release: 100 },
+          parameters: { threshold: -20, factor: 4, attack: 5, release: 100 },
         },
         bypassed: false,
       },
@@ -349,10 +349,10 @@ function getDefaultFilter(filterType: FilterType): FilterConfig {
     case 'Compressor':
       return {
         type: 'Compressor',
-        parameters: { channels: 1, threshold: -20, factor: 4, attack: 5, release: 100 },
+        parameters: { threshold: -20, factor: 4, attack: 5, release: 100 },
       };
     case 'NoiseGate':
-      return { type: 'NoiseGate', parameters: { channels: 1, threshold: -60, attack: 1, release: 50, hold: 100 } };
+      return { type: 'NoiseGate', parameters: { threshold: -60, attack: 1, release: 50, attenuation: 50 } };
     case 'Conv':
       return { type: 'Conv', parameters: { type: 'Values', values: [1] } };
     case 'Dither':

@@ -71,7 +71,15 @@ export function ChannelCard({
   const portSide: 'left' | 'right' = side === 'input' ? 'right' : 'left';
   const processingFilters = node.processing.filters;
 
-  const activeCounts = useMemo(() => countActiveFilters(processingFilters), [processingFilters]);
+  const activeCounts = useMemo(() => {
+    const counts = countActiveFilters(processingFilters);
+    // Some filter steps (global or multi-channel) are currently not represented in `node.processing.filters`.
+    // Still surface "active" state for the most common dynamics filters so the buttons reflect reality.
+    if (node.processingSummary.hasCompressor && !counts.has('Compressor')) counts.set('Compressor', 1);
+    if (node.processingSummary.hasNoiseGate && !counts.has('NoiseGate')) counts.set('NoiseGate', 1);
+    if (node.processingSummary.hasLoudness && !counts.has('Loudness')) counts.set('Loudness', 1);
+    return counts;
+  }, [node.processingSummary.hasCompressor, node.processingSummary.hasLoudness, node.processingSummary.hasNoiseGate, processingFilters]);
   const acceptedFilterTypes = side === 'input' ? INPUT_FILTER_TYPES : OUTPUT_FILTER_TYPES;
   const visibleFilterTypes = useMemo(() => {
     const inlineTypes: FilterType[] = ['Delay', 'Gain', 'Dither'];

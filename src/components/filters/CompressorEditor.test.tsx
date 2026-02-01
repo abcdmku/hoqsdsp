@@ -7,7 +7,6 @@ import type { CompressorFilter } from '../../types';
 const defaultCompressorFilter: CompressorFilter = {
   type: 'Compressor',
   parameters: {
-    channels: 2,
     threshold: -20,
     factor: 4,
     attack: 10,
@@ -42,19 +41,6 @@ describe('CompressorEditor', () => {
     );
 
     expect(screen.getByRole('img', { name: /compression transfer curve/i })).toBeInTheDocument();
-  });
-
-  it('shows channels input', () => {
-    render(
-      <CompressorEditor
-        open={true}
-        onClose={() => {}}
-        filter={defaultCompressorFilter}
-        onSave={() => {}}
-      />,
-    );
-
-    expect(screen.getByText('Channels')).toBeInTheDocument();
   });
 
   it('shows threshold control', () => {

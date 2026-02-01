@@ -8,11 +8,10 @@ describe('NoiseGateFilterHandler', () => {
       const filter: NoiseGateFilter = {
         type: 'NoiseGate',
         parameters: {
-          channels: 2,
           threshold: -60,
           attack: 5,
           release: 100,
-          hold: 50,
+          attenuation: 50,
         },
       };
 
@@ -20,15 +19,14 @@ describe('NoiseGateFilterHandler', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should validate single channel', () => {
+    it('should validate with different values', () => {
       const filter: NoiseGateFilter = {
         type: 'NoiseGate',
         parameters: {
-          channels: 1,
           threshold: -40,
           attack: 1,
           release: 50,
-          hold: 20,
+          attenuation: 20,
         },
       };
 
@@ -40,11 +38,10 @@ describe('NoiseGateFilterHandler', () => {
       const filter: NoiseGateFilter = {
         type: 'NoiseGate',
         parameters: {
-          channels: 2,
           threshold: -60,
           attack: 0,
           release: 0,
-          hold: 0,
+          attenuation: 0,
         },
       };
 
@@ -56,11 +53,10 @@ describe('NoiseGateFilterHandler', () => {
       const filter: NoiseGateFilter = {
         type: 'NoiseGate',
         parameters: {
-          channels: 2,
           threshold: -90,
           attack: 5,
           release: 100,
-          hold: 50,
+          attenuation: 50,
         },
       };
 
@@ -68,31 +64,14 @@ describe('NoiseGateFilterHandler', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should reject channels less than 1', () => {
-      const filter = {
-        type: 'NoiseGate',
-        parameters: {
-          channels: 0,
-          threshold: -60,
-          attack: 5,
-          release: 100,
-          hold: 50,
-        },
-      };
-
-      const result = noisegateFilterSchema.safeParse(filter);
-      expect(result.success).toBe(false);
-    });
-
     it('should reject negative attack', () => {
       const filter = {
         type: 'NoiseGate',
         parameters: {
-          channels: 2,
           threshold: -60,
           attack: -1,
           release: 100,
-          hold: 50,
+          attenuation: 50,
         },
       };
 
@@ -104,11 +83,10 @@ describe('NoiseGateFilterHandler', () => {
       const filter = {
         type: 'NoiseGate',
         parameters: {
-          channels: 2,
           threshold: -60,
           attack: 5,
           release: -100,
-          hold: 50,
+          attenuation: 50,
         },
       };
 
@@ -116,31 +94,14 @@ describe('NoiseGateFilterHandler', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should reject negative hold', () => {
+    it('should reject negative attenuation', () => {
       const filter = {
         type: 'NoiseGate',
         parameters: {
-          channels: 2,
           threshold: -60,
           attack: 5,
           release: 100,
-          hold: -10,
-        },
-      };
-
-      const result = noisegateFilterSchema.safeParse(filter);
-      expect(result.success).toBe(false);
-    });
-
-    it('should reject non-integer channels', () => {
-      const filter = {
-        type: 'NoiseGate',
-        parameters: {
-          channels: 1.5,
-          threshold: -60,
-          attack: 5,
-          release: 100,
-          hold: 50,
+          attenuation: -10,
         },
       };
 
@@ -157,11 +118,10 @@ describe('NoiseGateFilterHandler', () => {
         expect(defaultFilter).toEqual({
           type: 'NoiseGate',
           parameters: {
-            channels: 2,
             threshold: -60,
             attack: 5,
             release: 100,
-            hold: 50,
+            attenuation: 50,
           },
         });
       });
@@ -179,11 +139,10 @@ describe('NoiseGateFilterHandler', () => {
         const filter: NoiseGateFilter = {
           type: 'NoiseGate',
           parameters: {
-            channels: 4,
             threshold: -50,
             attack: 2,
             release: 80,
-            hold: 30,
+            attenuation: 30,
           },
         };
 
@@ -192,11 +151,10 @@ describe('NoiseGateFilterHandler', () => {
         expect(serialized).toEqual({
           type: 'NoiseGate',
           parameters: {
-            channels: 4,
             threshold: -50,
             attack: 2,
             release: 80,
-            hold: 30,
+            attenuation: 30,
           },
         });
       });
@@ -207,11 +165,10 @@ describe('NoiseGateFilterHandler', () => {
         const filter: NoiseGateFilter = {
           type: 'NoiseGate',
           parameters: {
-            channels: 2,
             threshold: -60,
             attack: 5,
             release: 100,
-            hold: 50,
+            attenuation: 50,
           },
         };
 
@@ -226,11 +183,10 @@ describe('NoiseGateFilterHandler', () => {
         const filter: NoiseGateFilter = {
           type: 'NoiseGate',
           parameters: {
-            channels: 2,
             threshold: -60,
             attack: 5,
             release: 100,
-            hold: 50,
+            attenuation: 50,
           },
         };
 
@@ -243,11 +199,10 @@ describe('NoiseGateFilterHandler', () => {
         const filter: NoiseGateFilter = {
           type: 'NoiseGate',
           parameters: {
-            channels: 2,
             threshold: -40,
             attack: 5,
             release: 100,
-            hold: 50,
+            attenuation: 50,
           },
         };
 

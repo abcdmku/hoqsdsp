@@ -64,6 +64,7 @@ export interface CamillaConfig {
   devices: DevicesConfig;
   mixers?: Record<string, MixerConfig>;
   filters?: Record<string, FilterConfig>;
+  processors?: Record<string, ProcessorConfig>;
   pipeline: PipelineStep[];
   title?: string;
   description?: string;
@@ -123,7 +124,8 @@ export interface MixerSource {
 // CamillaDSP pipeline steps have different formats:
 // - Mixer: { type: 'Mixer', name: 'mixername' }
 // - Filter: { type: 'Filter', names: ['filter1', 'filter2'], channels: [0, 1] }
-export type PipelineStep = MixerPipelineStep | FilterPipelineStep;
+// - Processor: { type: 'Processor', name: 'processorname' }
+export type PipelineStep = MixerPipelineStep | FilterPipelineStep | ProcessorPipelineStep;
 
 export interface MixerPipelineStep {
   type: 'Mixer';
@@ -136,6 +138,18 @@ export interface FilterPipelineStep {
   type: 'Filter';
   names: string[];
   channels?: number[];  // Optional - if omitted, applies to all channels
+  description?: string;
+  bypassed?: boolean;
+}
+
+export interface ProcessorConfig {
+  type: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface ProcessorPipelineStep {
+  type: 'Processor';
+  name: string;
   description?: string;
   bypassed?: boolean;
 }

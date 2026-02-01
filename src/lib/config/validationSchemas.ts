@@ -75,11 +75,16 @@ const filterConfigSchema = z.object({
     'Volume',
     'Dither',
     'DiffEq',
-    'Compressor',
     'Loudness',
-    'NoiseGate',
   ]),
   // Parameters can be any value - detailed validation is done by filter handlers
+  parameters: z.any(),
+});
+
+// Processor configuration schemas - simplified for validation
+// More detailed validation is done by individual processor handlers (if any)
+const processorConfigSchema = z.object({
+  type: z.string(),
   parameters: z.any(),
 });
 
@@ -99,9 +104,17 @@ const filterPipelineStepSchema = z.object({
   bypassed: z.boolean().optional(),
 });
 
+const processorPipelineStepSchema = z.object({
+  type: z.literal('Processor'),
+  name: z.string(),
+  description: z.string().optional(),
+  bypassed: z.boolean().optional(),
+});
+
 const pipelineStepSchema = z.discriminatedUnion('type', [
   mixerPipelineStepSchema,
   filterPipelineStepSchema,
+  processorPipelineStepSchema,
 ]);
 
 // UI metadata schemas (preserved by CamillaDSP but ignored by DSP engine)
@@ -180,6 +193,7 @@ export const camillaConfigSchema = z.object({
   devices: devicesConfigSchema,
   mixers: z.record(z.string(), mixerConfigSchema).optional(),
   filters: z.record(z.string(), filterConfigSchema).optional(),
+  processors: z.record(z.string(), processorConfigSchema).optional(),
   pipeline: z.array(pipelineStepSchema),
   title: z.string().optional(),
   description: z.string().optional(),

@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import type { CamillaConfig } from '../../../types';
+import type { CamillaConfig, FilterConfig } from '../../../types';
 import type { ChannelNode, FromConfigResult, RouteEdge } from '../../../lib/signalflow';
 import type { SignalFlowMirrorGroups, UnitSignalFlowPrefs } from '../../../stores/signalFlowUiStore';
 import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../../types';
@@ -136,6 +136,13 @@ export function useSignalFlowModelState({
     setOutputs,
   });
 
+  const updateFilterDefinition = useCallback(
+    (filterName: string, config: FilterConfig, options?: { debounce?: boolean }) => {
+      commitModel({ filterOverrides: { [filterName]: config } }, options);
+    },
+    [commitModel],
+  );
+
   const connectionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const route of routes) {
@@ -165,6 +172,7 @@ export function useSignalFlowModelState({
     mirrorGroups,
     outputs,
     routes,
+    updateFilterDefinition,
     updateChannelFilters,
     updateRoute,
   };

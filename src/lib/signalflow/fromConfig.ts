@@ -214,57 +214,140 @@ export function fromConfig(config: CamillaConfig): FromConfigResult {
   if (routingMixerStepIndex >= 0) {
     for (let i = 0; i < config.pipeline.length; i++) {
       const step = config.pipeline[i]!;
-      if (step.type !== 'Filter') continue;
-
-      // CamillaDSP Filter steps use 'names' (plural array of filter names)
-      const filterNames = step.names;
 
       const stage = i < routingMixerStepIndex ? 'input' : i > routingMixerStepIndex ? 'output' : null;
       if (!stage) continue;
 
-      const explicitChannels = getStepChannels(step);
       const stageChannelCount = stage === 'input' ? inputChannels : outputChannels;
-      const targetChannels = explicitChannels ?? Array.from({ length: stageChannelCount }, (_, idx) => idx);
 
-      const isExplicitSingleChannel = Array.isArray(step.channels) && step.channels.length === 1;
+      if (step.type === 'Filter') {
+        // CamillaDSP Filter steps use 'names' (plural array of filter names)
+        const filterNames = step.names;
+        const explicitChannels = getStepChannels(step);
+        const targetChannels = explicitChannels ?? Array.from({ length: stageChannelCount }, (_, idx) => idx);
 
-      // Process each filter name in the step
-      for (const filterName of filterNames) {
-        const filter = config.filters?.[filterName];
-        if (!filter) {
-          warnings.push({
-            code: 'unresolved_filter',
-            message: `Filter "${filterName}" is referenced in pipeline but not defined.`,
-            path: `pipeline[${i}]`,
-          });
-          continue;
-        }
+        const isExplicitSingleChannel = Array.isArray(step.channels) && step.channels.length === 1;
 
-        if (!explicitChannels) {
-          warnings.push({
-            code: 'global_filter_step',
-            message: `Filter step "${filterName}" applies to all ${stage} channels.`,
-            path: `pipeline[${i}]`,
-          });
-        }
-
-        for (const ch of targetChannels) {
-          if (ch < 0 || ch >= stageChannelCount) {
+        // Process each filter name in the step
+        for (const filterName of filterNames) {
+          const filter = config.filters?.[filterName];
+          if (!filter) {
             warnings.push({
-              code: 'filter_out_of_range',
-              message: `Filter step "${filterName}" targets channel ${ch} outside range.`,
+              code: 'unresolved_filter',
+              message: `Filter "${filterName}" is referenced in pipeline but not defined.`,
               path: `pipeline[${i}]`,
             });
             continue;
           }
 
-          const summary = stage === 'input' ? inputs[ch]!.processingSummary : outputs[ch]!.processingSummary;
-          applyFilterToSummary(summary, filter.type);
-
-          if (isExplicitSingleChannel && explicitChannels) {
-            const node = stage === 'input' ? inputs[ch]! : outputs[ch]!;
-            node.processing.filters.push({ name: filterName, config: filter });
+          if (!explicitChannels) {
+            warnings.push({
+              code: 'global_filter_step',
+              message: `Filter step "${filterName}" applies to all ${stage} channels.`,
+              path: `pipeline[${i}]`,
+            });
           }
+
+          for (const ch of targetChannels) {
+            if (ch < 0 || ch >= stageChannelCount) {
+              warnings.push({
+                code: 'filter_out_of_range',
+                message: `Filter step "${filterName}" targets channel ${ch} outside range.`,
+                path: `pipeline[${i}]`,
+              });
+              continue;
+            }
+
+            const summary = stage === 'input' ? inputs[ch]!.processingSummary : outputs[ch]!.processingSummary;
+            applyFilterToSummary(summary, filter.type);
+
+            if (isExplicitSingleChannel && explicitChannels) {
+              const node = stage === 'input' ? inputs[ch]! : outputs[ch]!;
+              node.processing.filters.push({ name: filterName, config: filter });
+            }
+          }
+        }
+
+        continue;
+      }
+
+      if (step.type === 'Processor') {
+        const processor = config.processors?.[step.name];
+        if (!processor) {
+          warnings.push({
+            code: 'unresolved_filter',
+            message: `Processor "${step.name}" is referenced in pipeline but not defined.`,
+            path: `pipeline[${i}]`,
+          });
+          continue;
+        }
+
+        const processChannelsRaw = processor.parameters.process_channels;
+        const processChannels = Array.isArray(processChannelsRaw)
+          ? processChannelsRaw.filter((value): value is number => typeof value === 'number')
+          : null;
+
+        // Only map single-channel processors into per-channel filter lists.
+        if (!processChannels || processChannels.length !== 1) {
+          continue;
+        }
+
+        const ch = processChannels[0] ?? -1;
+        if (ch < 0 || ch >= stageChannelCount) {
+          warnings.push({
+            code: 'filter_out_of_range',
+            message: `Processor step "${step.name}" targets channel ${ch} outside range.`,
+            path: `pipeline[${i}]`,
+          });
+          continue;
+        }
+
+        const summary = stage === 'input' ? inputs[ch]!.processingSummary : outputs[ch]!.processingSummary;
+        applyFilterToSummary(summary, processor.type);
+
+        // Convert known processors into UI filter configs (ms units).
+        if (processor.type === 'Compressor') {
+          const attack = typeof processor.parameters.attack === 'number' ? processor.parameters.attack : null;
+          const release = typeof processor.parameters.release === 'number' ? processor.parameters.release : null;
+          const threshold = typeof processor.parameters.threshold === 'number' ? processor.parameters.threshold : null;
+          const factor = typeof processor.parameters.factor === 'number' ? processor.parameters.factor : null;
+          if (attack === null || release === null || threshold === null || factor === null) continue;
+
+          const node = stage === 'input' ? inputs[ch]! : outputs[ch]!;
+          node.processing.filters.push({
+            name: step.name,
+            config: {
+              type: 'Compressor',
+              parameters: {
+                threshold,
+                factor,
+                attack: attack * 1000,
+                release: release * 1000,
+                ...(typeof processor.parameters.makeup_gain === 'number' ? { makeup_gain: processor.parameters.makeup_gain } : {}),
+                ...(typeof processor.parameters.soft_clip === 'boolean' ? { soft_clip: processor.parameters.soft_clip } : {}),
+              },
+            },
+          });
+        } else if (processor.type === 'NoiseGate') {
+          const attack = typeof processor.parameters.attack === 'number' ? processor.parameters.attack : null;
+          const release = typeof processor.parameters.release === 'number' ? processor.parameters.release : null;
+          const threshold = typeof processor.parameters.threshold === 'number' ? processor.parameters.threshold : null;
+          const attenuation = typeof processor.parameters.attenuation === 'number' ? processor.parameters.attenuation : null;
+          if (attack === null || release === null || threshold === null || attenuation === null) continue;
+
+          const node = stage === 'input' ? inputs[ch]! : outputs[ch]!;
+          node.processing.filters.push({
+            name: step.name,
+            config: {
+              type: 'NoiseGate',
+              parameters: {
+                threshold,
+                attenuation,
+                attack: attack * 1000,
+                release: release * 1000,
+              },
+            },
+          });
         }
       }
     }

@@ -102,6 +102,7 @@ export function SignalFlowPage() {
       <div ref={scrollContainerRef} className="flex-1 overflow-auto">
         <SignalFlowDockedFilterEditor
           dockedFilterEditor={windows.dockedFilterEditor}
+          config={configState.config}
           firPhaseCorrection={model.firPhaseCorrection}
           deq={model.deq}
           inputs={model.inputs}
@@ -110,6 +111,7 @@ export function SignalFlowPage() {
           onClose={() => windows.setDockedFilterEditor(null)}
           onPersistFirPhaseCorrectionSettings={model.handlePersistFirPhaseCorrectionSettings}
           onPersistDeqSettings={model.handlePersistDeqSettings}
+          onUpdateFilterDefinition={model.updateFilterDefinition}
           onUpdateFilters={model.updateChannelFilters}
         />
 

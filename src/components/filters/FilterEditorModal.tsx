@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { AlertCircle } from 'lucide-react';
 import {
   Dialog,
@@ -28,6 +28,9 @@ interface FilterEditorModalProps<T extends FilterConfig> {
   contentClassName?: string;
   bodyScrollable?: boolean;
   bodyClassName?: string;
+  /** If enabled, automatically calls onApply after edits (debounced). */
+  autoApply?: boolean;
+  autoApplyDebounceMs?: number;
 }
 
 export interface FilterEditorPanelProps<T extends FilterConfig> {
@@ -45,6 +48,9 @@ export interface FilterEditorPanelProps<T extends FilterConfig> {
   showHeader?: boolean;
   bodyScrollable?: boolean;
   bodyClassName?: string;
+  /** If enabled, automatically calls onApply after edits (debounced). */
+  autoApply?: boolean;
+  autoApplyDebounceMs?: number;
 }
 
 // Frequency response graph for biquad filters
@@ -187,18 +193,29 @@ function FilterEditorCore<T extends FilterConfig>({
   showHeader = true,
   bodyScrollable = true,
   bodyClassName,
+  autoApply = false,
+  autoApplyDebounceMs = 250,
 }: Omit<FilterEditorPanelProps<T>, 'title'> & { title?: string }) {
   const [localFilter, setLocalFilter] = useState<T>(filter);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isDirty, setIsDirty] = useState(false);
+  const autoApplyTimeoutRef = useRef<number | null>(null);
 
   // Reset local state when filter changes (modal opens with new filter)
   useEffect(() => {
+    // Avoid clobbering in-progress edits if the parent refreshes the filter prop
+    // (e.g., config polling / refetch). This was causing "flash/reset" behavior
+    // for auto-apply editors when the upstream config hadn't yet reflected changes.
+    if (isDirty) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalFilter(filter);
     setValidationErrors([]);
     setIsDirty(false);
-  }, [filter]);
+    if (autoApplyTimeoutRef.current !== null) {
+      window.clearTimeout(autoApplyTimeoutRef.current);
+      autoApplyTimeoutRef.current = null;
+    }
+  }, [filter, isDirty]);
 
   const handleValidate = useCallback(
     (config: T): boolean => {
@@ -225,6 +242,31 @@ function FilterEditorCore<T extends FilterConfig>({
     [handleValidate],
   );
 
+  useEffect(() => {
+    if (!autoApply || !onApply) return;
+    if (!isDirty) return;
+    if (validationErrors.length > 0) return;
+
+    if (autoApplyTimeoutRef.current !== null) {
+      window.clearTimeout(autoApplyTimeoutRef.current);
+      autoApplyTimeoutRef.current = null;
+    }
+
+    autoApplyTimeoutRef.current = window.setTimeout(() => {
+      autoApplyTimeoutRef.current = null;
+      if (handleValidate(localFilter)) {
+        onApply(localFilter);
+      }
+    }, autoApplyDebounceMs);
+
+    return () => {
+      if (autoApplyTimeoutRef.current !== null) {
+        window.clearTimeout(autoApplyTimeoutRef.current);
+        autoApplyTimeoutRef.current = null;
+      }
+    };
+  }, [autoApply, autoApplyDebounceMs, handleValidate, isDirty, localFilter, onApply, validationErrors.length]);
+
   const handleApply = useCallback(() => {
     if (handleValidate(localFilter) && onApply) {
       onApply(localFilter);
@@ -233,6 +275,10 @@ function FilterEditorCore<T extends FilterConfig>({
 
   const handleSave = useCallback(() => {
     if (handleValidate(localFilter)) {
+      if (autoApplyTimeoutRef.current !== null) {
+        window.clearTimeout(autoApplyTimeoutRef.current);
+        autoApplyTimeoutRef.current = null;
+      }
       onSave(localFilter);
       onClose();
     }
@@ -335,6 +381,8 @@ export function FilterEditorPanel<T extends FilterConfig>({
   showHeader = false,
   bodyScrollable = true,
   bodyClassName,
+  autoApply,
+  autoApplyDebounceMs,
 }: FilterEditorPanelProps<T>) {
   return (
     <FilterEditorCore
@@ -351,6 +399,8 @@ export function FilterEditorPanel<T extends FilterConfig>({
       showHeader={showHeader}
       bodyScrollable={bodyScrollable}
       bodyClassName={bodyClassName}
+      autoApply={autoApply}
+      autoApplyDebounceMs={autoApplyDebounceMs}
     >
       {children}
     </FilterEditorCore>
@@ -372,6 +422,8 @@ export function FilterEditorModal<T extends FilterConfig>({
   contentClassName,
   bodyScrollable = true,
   bodyClassName,
+  autoApply,
+  autoApplyDebounceMs,
 }: FilterEditorModalProps<T>) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
@@ -391,6 +443,8 @@ export function FilterEditorModal<T extends FilterConfig>({
           showHeader={true}
           bodyScrollable={bodyScrollable}
           bodyClassName={bodyClassName}
+          autoApply={autoApply}
+          autoApplyDebounceMs={autoApplyDebounceMs}
         >
           {children}
         </FilterEditorCore>

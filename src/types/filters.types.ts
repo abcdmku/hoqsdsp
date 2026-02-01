@@ -120,7 +120,6 @@ export interface CompressorFilter {
 }
 
 export interface CompressorParameters {
-  channels: number;
   threshold: number;
   factor: number;
   attack: number;
@@ -148,11 +147,10 @@ export interface NoiseGateFilter {
 }
 
 export interface NoiseGateParameters {
-  channels: number;
   threshold: number;
   attack: number;
   release: number;
-  hold: number;
+  attenuation: number;
 }
 
 // Helper type for filter type discrimination

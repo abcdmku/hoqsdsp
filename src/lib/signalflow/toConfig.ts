@@ -1,4 +1,4 @@
-import type { CamillaConfig, MixerConfig, MixerMapping, MixerSource, SignalFlowUiMetadata } from '../../types';
+import type { CamillaConfig, MixerConfig, MixerMapping, MixerSource, ProcessorConfig, SignalFlowUiMetadata } from '../../types';
 import type { RouteEdge, SignalFlowModel, SignalFlowWarning, ToConfigResult } from './model';
 import { upsertDeqSettingsInStepDescription } from './deqStepMetadata';
 
@@ -14,6 +14,33 @@ function normalizeSingleChannel(step: CamillaConfig['pipeline'][number]): number
   if (step.type !== 'Filter') return null;
   if (Array.isArray(step.channels) && step.channels.length === 1) return step.channels[0] ?? null;
   return null;
+}
+
+function getProcessorProcessChannels(processor: ProcessorConfig | undefined): number[] | null {
+  if (!processor) return null;
+  const raw = processor.parameters.process_channels;
+  if (!Array.isArray(raw)) return null;
+  const channels = raw.filter((value): value is number => typeof value === 'number');
+  return channels.length > 0 ? channels : null;
+}
+
+function isSingleChannelProcessorStep(
+  config: CamillaConfig,
+  step: CamillaConfig['pipeline'][number],
+): boolean {
+  if (step.type !== 'Processor') return false;
+  const processChannels = getProcessorProcessChannels(config.processors?.[step.name]);
+  return Array.isArray(processChannels) && processChannels.length === 1;
+}
+
+function normalizeSingleChannelProcessor(
+  config: CamillaConfig,
+  step: CamillaConfig['pipeline'][number],
+): number | null {
+  if (step.type !== 'Processor') return null;
+  const processChannels = getProcessorProcessChannels(config.processors?.[step.name]);
+  if (!processChannels || processChannels.length !== 1) return null;
+  return processChannels[0] ?? null;
 }
 
 function buildRoutingMixer(
@@ -146,18 +173,61 @@ export function toConfig(
   const inputRegion = pipeline.slice(0, routingIndex);
   const outputRegion = pipeline.slice(routingIndex + 1);
 
-  const keptInputRegion = inputRegion.filter((step) => !(step.type === 'Filter' && isSingleChannelFilterStep(step)));
-  const keptOutputRegion = outputRegion.filter((step) => !(step.type === 'Filter' && isSingleChannelFilterStep(step)));
+  const keptInputRegion = inputRegion.filter((step) => !isSingleChannelFilterStep(step) && !isSingleChannelProcessorStep(config, step));
+  const keptOutputRegion = outputRegion.filter((step) => !isSingleChannelFilterStep(step) && !isSingleChannelProcessorStep(config, step));
 
   const nextFilters: NonNullable<CamillaConfig['filters']> = { ...(config.filters ?? {}) };
+  const nextProcessors: NonNullable<CamillaConfig['processors']> = { ...(config.processors ?? {}) };
 
   // Add all channel filters to the pipeline, including Gain filters
   // Input channel filters (including Gain) run BEFORE the mixer
   // Output channel filters (including Gain) run AFTER the mixer
-  // CamillaDSP expects: { type: 'Filter', names: ['filterName'], channels: [0] }
+  // CamillaDSP expects:
+  // - Filters: { type: 'Filter', names: ['filterName'], channels: [0] }
+  // - Processors: { type: 'Processor', name: 'processorName' }
   const nextInputSteps: CamillaConfig['pipeline'] = [];
   for (const node of model.inputs) {
     for (const filter of node.processing.filters) {
+      if (filter.config.type === 'Compressor') {
+        const params = filter.config.parameters;
+        nextProcessors[filter.name] = {
+          type: 'Compressor',
+          parameters: {
+            channels: inputChannels,
+            attack: params.attack / 1000,
+            release: params.release / 1000,
+            threshold: params.threshold,
+            factor: params.factor,
+            ...(params.makeup_gain !== undefined ? { makeup_gain: params.makeup_gain } : {}),
+            ...(params.soft_clip !== undefined ? { soft_clip: params.soft_clip } : {}),
+            monitor_channels: [node.channelIndex],
+            process_channels: [node.channelIndex],
+          },
+        };
+        delete nextFilters[filter.name];
+        nextInputSteps.push({ type: 'Processor', name: filter.name });
+        continue;
+      }
+
+      if (filter.config.type === 'NoiseGate') {
+        const params = filter.config.parameters;
+        nextProcessors[filter.name] = {
+          type: 'NoiseGate',
+          parameters: {
+            channels: inputChannels,
+            attack: params.attack / 1000,
+            release: params.release / 1000,
+            threshold: params.threshold,
+            attenuation: params.attenuation,
+            monitor_channels: [node.channelIndex],
+            process_channels: [node.channelIndex],
+          },
+        };
+        delete nextFilters[filter.name];
+        nextInputSteps.push({ type: 'Processor', name: filter.name });
+        continue;
+      }
+
       nextFilters[filter.name] = filter.config;
 
       const priorDescription = existingStepDescriptions.get(filter.name);
@@ -181,6 +251,46 @@ export function toConfig(
   const nextOutputSteps: CamillaConfig['pipeline'] = [];
   for (const node of model.outputs) {
     for (const filter of node.processing.filters) {
+      if (filter.config.type === 'Compressor') {
+        const params = filter.config.parameters;
+        nextProcessors[filter.name] = {
+          type: 'Compressor',
+          parameters: {
+            channels: outputChannels,
+            attack: params.attack / 1000,
+            release: params.release / 1000,
+            threshold: params.threshold,
+            factor: params.factor,
+            ...(params.makeup_gain !== undefined ? { makeup_gain: params.makeup_gain } : {}),
+            ...(params.soft_clip !== undefined ? { soft_clip: params.soft_clip } : {}),
+            monitor_channels: [node.channelIndex],
+            process_channels: [node.channelIndex],
+          },
+        };
+        delete nextFilters[filter.name];
+        nextOutputSteps.push({ type: 'Processor', name: filter.name });
+        continue;
+      }
+
+      if (filter.config.type === 'NoiseGate') {
+        const params = filter.config.parameters;
+        nextProcessors[filter.name] = {
+          type: 'NoiseGate',
+          parameters: {
+            channels: outputChannels,
+            attack: params.attack / 1000,
+            release: params.release / 1000,
+            threshold: params.threshold,
+            attenuation: params.attenuation,
+            monitor_channels: [node.channelIndex],
+            process_channels: [node.channelIndex],
+          },
+        };
+        delete nextFilters[filter.name];
+        nextOutputSteps.push({ type: 'Processor', name: filter.name });
+        continue;
+      }
+
       nextFilters[filter.name] = filter.config;
 
       const priorDescription = existingStepDescriptions.get(filter.name);
@@ -222,6 +332,18 @@ export function toConfig(
     }
   }
 
+  // Drop processor definitions that are no longer referenced by any pipeline step.
+  const usedProcessors = new Set(
+    nextPipeline
+      .filter((step): step is { type: 'Processor'; name: string } => step.type === 'Processor')
+      .map((step) => step.name),
+  );
+  for (const processorName of Object.keys(nextProcessors)) {
+    if (!usedProcessors.has(processorName)) {
+      delete nextProcessors[processorName];
+    }
+  }
+
   // Merge UI metadata (channel gains are now stored as actual Gain filters in the pipeline)
   const baseMetadata = config.ui?.signalFlow ?? {};
   const mergedSignalFlowMetadata: SignalFlowUiMetadata = {
@@ -235,6 +357,7 @@ export function toConfig(
     ...config,
     mixers: baseMixers,
     filters: Object.keys(nextFilters).length > 0 ? nextFilters : undefined,
+    processors: Object.keys(nextProcessors).length > 0 ? nextProcessors : undefined,
     pipeline: nextPipeline,
     ui: { ...config.ui, signalFlow: mergedSignalFlowMetadata },
   };
@@ -243,20 +366,31 @@ export function toConfig(
 
   // Surface a warning if we stripped any single-channel filter steps that we couldn't map.
   const strippedSteps = [...inputRegion, ...outputRegion].filter((step) => {
-    if (!isSingleChannelFilterStep(step)) return false;
-    if (step.type !== 'Filter') return false;
-    const channel = normalizeSingleChannel(step);
-    if (channel === null) return false;
-    const stageNodes = inputRegion.includes(step) ? model.inputs : model.outputs;
-    const filterNames = step.names;
-    return !stageNodes.some(
-      (node) => node.channelIndex === channel && node.processing.filters.some((f) => filterNames.includes(f.name)),
-    );
+    if (isSingleChannelFilterStep(step) && step.type === 'Filter') {
+      const channel = normalizeSingleChannel(step);
+      if (channel === null) return false;
+      const stageNodes = inputRegion.includes(step) ? model.inputs : model.outputs;
+      const filterNames = step.names;
+      return !stageNodes.some(
+        (node) => node.channelIndex === channel && node.processing.filters.some((f) => filterNames.includes(f.name)),
+      );
+    }
+
+    if (isSingleChannelProcessorStep(config, step) && step.type === 'Processor') {
+      const channel = normalizeSingleChannelProcessor(config, step);
+      if (channel === null) return false;
+      const stageNodes = inputRegion.includes(step) ? model.inputs : model.outputs;
+      return !stageNodes.some(
+        (node) => node.channelIndex === channel && node.processing.filters.some((f) => f.name === step.name),
+      );
+    }
+
+    return false;
   });
   if (strippedSteps.length > 0) {
     warnings.push({
       code: 'unresolved_filter',
-      message: 'Some single-channel filter steps were not mapped into Signal Flow and were removed.',
+      message: 'Some single-channel filter or processor steps were not mapped into Signal Flow and were removed.',
       path: 'pipeline',
     });
   }

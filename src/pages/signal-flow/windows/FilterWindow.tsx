@@ -64,6 +64,12 @@ export function SignalFlowFilterWindow({
   if (!node) return null;
 
   const meta = FILTER_UI[window.filterType];
+  const isWideWindow =
+    window.filterType === 'Biquad' ||
+    window.filterType === 'DiffEq' ||
+    window.filterType === 'Compressor' ||
+    window.filterType === 'NoiseGate' ||
+    window.filterType === 'Loudness';
 
   return (
     <FloatingWindow
@@ -219,11 +225,7 @@ export function SignalFlowFilterWindow({
           </Button>
         </>
       }
-      className={
-        window.filterType === 'Biquad' || window.filterType === 'DiffEq'
-          ? 'w-[960px] max-w-[95vw]'
-          : 'w-[560px]'
-      }
+      className={isWideWindow ? 'w-[960px] max-w-[95vw]' : 'w-[560px]'}
     >
       <SignalFlowFilterWindowContent
         node={node}

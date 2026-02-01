@@ -4,7 +4,6 @@ import { BaseFilterHandler } from './types';
 
 // Compressor parameters schema
 export const compressorParametersSchema = z.object({
-  channels: z.number().int().min(1),
   threshold: z.number().max(0, 'Threshold must be 0 dB or below'),
   factor: z.number().min(1, 'Compression ratio must be at least 1:1'),
   attack: z.number().min(0, 'Attack time must be non-negative'),
@@ -34,7 +33,6 @@ class CompressorFilterHandler extends BaseFilterHandler<CompressorFilter> {
     return {
       type: 'Compressor',
       parameters: {
-        channels: 2,
         threshold: -20,
         factor: 4,
         attack: 10,

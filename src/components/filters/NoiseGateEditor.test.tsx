@@ -7,11 +7,10 @@ import type { NoiseGateFilter } from '../../types';
 const defaultNoiseGateFilter: NoiseGateFilter = {
   type: 'NoiseGate',
   parameters: {
-    channels: 2,
     threshold: -60,
     attack: 5,
     release: 100,
-    hold: 50,
+    attenuation: 50,
   },
 };
 
@@ -42,19 +41,6 @@ describe('NoiseGateEditor', () => {
     expect(screen.getByRole('img', { name: /gate timing diagram/i })).toBeInTheDocument();
   });
 
-  it('shows channels input', () => {
-    render(
-      <NoiseGateEditor
-        open={true}
-        onClose={() => {}}
-        filter={defaultNoiseGateFilter}
-        onSave={() => {}}
-      />,
-    );
-
-    expect(screen.getByText('Channels')).toBeInTheDocument();
-  });
-
   it('shows threshold control', () => {
     render(
       <NoiseGateEditor
@@ -68,7 +54,7 @@ describe('NoiseGateEditor', () => {
     expect(screen.getByText('Threshold')).toBeInTheDocument();
   });
 
-  it('shows attack, hold, and release controls', () => {
+  it('shows attack, release, and attenuation controls', () => {
     render(
       <NoiseGateEditor
         open={true}
@@ -81,8 +67,8 @@ describe('NoiseGateEditor', () => {
     // Labels may appear multiple times (in diagram labels and controls)
     // Using getAllByText to verify they exist
     expect(screen.getAllByText('Attack').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Hold').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Release').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Attenuation').length).toBeGreaterThanOrEqual(1);
   });
 
   it('displays threshold value', () => {

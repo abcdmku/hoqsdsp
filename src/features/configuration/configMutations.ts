@@ -4,6 +4,7 @@ import { configKeys } from './configQueries';
 import type { CamillaConfig } from '../../types';
 import { websocketService } from '../../services/websocketService';
 import { cleanNullValues } from '../../lib/config/cleanConfig';
+import { stringifyConfig } from '../../lib/config/yaml';
 import { useConfigBackupStore } from '../../stores/configBackupStore';
 
 export function useSetConfig(unitId: string) {
@@ -36,6 +37,8 @@ export function useSetConfigJson(unitId: string) {
       const { ui: uiMetadata, ...cleanedWithoutUi } = cleanedConfig;
       const jsonString = JSON.stringify(cleanedConfig);
       const fallbackJsonString = uiMetadata ? JSON.stringify(cleanedWithoutUi) : null;
+      const yamlString = stringifyConfig(cleanedConfig);
+      const fallbackYamlString = uiMetadata ? stringifyConfig(cleanedWithoutUi as CamillaConfig) : null;
       const setConfigTimeoutMs = 30000;
       const controlTimeoutMs = 15000;
       let lastAttempt = 'direct';
@@ -59,26 +62,27 @@ export function useSetConfigJson(unitId: string) {
               saveConfig(unitId, cleanedConfig);
               return;
             } catch (fallbackError) {
-              console.warn('[SetConfigJson] Direct apply failed (with and without ui), trying Stop/Set/Reload:', fallbackError);
+              console.warn('[SetConfigJson] Direct apply failed (with and without ui), trying Stop/SetConfig/Reload:', fallbackError);
             }
           } else {
-            console.warn('[SetConfigJson] Direct apply failed, trying Stop/Set/Reload:', directError);
+            console.warn('[SetConfigJson] Direct apply failed, trying Stop/SetConfig/Reload:', directError);
           }
         }
 
-        // If direct apply fails (e.g., pipeline structure changed), try Stop -> Set -> Reload
-        const jsonForReload = fallbackJsonString ?? jsonString;
-        lastAttempt = fallbackJsonString ? 'stop/set/reload (without ui)' : 'stop/set/reload';
-        lastJsonSent = jsonForReload;
+        // If direct apply fails (e.g., pipeline structure changed OR server doesn't support SetConfigJson),
+        // try Stop -> SetConfig (YAML) -> Reload. SetConfig is supported by more CamillaDSP versions.
+        const yamlForReload = fallbackYamlString ?? yamlString;
+        lastAttempt = fallbackYamlString ? 'stop/setconfig/reload (without ui)' : 'stop/setconfig/reload';
+        lastJsonSent = '(yaml)';
         await wsManager.send('Stop', 'high', { timeout: controlTimeoutMs });
-        await wsManager.send({ SetConfigJson: jsonForReload }, 'high', { timeout: setConfigTimeoutMs });
+        await wsManager.send({ SetConfig: yamlForReload }, 'high', { timeout: setConfigTimeoutMs });
         await wsManager.send({ Reload: null }, 'high', { timeout: setConfigTimeoutMs });
         saveConfig(unitId, cleanedConfig);
       } catch (error) {
         console.error('[SetConfigJson] Failed to apply config:', error);
         console.error('[SetConfigJson] Last attempt:', lastAttempt);
         console.error('[SetConfigJson] Config that failed:', cleanedConfig);
-        console.error('[SetConfigJson] JSON that failed:', lastJsonSent);
+        console.error('[SetConfigJson] Payload that failed:', lastJsonSent);
         throw error;
       }
     },

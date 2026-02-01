@@ -2,12 +2,13 @@ import { X } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { ChannelNode, ChannelSide, RouteEndpoint } from '../../lib/signalflow';
 import type { DockedFilterEditorState } from './windows/types';
-import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../types';
+import type { CamillaConfig, DeqBandUiSettingsV1, FilterConfig, FirPhaseCorrectionUiSettingsV1 } from '../../types';
 import { SignalFlowFilterWindowContent } from '../../components/signal-flow/SignalFlowFilterWindowContent';
 import { Button } from '../../components/ui/Button';
 
 interface SignalFlowDockedFilterEditorProps {
   dockedFilterEditor: DockedFilterEditorState | null;
+  config: CamillaConfig | null;
   firPhaseCorrection: Record<string, FirPhaseCorrectionUiSettingsV1>;
   deq: Record<string, DeqBandUiSettingsV1>;
   inputs: ChannelNode[];
@@ -16,6 +17,11 @@ interface SignalFlowDockedFilterEditorProps {
   onClose: () => void;
   onPersistFirPhaseCorrectionSettings: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
   onPersistDeqSettings: (filterName: string, settings: DeqBandUiSettingsV1 | null) => void;
+  onUpdateFilterDefinition: (
+    filterName: string,
+    config: FilterConfig,
+    options?: { debounce?: boolean },
+  ) => void;
   onUpdateFilters: (
     side: ChannelSide,
     endpoint: RouteEndpoint,
@@ -26,6 +32,7 @@ interface SignalFlowDockedFilterEditorProps {
 
 export function SignalFlowDockedFilterEditor({
   dockedFilterEditor,
+  config,
   firPhaseCorrection,
   deq,
   inputs,
@@ -34,6 +41,7 @@ export function SignalFlowDockedFilterEditor({
   onClose,
   onPersistFirPhaseCorrectionSettings,
   onPersistDeqSettings,
+  onUpdateFilterDefinition,
   onUpdateFilters,
 }: SignalFlowDockedFilterEditorProps) {
   const isOpen = !!dockedFilterEditor;
@@ -83,6 +91,7 @@ export function SignalFlowDockedFilterEditor({
           <div className="p-4">
             <SignalFlowFilterWindowContent
               node={node}
+              camillaConfig={config}
               sampleRate={sampleRate}
               filterType={dockedFilterEditor.filterType}
               onClose={onClose}
@@ -102,6 +111,7 @@ export function SignalFlowDockedFilterEditor({
               onPersistFirPhaseCorrectionSettings={onPersistFirPhaseCorrectionSettings}
               deq={deq}
               onPersistDeqSettings={onPersistDeqSettings}
+              onUpdateFilterDefinition={onUpdateFilterDefinition}
               onChange={(nextFilters, options) => {
                 onUpdateFilters(dockedFilterEditor.side, endpoint, nextFilters, options);
               }}

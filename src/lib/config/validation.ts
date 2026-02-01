@@ -89,6 +89,14 @@ function validateSemantics(
           });
         }
       }
+    } else if (step.type === 'Processor') {
+      if (!config.processors || !(step.name in config.processors)) {
+        errors.push({
+          path: `pipeline[${i}].name`,
+          message: `Processor "${step.name}" is not defined in processors`,
+          code: 'undefined_processor',
+        });
+      }
     }
   }
 
@@ -125,6 +133,25 @@ function validateSemantics(
           path: `mixers.${mixerName}`,
           message: `Mixer "${mixerName}" is defined but not used in the pipeline`,
           code: 'unused_mixer',
+        });
+      }
+    }
+  }
+
+  // Warn about unused processors
+  if (config.processors) {
+    const usedProcessors = new Set(
+      config.pipeline
+        .filter((step) => step.type === 'Processor')
+        .map((step) => step.name),
+    );
+
+    for (const processorName of Object.keys(config.processors)) {
+      if (!usedProcessors.has(processorName)) {
+        warnings.push({
+          path: `processors.${processorName}`,
+          message: `Processor "${processorName}" is defined but not used in the pipeline`,
+          code: 'unused_processor',
         });
       }
     }

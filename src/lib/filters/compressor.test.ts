@@ -8,7 +8,6 @@ describe('CompressorFilterHandler', () => {
       const filter: CompressorFilter = {
         type: 'Compressor',
         parameters: {
-          channels: 2,
           threshold: -20,
           factor: 4,
           attack: 10,
@@ -24,7 +23,6 @@ describe('CompressorFilterHandler', () => {
       const filter: CompressorFilter = {
         type: 'Compressor',
         parameters: {
-          channels: 2,
           threshold: -24,
           factor: 8,
           attack: 5,
@@ -42,7 +40,6 @@ describe('CompressorFilterHandler', () => {
       const filter: CompressorFilter = {
         type: 'Compressor',
         parameters: {
-          channels: 1,
           threshold: 0,
           factor: 2,
           attack: 10,
@@ -58,7 +55,6 @@ describe('CompressorFilterHandler', () => {
       const filter = {
         type: 'Compressor',
         parameters: {
-          channels: 2,
           threshold: 1,
           factor: 4,
           attack: 10,
@@ -74,7 +70,6 @@ describe('CompressorFilterHandler', () => {
       const filter = {
         type: 'Compressor',
         parameters: {
-          channels: 2,
           threshold: -20,
           factor: 0.5,
           attack: 10,
@@ -90,7 +85,6 @@ describe('CompressorFilterHandler', () => {
       const filter = {
         type: 'Compressor',
         parameters: {
-          channels: 2,
           threshold: -20,
           factor: 4,
           attack: -1,
@@ -106,27 +100,10 @@ describe('CompressorFilterHandler', () => {
       const filter = {
         type: 'Compressor',
         parameters: {
-          channels: 2,
           threshold: -20,
           factor: 4,
           attack: 10,
           release: -50,
-        },
-      };
-
-      const result = compressorFilterSchema.safeParse(filter);
-      expect(result.success).toBe(false);
-    });
-
-    it('should reject channels less than 1', () => {
-      const filter = {
-        type: 'Compressor',
-        parameters: {
-          channels: 0,
-          threshold: -20,
-          factor: 4,
-          attack: 10,
-          release: 100,
         },
       };
 
@@ -143,7 +120,6 @@ describe('CompressorFilterHandler', () => {
         expect(defaultFilter).toEqual({
           type: 'Compressor',
           parameters: {
-            channels: 2,
             threshold: -20,
             factor: 4,
             attack: 10,
@@ -167,7 +143,6 @@ describe('CompressorFilterHandler', () => {
         const filter: CompressorFilter = {
           type: 'Compressor',
           parameters: {
-            channels: 2,
             threshold: -24,
             factor: 8,
             attack: 5,
@@ -182,7 +157,6 @@ describe('CompressorFilterHandler', () => {
         expect(serialized).toEqual({
           type: 'Compressor',
           parameters: {
-            channels: 2,
             threshold: -24,
             factor: 8,
             attack: 5,
@@ -199,7 +173,6 @@ describe('CompressorFilterHandler', () => {
         const filter: CompressorFilter = {
           type: 'Compressor',
           parameters: {
-            channels: 2,
             threshold: -20,
             factor: 4,
             attack: 10,
@@ -218,7 +191,6 @@ describe('CompressorFilterHandler', () => {
         const filter: CompressorFilter = {
           type: 'Compressor',
           parameters: {
-            channels: 2,
             threshold: -20,
             factor: 4,
             attack: 10,
@@ -235,7 +207,6 @@ describe('CompressorFilterHandler', () => {
         const filter: CompressorFilter = {
           type: 'Compressor',
           parameters: {
-            channels: 2,
             threshold: -30,
             factor: 100,
             attack: 1,
@@ -252,7 +223,6 @@ describe('CompressorFilterHandler', () => {
         const filter: CompressorFilter = {
           type: 'Compressor',
           parameters: {
-            channels: 2,
             threshold: -10,
             factor: 2,
             attack: 10,

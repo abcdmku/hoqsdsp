@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import type { CompressorFilter } from '../../types';
 import { compressorHandler } from '../../lib/filters/compressor';
 import { FilterEditorModal, FilterEditorPanel, useFilterEditor } from './FilterEditorModal';
+import { FilterGraphControlsLayout } from './FilterGraphControlsLayout';
 import { NumericInput, GainInput } from '../ui';
 import { Switch } from '../ui/Switch';
 import { Slider } from '../ui/Slider';
@@ -37,9 +38,9 @@ function CompressorEditorContent() {
 
   // Visual transfer function curve
   const renderTransferCurve = () => {
-    const width = 120;
-    const height = 120;
-    const padding = 15;
+    const width = 800;
+    const height = 200;
+    const padding = 40;
 
     // Calculate knee point and compression line
     const threshold = params.threshold;
@@ -64,9 +65,8 @@ function CompressorEditorContent() {
 
     return (
       <svg
-        width={width}
-        height={height}
-        className="bg-dsp-bg rounded"
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-full w-full rounded bg-dsp-bg"
         role="img"
         aria-label="Compression transfer curve"
       >
@@ -128,10 +128,16 @@ function CompressorEditorContent() {
         />
 
         {/* Axis labels */}
-        <text x={width / 2} y={height - 2} textAnchor="middle" className="fill-dsp-text-muted text-[8px]">
+        <text x={width / 2} y={height - 8} textAnchor="middle" className="fill-dsp-text-muted text-[12px]">
           Input
         </text>
-        <text x={3} y={height / 2} textAnchor="middle" transform={`rotate(-90 3 ${height / 2})`} className="fill-dsp-text-muted text-[8px]">
+        <text
+          x={18}
+          y={height / 2}
+          textAnchor="middle"
+          transform={`rotate(-90 18 ${height / 2})`}
+          className="fill-dsp-text-muted text-[12px]"
+        >
           Output
         </text>
       </svg>
@@ -141,124 +147,108 @@ function CompressorEditorContent() {
   const ratioDisplay = params.factor >= 100 ? '' : `${params.factor}:1`;
 
   return (
-    <div className="space-y-6">
-      {/* Visual section */}
-      <div className="flex justify-center items-center gap-4 p-4 bg-dsp-bg/50 rounded-lg">
-        {renderTransferCurve()}
-        <div className="text-center">
-          <div className="text-3xl font-mono text-filter-dynamics">
-            {ratioDisplay}
-          </div>
-          <div className="text-xs text-dsp-text-muted">
-            @ {params.threshold} dB
+    <FilterGraphControlsLayout
+      graph={
+        <div className="relative h-full w-full">
+          {renderTransferCurve()}
+          <div className="absolute right-3 top-3 rounded-md bg-dsp-surface/80 px-3 py-2 text-right shadow-sm backdrop-blur">
+            <div className="text-2xl font-mono text-filter-dynamics">{ratioDisplay}</div>
+            <div className="text-xs text-dsp-text-muted">@ {params.threshold} dB</div>
           </div>
         </div>
-      </div>
+      }
+      controls={
+        <div className="space-y-6">
+          {/* Threshold */}
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <label className="text-sm font-medium text-dsp-text">Threshold</label>
+              <span className="text-sm font-mono text-dsp-text">{params.threshold} dB</span>
+            </div>
+            <Slider
+              value={[params.threshold]}
+              onValueChange={(v) => { updateParam('threshold', v[0] ?? -20); }}
+              min={-60}
+              max={0}
+              step={0.5}
+            />
+          </div>
 
-      {/* Channels */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-dsp-text">Channels</label>
-        <NumericInput
-          value={params.channels}
-          onChange={(v) => { updateParam('channels', v); }}
-          min={1}
-          max={32}
-          step={1}
-          precision={0}
-        />
-        <p className="text-xs text-dsp-text-muted">
-          Number of channels to process together (linked detection)
-        </p>
-      </div>
+          {/* Ratio */}
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <label className="text-sm font-medium text-dsp-text">Ratio</label>
+              <span className="text-sm font-mono text-dsp-text">{ratioDisplay}</span>
+            </div>
+            <Slider
+              value={[params.factor]}
+              onValueChange={(v) => { updateParam('factor', v[0] ?? 4); }}
+              min={1}
+              max={20}
+              step={0.1}
+            />
+            <div className="flex justify-between text-xs text-dsp-text-muted">
+              <span>1:1</span>
+              <span>20:1</span>
+            </div>
+          </div>
 
-      {/* Threshold */}
-      <div className="space-y-2">
-        <div className="flex justify-between">
-          <label className="text-sm font-medium text-dsp-text">Threshold</label>
-          <span className="text-sm font-mono text-dsp-text">{params.threshold} dB</span>
-        </div>
-        <Slider
-          value={[params.threshold]}
-          onValueChange={(v) => { updateParam('threshold', v[0] ?? -20); }}
-          min={-60}
-          max={0}
-          step={0.5}
-        />
-      </div>
+          {/* Attack & Release */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-dsp-text">Attack</label>
+              <NumericInput
+                value={params.attack}
+                onChange={(v) => { updateParam('attack', v); }}
+                min={0.1}
+                max={500}
+                step={0.1}
+                precision={1}
+                unit="ms"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-dsp-text">Release</label>
+              <NumericInput
+                value={params.release}
+                onChange={(v) => { updateParam('release', v); }}
+                min={10}
+                max={5000}
+                step={1}
+                precision={0}
+                unit="ms"
+              />
+            </div>
+          </div>
 
-      {/* Ratio */}
-      <div className="space-y-2">
-        <div className="flex justify-between">
-          <label className="text-sm font-medium text-dsp-text">Ratio</label>
-          <span className="text-sm font-mono text-dsp-text">{ratioDisplay}</span>
-        </div>
-        <Slider
-          value={[params.factor]}
-          onValueChange={(v) => { updateParam('factor', v[0] ?? 4); }}
-          min={1}
-          max={20}
-          step={0.1}
-        />
-        <div className="flex justify-between text-xs text-dsp-text-muted">
-          <span>1:1 (no compression)</span>
-          <span>20:1 (limiting)</span>
-        </div>
-      </div>
+          {/* Makeup Gain */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-dsp-text">Makeup Gain</label>
+            <GainInput
+              value={params.makeup_gain ?? 0}
+              onChange={(v) => { updateParam('makeup_gain', v); }}
+              min={0}
+              max={40}
+            />
+          </div>
 
-      {/* Attack & Release */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-dsp-text">Attack</label>
-          <NumericInput
-            value={params.attack}
-            onChange={(v) => { updateParam('attack', v); }}
-            min={0.1}
-            max={500}
-            step={0.1}
-            precision={1}
-            unit="ms"
-          />
+          {/* Soft Clip Toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-dsp-text">Soft Clip</label>
+              <p className="text-xs text-dsp-text-muted">
+                Apply soft clipping to output
+              </p>
+            </div>
+            <Switch
+              checked={params.soft_clip ?? false}
+              onCheckedChange={(v) => { updateParam('soft_clip', v); }}
+              aria-label="Enable soft clipping"
+            />
+          </div>
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-dsp-text">Release</label>
-          <NumericInput
-            value={params.release}
-            onChange={(v) => { updateParam('release', v); }}
-            min={10}
-            max={5000}
-            step={1}
-            precision={0}
-            unit="ms"
-          />
-        </div>
-      </div>
-
-      {/* Makeup Gain */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-dsp-text">Makeup Gain</label>
-        <GainInput
-          value={params.makeup_gain ?? 0}
-          onChange={(v) => { updateParam('makeup_gain', v); }}
-          min={0}
-          max={40}
-        />
-      </div>
-
-      {/* Soft Clip Toggle */}
-      <div className="flex items-center justify-between">
-        <div>
-          <label className="text-sm font-medium text-dsp-text">Soft Clip</label>
-          <p className="text-xs text-dsp-text-muted">
-            Apply soft clipping to output
-          </p>
-        </div>
-        <Switch
-          checked={params.soft_clip ?? false}
-          onCheckedChange={(v) => { updateParam('soft_clip', v); }}
-          aria-label="Enable soft clipping"
-        />
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -279,6 +269,7 @@ export function CompressorEditor({
       onSave={onSave}
       onApply={onApply}
       validate={(config) => compressorHandler.validate(config)}
+      contentClassName="w-[95vw] max-w-[960px]"
     >
       <CompressorEditorContent />
     </FilterEditorModal>
@@ -299,6 +290,8 @@ export function CompressorEditorPanel({
       onSave={onSave}
       onApply={onApply}
       validate={(config) => compressorHandler.validate(config)}
+      autoApply={true}
+      autoApplyDebounceMs={150}
     >
       <CompressorEditorContent />
     </FilterEditorPanel>
