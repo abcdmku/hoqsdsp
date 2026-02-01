@@ -28,6 +28,7 @@ export const EQNode = memo(function EQNode({
   disabled = false,
 }: EQNodeProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; freq: number; gain: number } | null>(null);
   const nodeRef = useRef<SVGGElement>(null);
 
@@ -118,8 +119,11 @@ export const EQNode = memo(function EQNode({
   }, [disabled, isSelected, onSelect, onQChange]);
 
   // Node radius based on state
-  const radius = isSelected ? 12 : 10;
-  const strokeWidth = isSelected ? 3 : 2;
+  const baseRadius = isSelected ? 12 : 10;
+  const showHover = !disabled && !isSelected && isHovered;
+  const radius = baseRadius + (showHover ? 2 : 0);
+  const hitRadius = baseRadius + 20;
+  const strokeWidth = isSelected ? 3 : (showHover ? 3 : 2);
   const isActivelyDragging = isDragging || isExternalDragging;
 
   // Show filter type indicator
@@ -162,8 +166,35 @@ export const EQNode = memo(function EQNode({
       className={`eq-node ${disabled ? 'cursor-default' : 'cursor-grab'} ${isActivelyDragging ? 'cursor-grabbing' : ''}`}
       onMouseDown={handleMouseDown}
       onWheel={handleWheel}
+      onMouseEnter={() => {
+        if (disabled) return;
+        setIsHovered(true);
+      }}
+      onMouseLeave={() => setIsHovered(false)}
       style={{ opacity: band.enabled ? 1 : 0.4 }}
     >
+      {/* Invisible hit target (larger than the visible node) */}
+      <circle
+        cx={x}
+        cy={y}
+        r={hitRadius}
+        fill="transparent"
+        pointerEvents="all"
+      />
+
+      {/* Hover ring */}
+      {showHover && (
+        <circle
+          cx={x}
+          cy={y}
+          r={radius + 4}
+          fill="none"
+          stroke={color}
+          strokeWidth="1.5"
+          opacity="0.35"
+        />
+      )}
+
       {/* Outer glow when selected */}
       {isSelected && (
         <circle
@@ -184,7 +215,7 @@ export const EQNode = memo(function EQNode({
         cy={y}
         r={radius}
         fill={band.enabled ? color : '#4b5563'}
-        stroke={isSelected ? '#ffffff' : color}
+        stroke={isSelected || showHover ? '#ffffff' : color}
         strokeWidth={strokeWidth}
         className={isActivelyDragging ? '' : 'transition-all duration-100'}
       />
