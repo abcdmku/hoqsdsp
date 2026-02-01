@@ -91,6 +91,10 @@ export function useUnitLevels(
     // Wrap the manager to match the expected interface
     return {
       send: <T>(cmd: string) => manager.send<T>(cmd as WSCommand),
+      reconnect: () => {
+        manager.disconnect();
+        void manager.connect().catch(() => {});
+      },
     };
   }, [unitId, isConnected]);
 

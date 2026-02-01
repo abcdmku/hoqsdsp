@@ -5,6 +5,11 @@ import { DEFAULT_STATE } from './constants';
 import { applyPeakHoldDecay, updatePeakHold } from './peakHoldUtils';
 import type { UseLevelsOptions, UseLevelsResult } from './types';
 
+const CLIPPED_SAMPLES_POLL_INTERVAL = 1000;
+const STALLED_LEVELS_RECONNECT_AFTER_MS = 3000;
+const RECONNECT_COOLDOWN_MS = 5000;
+const MAX_CONSECUTIVE_LEVEL_FAILURES_BEFORE_RECONNECT = 3;
+
 export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
   const {
     wsManager,
@@ -18,8 +23,13 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
   const isPolling = enabled && !!wsManager;
 
   const rafRef = useRef<number | null>(null);
+  const pollInFlightRef = useRef(false);
   const lastPollRef = useRef(0);
   const lastFrameRef = useRef(0);
+  const lastClippedPollRef = useRef<number>(-Infinity);
+  const lastSuccessfulLevelsRef = useRef(0);
+  const consecutiveLevelFailuresRef = useRef(0);
+  const lastReconnectAttemptRef = useRef(0);
   const peakHoldTimestampRef = useRef<Map<string, number>>(new Map());
 
   const fetchLevels = useCallback(async (): Promise<SignalLevels | null> => {
@@ -52,17 +62,53 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
       return;
     }
 
-    const animate = async (timestamp: number) => {
-      const timeSinceLastPoll = timestamp - lastPollRef.current;
+    let alive = true;
 
-      if (timeSinceLastPoll >= pollInterval) {
-        lastPollRef.current = timestamp;
+    const maybeReconnect = (timestamp: number) => {
+      if (!wsManager.reconnect) return;
+
+      const lastSuccessAt = lastSuccessfulLevelsRef.current;
+      if (lastSuccessAt <= 0) return;
+
+      const staleFor = timestamp - lastSuccessAt;
+      if (staleFor < STALLED_LEVELS_RECONNECT_AFTER_MS) return;
+
+      if (consecutiveLevelFailuresRef.current < MAX_CONSECUTIVE_LEVEL_FAILURES_BEFORE_RECONNECT) {
+        return;
+      }
+
+      if (timestamp - lastReconnectAttemptRef.current < RECONNECT_COOLDOWN_MS) {
+        return;
+      }
+
+      lastReconnectAttemptRef.current = timestamp;
+      consecutiveLevelFailuresRef.current = 0;
+      wsManager.reconnect();
+    };
+
+    const pollOnce = async (timestamp: number) => {
+      if (!alive) return;
+      if (pollInFlightRef.current) return;
+
+      pollInFlightRef.current = true;
+
+      const shouldPollClipped = timestamp - lastClippedPollRef.current >= CLIPPED_SAMPLES_POLL_INTERVAL;
+      if (shouldPollClipped) {
+        lastClippedPollRef.current = timestamp;
+      }
+
+      try {
         const [newLevels, clippedSamples] = await Promise.all([
           fetchLevels(),
-          fetchClippedSamples(),
+          shouldPollClipped ? fetchClippedSamples() : Promise.resolve<number | null>(null),
         ]);
 
+        if (!alive) return;
+
         if (newLevels?.capture && newLevels.playback) {
+          lastSuccessfulLevelsRef.current = timestamp;
+          consecutiveLevelFailuresRef.current = 0;
+
           // Clean up stale peak hold timestamps for removed channels
           const validKeys = new Set<string>();
           newLevels.capture.forEach((_, i) => validKeys.add(`capture-${i}`));
@@ -92,11 +138,34 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
               peakHoldDecay,
               peakHoldDecayRate,
             ),
-            clippedSamples,
+            clippedSamples: clippedSamples ?? prev.clippedSamples,
             lastUpdated: timestamp,
           }));
+          return;
         }
-      } else if (timestamp - lastFrameRef.current >= 16) {
+
+        consecutiveLevelFailuresRef.current += 1;
+        maybeReconnect(timestamp);
+
+        // Still allow clipped sample updates to surface if requested.
+        if (clippedSamples !== null) {
+          setLevels((prev) => ({ ...prev, clippedSamples }));
+        }
+      } finally {
+        pollInFlightRef.current = false;
+      }
+    };
+
+    const animate = (timestamp: number) => {
+      if (!alive) return;
+
+      const timeSinceLastPoll = timestamp - lastPollRef.current;
+      if (timeSinceLastPoll >= pollInterval && !pollInFlightRef.current) {
+        lastPollRef.current = timestamp;
+        void pollOnce(timestamp);
+      }
+
+      if (timestamp - lastFrameRef.current >= 16) {
         lastFrameRef.current = timestamp;
         setLevels((prev) => {
           const nextCapture = applyPeakHoldDecay(
@@ -128,10 +197,18 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
     rafRef.current = requestAnimationFrame(animate);
 
     return () => {
+      alive = false;
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      pollInFlightRef.current = false;
+      lastPollRef.current = 0;
+      lastFrameRef.current = 0;
+      lastClippedPollRef.current = -Infinity;
+      lastSuccessfulLevelsRef.current = 0;
+      consecutiveLevelFailuresRef.current = 0;
+      lastReconnectAttemptRef.current = 0;
       // Clear peak hold timestamps on unmount to prevent memory leak
       peakHoldTimestampRef.current.clear();
     };

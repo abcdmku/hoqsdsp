@@ -11,8 +11,14 @@ export interface ChannelLevelState extends ChannelLevels {
   peakHold: number;
 }
 
+export interface LevelsWSManager {
+  send: <T>(cmd: string) => Promise<T>;
+  /** Optional helper to force a reconnect when polling stalls */
+  reconnect?: () => void;
+}
+
 export interface UseLevelsOptions {
-  wsManager?: { send: <T>(cmd: string) => Promise<T> };
+  wsManager?: LevelsWSManager;
   enabled?: boolean;
   peakHoldDecay?: number;
   peakHoldDecayRate?: number;
