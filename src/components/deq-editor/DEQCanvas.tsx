@@ -181,7 +181,7 @@ export function DEQCanvas({
   }, [dimensions, enabledBands, sampleRate]);
 
   const overallEnvelope = useMemo(() => {
-    const { staticPoints, staticPath } = overallCurves;
+    const { staticPoints } = overallCurves;
     if (staticPoints.length === 0) {
       return {
         rangePath: '',

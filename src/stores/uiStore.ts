@@ -5,8 +5,6 @@ interface UIActions {
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setActiveView: (view: ViewType) => void;
-  setSelectedChannel: (channel: number | null) => void;
-  setSelectedFilter: (filter: string | null) => void;
   openModal: (modal: ModalType) => void;
   closeModal: () => void;
 }
@@ -17,8 +15,6 @@ export const useUIStore = create<UIStore>((set) => ({
   sidebarOpen: true,
   selectedUnitId: null,
   activeView: 'dashboard',
-  selectedChannel: null,
-  selectedFilter: null,
   modalOpen: null,
 
   toggleSidebar: () => {
@@ -30,15 +26,7 @@ export const useUIStore = create<UIStore>((set) => ({
   },
 
   setActiveView: (view) => {
-    set({ activeView: view, selectedChannel: null, selectedFilter: null });
-  },
-
-  setSelectedChannel: (channel) => {
-    set({ selectedChannel: channel });
-  },
-
-  setSelectedFilter: (filter) => {
-    set({ selectedFilter: filter });
+    set({ activeView: view });
   },
 
   openModal: (modal) => {

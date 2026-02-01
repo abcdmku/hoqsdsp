@@ -44,27 +44,20 @@ export function classifyDevice(device: DeviceInfo, backend?: string): Classified
   else if (deviceId === 'null') {
     category = 'null';
   }
-  // ALSA-specific virtual devices (Linux)
+  // ALSA hardware devices (Linux)
+  else if (deviceId.startsWith('hw:') || deviceId.startsWith('plughw:')) {
+    category = 'hardware';
+  }
+  // ALSA virtual devices (Linux)
   else if (
-    backendLower === 'alsa' && (
-      deviceId.includes('pulse') ||
-      deviceId.includes('pipewire') ||
-      deviceId.includes('dsnoop') ||
-      deviceId.includes('dmix') ||
-      deviceId === 'default' ||
-      deviceId === 'sysdefault'
-    )
+    deviceId === 'pulse'
+    || deviceId === 'pipewire'
+    || deviceId === 'default'
+    || deviceId === 'sysdefault'
+    || deviceId.includes('dsnoop')
+    || deviceId.includes('dmix')
   ) {
     category = 'virtual';
-  }
-  // ALSA hardware devices (Linux)
-  else if (
-    backendLower === 'alsa' && (
-      deviceId.startsWith('hw:') ||
-      deviceId.startsWith('plughw:')
-    )
-  ) {
-    category = 'hardware';
   }
   // WASAPI (Windows) - most devices are hardware
   else if (backendLower === 'wasapi') {
@@ -93,10 +86,6 @@ export function classifyDevice(device: DeviceInfo, backend?: string): Classified
     } else {
       category = 'hardware';
     }
-  }
-  // For unknown backends, assume hardware if we have a valid device ID
-  else if (deviceId && deviceId !== 'null') {
-    category = 'hardware';
   }
 
   const result = {
@@ -134,6 +123,10 @@ export function findBestHardwareDevice(devices: DeviceInfo[], backend?: string):
   }
 
   const backendLower = (backend ?? '').toLowerCase();
+  const useAlsaHeuristics = backendLower === 'alsa' || hardwareDevices.some((entry) => {
+    const id = (entry.device.device ?? '').toLowerCase();
+    return id.startsWith('hw:') || id.startsWith('plughw:');
+  });
 
   // Sort by priority
   hardwareDevices.sort((a, b) => {
@@ -143,17 +136,20 @@ export function findBestHardwareDevice(devices: DeviceInfo[], backend?: string):
     const bName = (b.device.name ?? '').toLowerCase();
 
     // ALSA-specific sorting
-    if (backendLower === 'alsa') {
+    if (useAlsaHeuristics) {
+      const aUpper = aDevice.toUpperCase();
+      const bUpper = bDevice.toUpperCase();
+
       // Prefer hw:CARD= format over generic hw:X format
-      const aHasCard = aDevice.includes('CARD=');
-      const bHasCard = bDevice.includes('CARD=');
+      const aHasCard = aUpper.includes('CARD=');
+      const bHasCard = bUpper.includes('CARD=');
 
       if (aHasCard && !bHasCard) return -1;
       if (!aHasCard && bHasCard) return 1;
 
       // Prefer DEV=0 (primary device)
-      const aHasDev0 = aDevice.includes('DEV=0');
-      const bHasDev0 = bDevice.includes('DEV=0');
+      const aHasDev0 = aUpper.includes('DEV=0');
+      const bHasDev0 = bUpper.includes('DEV=0');
 
       if (aHasDev0 && !bHasDev0) return -1;
       if (!aHasDev0 && bHasDev0) return 1;

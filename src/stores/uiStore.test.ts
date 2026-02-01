@@ -9,8 +9,6 @@ describe('uiStore', () => {
       sidebarOpen: true,
       selectedUnitId: null,
       activeView: 'dashboard',
-      selectedChannel: null,
-      selectedFilter: null,
       modalOpen: null,
     });
   });
@@ -22,8 +20,6 @@ describe('uiStore', () => {
       expect(state.sidebarOpen).toBe(true);
       expect(state.selectedUnitId).toBeNull();
       expect(state.activeView).toBe('dashboard');
-      expect(state.selectedChannel).toBeNull();
-      expect(state.selectedFilter).toBeNull();
       expect(state.modalOpen).toBeNull();
     });
   });
@@ -82,77 +78,20 @@ describe('uiStore', () => {
     it('should set the active view', () => {
       const { setActiveView } = useUIStore.getState();
 
-      setActiveView('channels' as ViewType);
+      setActiveView('signal-flow' as ViewType);
 
-      expect(useUIStore.getState().activeView).toBe('channels');
-    });
-
-    it('should clear selectedChannel and selectedFilter when changing view', () => {
-      const { setActiveView, setSelectedChannel, setSelectedFilter } = useUIStore.getState();
-
-      setSelectedChannel(2);
-      setSelectedFilter('filter1');
-
-      setActiveView('eq' as ViewType);
-
-      expect(useUIStore.getState().selectedChannel).toBeNull();
-      expect(useUIStore.getState().selectedFilter).toBeNull();
+      expect(useUIStore.getState().activeView).toBe('signal-flow');
     });
 
     it('should support all view types', () => {
       const { setActiveView } = useUIStore.getState();
 
-      const views: ViewType[] = [
-        'dashboard',
-        'channels',
-        'eq',
-        'signal-flow',
-        'routing',
-        'settings',
-      ];
+      const views: ViewType[] = ['dashboard', 'signal-flow', 'routing', 'settings'];
 
-      views.forEach(view => {
+      views.forEach((view) => {
         setActiveView(view);
         expect(useUIStore.getState().activeView).toBe(view);
       });
-    });
-  });
-
-  describe('setSelectedChannel', () => {
-    it('should set the selected channel', () => {
-      const { setSelectedChannel } = useUIStore.getState();
-
-      setSelectedChannel(5);
-
-      expect(useUIStore.getState().selectedChannel).toBe(5);
-    });
-
-    it('should allow setting to null', () => {
-      const { setSelectedChannel } = useUIStore.getState();
-
-      setSelectedChannel(5);
-      setSelectedChannel(null);
-
-      expect(useUIStore.getState().selectedChannel).toBeNull();
-    });
-  });
-
-  describe('setSelectedFilter', () => {
-    it('should set the selected filter', () => {
-      const { setSelectedFilter } = useUIStore.getState();
-
-      setSelectedFilter('highpass');
-
-      expect(useUIStore.getState().selectedFilter).toBe('highpass');
-    });
-
-    it('should allow setting to null', () => {
-      const { setSelectedFilter } = useUIStore.getState();
-
-      setSelectedFilter('highpass');
-      setSelectedFilter(null);
-
-      expect(useUIStore.getState().selectedFilter).toBeNull();
     });
   });
 
@@ -170,7 +109,7 @@ describe('uiStore', () => {
 
       const modals: ModalType[] = ['addUnit', 'editUnit', 'filterEditor', 'config', 'about'];
 
-      modals.forEach(modal => {
+      modals.forEach((modal) => {
         openModal(modal);
         expect(useUIStore.getState().modalOpen).toBe(modal);
       });
@@ -212,10 +151,10 @@ describe('uiStore', () => {
     it('selectActiveView should return active view', () => {
       const { setActiveView } = useUIStore.getState();
 
-      setActiveView('channels' as ViewType);
+      setActiveView('routing' as ViewType);
       const state = useUIStore.getState();
 
-      expect(selectActiveView(state)).toBe('channels');
+      expect(selectActiveView(state)).toBe('routing');
     });
 
     it('selectModalOpen should return modal state', () => {
@@ -233,34 +172,17 @@ describe('uiStore', () => {
 
   describe('combined operations', () => {
     it('should handle multiple state changes', () => {
-      const { setSidebarOpen, setActiveView, setSelectedChannel, openModal } = useUIStore.getState();
+      const { setSidebarOpen, setActiveView, openModal } = useUIStore.getState();
 
       setSidebarOpen(false);
-      setActiveView('channels' as ViewType);
-      setSelectedChannel(3);
+      setActiveView('routing' as ViewType);
       openModal('filterEditor' as ModalType);
 
       const state = useUIStore.getState();
 
       expect(state.sidebarOpen).toBe(false);
-      expect(state.activeView).toBe('channels');
-      expect(state.selectedChannel).toBe(3);
+      expect(state.activeView).toBe('routing');
       expect(state.modalOpen).toBe('filterEditor');
-    });
-
-    it('should clear selection when changing views', () => {
-      const { setActiveView, setSelectedChannel, setSelectedFilter } = useUIStore.getState();
-
-      setActiveView('channels' as ViewType);
-      setSelectedChannel(2);
-      setSelectedFilter('eq1');
-
-      setActiveView('dashboard' as ViewType);
-
-      const state = useUIStore.getState();
-      expect(state.activeView).toBe('dashboard');
-      expect(state.selectedChannel).toBeNull();
-      expect(state.selectedFilter).toBeNull();
     });
   });
 });

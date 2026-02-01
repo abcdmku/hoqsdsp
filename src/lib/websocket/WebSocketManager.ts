@@ -1,6 +1,6 @@
 import { EventEmitter } from 'eventemitter3';
 import type { MessagePriority, PendingRequest, WSCommand, WSConnectionState } from '../../types';
-import { MessageQueue } from './messageQueue';
+import { MessageQueue } from './MessageQueue';
 import { PendingRequestStore } from './pendingRequests';
 import { extractWrappedResponse, formatCommand, formatMessage } from './protocol';
 import { calculateReconnectDelay } from './reconnectUtils';

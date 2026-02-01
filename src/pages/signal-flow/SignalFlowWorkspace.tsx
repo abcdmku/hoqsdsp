@@ -4,6 +4,7 @@ import type { DragState } from '../../components/signal-flow/ConnectionsCanvas';
 import type { SignalFlowClipboardPayload, SignalFlowMirrorGroups } from '../../stores/signalFlowUiStore';
 import type { DeqBandUiSettingsV1, FirPhaseCorrectionUiSettingsV1 } from '../../types';
 import type { FilterType } from '../../types';
+import type { ChannelLevelState } from '../../features/realtime';
 import { SignalFlowWindows } from './windows/SignalFlowWindows';
 import type { SignalFlowWindow } from './windows/types';
 import { SignalFlowBanks } from './SignalFlowBanks';
@@ -66,8 +67,8 @@ interface SignalFlowWorkspaceProps {
   scrollContainerRef?: RefObject<HTMLElement | null>;
   nextZIndexRef: MutableRefObject<number>;
   channelLevels: {
-    capture: number[] | null;
-    playback: number[] | null;
+    capture: ChannelLevelState[];
+    playback: ChannelLevelState[];
   };
   onColorChange: (side: ChannelSide, channel: ChannelNode, color: string) => void;
   onLabelChange: (side: ChannelSide, channel: ChannelNode, label: string) => void;

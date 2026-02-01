@@ -34,6 +34,7 @@ type DelayUnit = DelayParameters['unit'];
 function DelayEditorContent({ sampleRate }: { sampleRate: number }) {
   const { filter, updateFilter } = useFilterEditor<DelayFilter>();
   const params = filter.parameters;
+  const formattedSampleRate = sampleRate.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
   const updateDelay = useCallback(
     (delay: number) => {
@@ -144,6 +145,7 @@ function DelayEditorContent({ sampleRate }: { sampleRate: number }) {
 
         <Select value={params.unit} onValueChange={(v) => { updateUnit(v as DelayUnit); }}>
           <SelectTrigger className="w-28">
+            <span className="sr-only">Unit</span>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -159,27 +161,34 @@ function DelayEditorContent({ sampleRate }: { sampleRate: number }) {
             onCheckedChange={toggleSubsample}
             aria-label="Enable subsample interpolation"
           />
-          <span>Subsample</span>
+          <span>Subsample Interpolation</span>
         </label>
       </div>
 
-      {/* Compact equivalent values display */}
-      <div className="flex gap-4 text-xs text-dsp-text-muted">
-        {params.unit !== 'ms' && (
-          <span>
-            <span className="text-dsp-text font-mono">{equivalentMs.toFixed(3)}</span> ms
-          </span>
-        )}
-        {params.unit !== 'samples' && (
-          <span>
-            <span className="text-dsp-text font-mono">{equivalentSamples.toFixed(1)}</span> samples
-          </span>
-        )}
-        {params.unit !== 'mm' && (
-          <span>
-            <span className="text-dsp-text font-mono">{equivalentMm.toFixed(1)}</span> mm
-          </span>
-        )}
+      <div className="rounded-md border border-dsp-primary/30 bg-dsp-bg/40 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-medium uppercase tracking-wide text-dsp-text-muted">
+            Equivalent
+          </div>
+          <div className="text-xs text-dsp-text-muted">{formattedSampleRate} Hz</div>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-xs text-dsp-text-muted">
+          {params.unit !== 'ms' && (
+            <span>
+              <span className="text-dsp-text font-mono">{equivalentMs.toFixed(3)}</span> ms
+            </span>
+          )}
+          {params.unit !== 'samples' && (
+            <span>
+              <span className="text-dsp-text font-mono">{equivalentSamples.toFixed(1)}</span> samples
+            </span>
+          )}
+          {params.unit !== 'mm' && (
+            <span>
+              <span className="text-dsp-text font-mono">{equivalentMm.toFixed(1)}</span> mm
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

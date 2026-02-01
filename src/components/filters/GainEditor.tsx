@@ -106,6 +106,7 @@ function GainEditorContent() {
 
         <Select value={scale} onValueChange={(v) => { updateScale(v as GainScale); }}>
           <SelectTrigger className="w-24">
+            <span className="sr-only">Scale</span>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -120,27 +121,32 @@ function GainEditorContent() {
             onCheckedChange={toggleInverted}
             aria-label="Invert phase"
           />
-          <span>Invert</span>
+          <span>Invert Phase</span>
         </label>
       </div>
 
-      {/* Compact equivalent value display */}
-      <div className="flex gap-4 text-xs text-dsp-text-muted">
-        <span>=</span>
-        {scale === 'dB' ? (
-          <span>
-            <span className="text-dsp-text font-mono">{equivalentLinear.toFixed(4)}</span>x linear
-          </span>
-        ) : (
-          <span>
-            <span className="text-dsp-text font-mono">
-              {equivalentDb > 0 ? '+' : ''}{equivalentDb.toFixed(2)}
-            </span> dB
-          </span>
-        )}
-        {params.inverted && (
-          <span className="text-filter-dynamics">(phase inverted)</span>
-        )}
+      <div className="rounded-md border border-dsp-primary/30 bg-dsp-bg/40 p-3">
+        <div className="text-xs font-medium uppercase tracking-wide text-dsp-text-muted">
+          Equivalent
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-dsp-text-muted">
+          {scale === 'dB' ? (
+            <span>
+              Linear:{' '}
+              <span className="text-dsp-text font-mono">{equivalentLinear.toFixed(4)}</span>x
+            </span>
+          ) : (
+            <span>
+              dB:{' '}
+              <span className="text-dsp-text font-mono">
+                {equivalentDb > 0 ? '+' : ''}{equivalentDb.toFixed(2)}
+              </span>
+            </span>
+          )}
+          {params.inverted && (
+            <span className="text-filter-dynamics">(phase inverted)</span>
+          )}
+        </div>
       </div>
     </div>
   );

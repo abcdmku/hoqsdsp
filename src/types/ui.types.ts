@@ -31,15 +31,11 @@ export interface UIState {
   sidebarOpen: boolean;
   selectedUnitId: string | null;
   activeView: ViewType;
-  selectedChannel: number | null;
-  selectedFilter: string | null;
   modalOpen: ModalType | null;
 }
 
 export type ViewType =
   | 'dashboard'
-  | 'channels'
-  | 'eq'
   | 'signal-flow'
   | 'routing'
   | 'settings';
@@ -50,13 +46,6 @@ export type ModalType =
   | 'filterEditor'
   | 'config'
   | 'about';
-
-// EQ Editor state
-export interface EQEditorState {
-  selectedBand: number | null;
-  isDragging: boolean;
-  showAllBands: boolean;
-}
 
 // Routing Matrix state
 export interface RoutingState {

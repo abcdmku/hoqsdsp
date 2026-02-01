@@ -88,7 +88,7 @@ export interface SignalFlowWindowsProps {
   handlePersistFirPhaseCorrectionSettings: (filterName: string, settings: FirPhaseCorrectionUiSettingsV1) => void;
   handlePersistDeqSettings: (filterName: string, settings: DeqBandUiSettingsV1 | null) => void;
   setWindows: Dispatch<SetStateAction<SignalFlowWindow[]>>;
-  setSelectedRouteIndex: Dispatch<SetStateAction<number | null>>;
-  setSelectedChannelKey: Dispatch<SetStateAction<string | null>>;
+  setSelectedRouteIndex: (index: number | null) => void;
+  setSelectedChannelKey: (key: string | null) => void;
   nextZIndexRef: MutableRefObject<number>;
 }

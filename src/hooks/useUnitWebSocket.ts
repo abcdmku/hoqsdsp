@@ -27,12 +27,12 @@ export function useUnitWebSocket(unit: DSPUnit | undefined) {
 
   useEffect(() => {
     if (unit) {
-      connect();
+      void connect();
     }
 
     return () => {
       if (connectionRef.current === unit?.id) {
-        disconnect();
+        void disconnect();
       }
     };
   }, [unit, connect, disconnect]);

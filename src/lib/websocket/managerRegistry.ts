@@ -1,4 +1,4 @@
-import { WebSocketManager } from './WebSocketManager';
+import type { WebSocketManager } from './WebSocketManager';
 
 const managers = new Map<string, WebSocketManager>();
 

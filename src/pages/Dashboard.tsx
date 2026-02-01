@@ -60,7 +60,7 @@ export function Dashboard() {
   const handleUnitSettings = useCallback(
     (unit: DSPUnit) => {
       setActiveUnit(unit.id);
-      navigate('/settings');
+      void navigate('/settings');
     },
     [setActiveUnit, navigate],
   );

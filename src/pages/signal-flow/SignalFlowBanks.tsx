@@ -4,13 +4,14 @@ import type { FilterType } from '../../types';
 import type { DragState } from '../../components/signal-flow/ConnectionsCanvas';
 import { ChannelBank } from '../../components/signal-flow/ChannelBank';
 import { ConnectionsCanvas } from '../../components/signal-flow/ConnectionsCanvas';
+import type { ChannelLevelState } from '../../features/realtime';
 
 interface SignalFlowBanksProps {
   canvasRef: RefObject<HTMLElement | null>;
   channelColors: Record<string, string>;
   channelLevels: {
-    capture: number[] | null;
-    playback: number[] | null;
+    capture: ChannelLevelState[];
+    playback: ChannelLevelState[];
   };
   connectionCounts: Record<string, number>;
   dragState: DragState | null;

@@ -86,8 +86,8 @@ export function TopNav({ currentConfig, onConfigImport }: TopNavProps) {
       </div>
 
       <Tooltip>
-        <TooltipTrigger
-          onClick={() => { navigate('/help'); }}
+          <TooltipTrigger
+          onClick={() => { void navigate('/help'); }}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-dsp-primary/60 transition-colors"
           aria-label="Help & Troubleshooting"
         >
@@ -178,7 +178,7 @@ export function TopNav({ currentConfig, onConfigImport }: TopNavProps) {
 
         <Tooltip>
           <TooltipTrigger
-            onClick={() => { navigate('/settings'); }}
+            onClick={() => { void navigate('/settings'); }}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-dsp-primary/60 transition-colors"
             aria-label="Open settings"
           >

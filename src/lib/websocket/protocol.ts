@@ -7,11 +7,12 @@ export interface WrappedResponse {
   error?: unknown;
 }
 
-export function formatCommand(command: WSCommand): string {
-  if (typeof command === 'string') {
-    return command;
+export function formatCommand(command: WSCommand | unknown): string {
+  if (typeof command === 'string') return command;
+  if (!command || typeof command !== 'object' || Array.isArray(command)) {
+    return 'Unknown';
   }
-  return Object.keys(command)[0] ?? 'Unknown';
+  return Object.keys(command as Record<string, unknown>)[0] ?? 'Unknown';
 }
 
 export function formatMessage(command: WSCommand): string {

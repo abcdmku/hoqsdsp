@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Sliders, AudioWaveform, GitBranch, Volume2, Share2 } from 'lucide-react';
+import { LayoutDashboard, Sliders, GitBranch, Share2 } from 'lucide-react';
 import { useUIStore, selectSidebarOpen } from '../../stores';
 import type { ViewType } from '../../types';
 import { cn } from '../../lib/utils';
@@ -13,8 +13,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, path: '/' },
-  { id: 'channels', label: 'Channels', icon: Volume2, path: '/channels' },
-  { id: 'eq', label: 'EQ', icon: AudioWaveform, path: '/eq' },
   { id: 'signal-flow', label: 'Signal', icon: Share2, path: '/signal-flow' },
   { id: 'routing', label: 'Routing', icon: GitBranch, path: '/routing' },
   { id: 'settings', label: 'Settings', icon: Sliders, path: '/settings' },

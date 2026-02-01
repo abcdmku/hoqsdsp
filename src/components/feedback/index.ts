@@ -7,7 +7,6 @@ export {
   SkeletonMeter,
   SkeletonUnitCard,
   SkeletonProcessingBlock,
-  SkeletonChannelStrip,
   SkeletonEQEditor,
   SkeletonRoutingMatrix,
 } from './Skeleton';

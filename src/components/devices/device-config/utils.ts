@@ -74,6 +74,10 @@ export function buildUpdatedConfig(config: CamillaConfig, formState: DeviceFormS
 }
 
 export function createConfigFromFormState(formState: DeviceFormState): CamillaConfig {
+  if (!formState.inputBackend || !formState.outputBackend) {
+    throw new Error('Input and output backends must be selected before creating a config.');
+  }
+
   return createMinimalConfig({
     captureBackend: formState.inputBackend,
     captureDevice: formState.inputDevice,

@@ -8,7 +8,6 @@ import {
   SkeletonMeter,
   SkeletonUnitCard,
   SkeletonProcessingBlock,
-  SkeletonChannelStrip,
   SkeletonEQEditor,
   SkeletonRoutingMatrix,
 } from './Skeleton';
@@ -85,15 +84,6 @@ describe('Skeleton Components', () => {
       const { container } = render(<SkeletonProcessingBlock />);
       const skeleton = container.firstChild as HTMLElement;
       expect(skeleton).toHaveClass('p-3', 'bg-dsp-surface');
-    });
-  });
-
-  describe('SkeletonChannelStrip', () => {
-    it('renders multiple processing blocks', () => {
-      const { container } = render(<SkeletonChannelStrip />);
-      // Should have the strip label skeleton + 4 processing block skeletons
-      const skeletons = container.querySelectorAll('.animate-pulse');
-      expect(skeletons.length).toBeGreaterThan(4);
     });
   });
 

@@ -8,27 +8,17 @@ import { useKeyboardShortcuts, type KeyboardShortcut } from './useKeyboardShortc
  */
 export function useGlobalShortcuts(): void {
   const {
-    setSelectedChannel,
-    setSelectedFilter,
     closeModal,
     toggleSidebar,
     modalOpen,
   } = useUIStore();
 
-  // Clear all selections
-  const clearSelection = useCallback(() => {
-    setSelectedChannel(null);
-    setSelectedFilter(null);
-  }, [setSelectedChannel, setSelectedFilter]);
-
-  // Handle Escape - close modal or clear selection
+  // Handle Escape - close modal
   const handleEscape = useCallback(() => {
     if (modalOpen) {
       closeModal();
-    } else {
-      clearSelection();
     }
-  }, [modalOpen, closeModal, clearSelection]);
+  }, [modalOpen, closeModal]);
 
   // Toggle sidebar with Ctrl+B (like VS Code)
   const handleToggleSidebar = useCallback(() => {
@@ -39,7 +29,7 @@ export function useGlobalShortcuts(): void {
     {
       key: 'Escape',
       handler: handleEscape,
-      description: 'Close modal or clear selection',
+      description: 'Close modal',
       excludeInputs: true,
     },
     {
@@ -65,6 +55,6 @@ export function useGlobalShortcuts(): void {
  * List of global shortcuts for help/documentation
  */
 export const globalShortcutsList: { key: string; description: string }[] = [
-  { key: 'Esc', description: 'Close modal or clear selection' },
+  { key: 'Esc', description: 'Close modal' },
   { key: 'Ctrl+B', description: 'Toggle sidebar' },
 ];

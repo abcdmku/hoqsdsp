@@ -77,19 +77,6 @@ export function SkeletonProcessingBlock({ className }: SkeletonProps): ReactNode
   );
 }
 
-export function SkeletonChannelStrip({ className }: SkeletonProps): ReactNode {
-  return (
-    <div className={cn('flex flex-col gap-2 p-4', className)}>
-      <Skeleton className="h-6 w-24 mb-2" />
-      <div className="flex gap-2">
-        {[...Array(4)].map((_, i) => (
-          <SkeletonProcessingBlock key={i} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function SkeletonEQEditor({ className }: SkeletonProps): ReactNode {
   return (
     <div className={cn('p-4', className)}>

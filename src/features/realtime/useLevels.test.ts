@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useLevels, useChannelLevel } from './useLevels';
-import type { SignalLevels } from '../../types';
+import type { SignalLevelsRaw } from '../../types';
 
 describe('useLevels', () => {
   // Mock requestAnimationFrame
@@ -22,15 +22,11 @@ describe('useLevels', () => {
     vi.unstubAllGlobals();
   });
 
-  const mockLevels: SignalLevels = {
-    capture: [
-      { peak: -15, rms: -20 },
-      { peak: -18, rms: -25 },
-    ],
-    playback: [
-      { peak: -12, rms: -18 },
-      { peak: -10, rms: -16 },
-    ],
+  const mockLevels: SignalLevelsRaw = {
+    capture_peak: [-15, -18],
+    capture_rms: [-20, -25],
+    playback_peak: [-12, -10],
+    playback_rms: [-18, -16],
   };
 
   const createMockWsManager = (levels = mockLevels, clippedSamples = 0) => ({
@@ -81,8 +77,7 @@ describe('useLevels', () => {
 
       // Simulate animation frame
       await act(async () => {
-        if (rafCallback) rafCallback(100);
-        await new Promise((r) => setTimeout(r, 10));
+        await (rafCallback as any)?.(100);
       });
 
       expect(wsManager.send).toHaveBeenCalledWith('GetSignalLevelsSinceLast');
@@ -97,8 +92,7 @@ describe('useLevels', () => {
 
       // Simulate animation frame
       await act(async () => {
-        if (rafCallback) rafCallback(100);
-        await new Promise((r) => setTimeout(r, 10));
+        await (rafCallback as any)?.(100);
       });
 
       await waitFor(() => {
@@ -117,8 +111,7 @@ describe('useLevels', () => {
       );
 
       await act(async () => {
-        if (rafCallback) rafCallback(100);
-        await new Promise((r) => setTimeout(r, 10));
+        await (rafCallback as any)?.(100);
       });
 
       await waitFor(() => {
@@ -136,8 +129,7 @@ describe('useLevels', () => {
       );
 
       await act(async () => {
-        if (rafCallback) rafCallback(100);
-        await new Promise((r) => setTimeout(r, 10));
+        await (rafCallback as any)?.(100);
       });
 
       // Should not throw and should maintain default state
@@ -153,8 +145,7 @@ describe('useLevels', () => {
       );
 
       await act(async () => {
-        if (rafCallback) rafCallback(100);
-        await new Promise((r) => setTimeout(r, 10));
+        await (rafCallback as any)?.(100);
       });
 
       await waitFor(() => {
@@ -167,8 +158,10 @@ describe('useLevels', () => {
 
     it('updates peak hold when new peak is higher', async () => {
       const wsManager = createMockWsManager({
-        capture: [{ peak: -15, rms: -20 }],
-        playback: [],
+        capture_peak: [-15],
+        capture_rms: [-20],
+        playback_peak: [],
+        playback_rms: [],
       });
 
       const { result } = renderHook(() =>
@@ -177,8 +170,7 @@ describe('useLevels', () => {
 
       // First update
       await act(async () => {
-        if (rafCallback) rafCallback(100);
-        await new Promise((r) => setTimeout(r, 10));
+        await (rafCallback as any)?.(100);
       });
 
       await waitFor(() => {
@@ -189,8 +181,10 @@ describe('useLevels', () => {
       wsManager.send.mockImplementation((cmd: string) => {
         if (cmd === 'GetSignalLevelsSinceLast') {
           return Promise.resolve({
-            capture: [{ peak: -10, rms: -18 }],
-            playback: [],
+            capture_peak: [-10],
+            capture_rms: [-18],
+            playback_peak: [],
+            playback_rms: [],
           });
         }
         return Promise.resolve(0);
@@ -198,8 +192,7 @@ describe('useLevels', () => {
 
       // Second update with higher peak
       await act(async () => {
-        if (rafCallback) rafCallback(200);
-        await new Promise((r) => setTimeout(r, 10));
+        await (rafCallback as any)?.(200);
       });
 
       await waitFor(() => {
@@ -216,8 +209,7 @@ describe('useLevels', () => {
       );
 
       await act(async () => {
-        if (rafCallback) rafCallback(100);
-        await new Promise((r) => setTimeout(r, 10));
+        await (rafCallback as any)?.(100);
       });
 
       await waitFor(() => {
@@ -277,14 +269,11 @@ describe('useChannelLevel', () => {
     vi.unstubAllGlobals();
   });
 
-  const mockLevels: SignalLevels = {
-    capture: [
-      { peak: -15, rms: -20 },
-      { peak: -18, rms: -25 },
-    ],
-    playback: [
-      { peak: -12, rms: -18 },
-    ],
+  const mockLevels: SignalLevelsRaw = {
+    capture_peak: [-15, -18],
+    capture_rms: [-20, -25],
+    playback_peak: [-12],
+    playback_rms: [-18],
   };
 
   it('returns default level when wsManager is not provided', () => {
