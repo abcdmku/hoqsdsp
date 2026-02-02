@@ -23,7 +23,6 @@ interface FirSettingsOptions {
 }
 
 export function useFirSettings({ sampleRate, firPhaseCorrectionSettings }: FirSettingsOptions) {
-  const [previewEnabled, setPreviewEnabled] = useState(() => firPhaseCorrectionSettings?.previewEnabled ?? true);
   const [tapMode, setTapMode] = useState<'latency' | 'taps'>(() => firPhaseCorrectionSettings?.tapMode ?? 'latency');
 
   const [settings, setSettings] = useState<FirDesignSettings>(() => ({
@@ -50,8 +49,6 @@ export function useFirSettings({ sampleRate, firPhaseCorrectionSettings }: FirSe
   const targetLatencyMs = (targetDelaySamples / sampleRate) * 1000;
 
   return {
-    previewEnabled,
-    setPreviewEnabled,
     tapMode,
     setTapMode,
     settings,

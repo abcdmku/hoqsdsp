@@ -11,7 +11,6 @@ interface FirResponsesOptions {
   pipelineFilterConfigs: ChannelProcessingFilter['config'][];
   currentTaps: number[];
   previewTaps?: number[] | null;
-  previewEnabled: boolean;
   canPreviewAppliedFirResponse: boolean;
   phaseHideBelowDb: number;
   targetDelaySamples: number;
@@ -23,7 +22,6 @@ export function useFirResponses({
   pipelineFilterConfigs,
   currentTaps,
   previewTaps,
-  previewEnabled,
   canPreviewAppliedFirResponse,
   phaseHideBelowDb,
   targetDelaySamples,
@@ -44,9 +42,9 @@ export function useFirResponses({
   );
 
   const previewFirComplex = useMemo(() => {
-    if (!previewEnabled || !previewTaps) return null;
+    if (!previewTaps) return null;
     return buildFirSeries(previewTaps, sampleRate, responseFrequencies);
-  }, [previewEnabled, previewTaps, responseFrequencies, sampleRate]);
+  }, [previewTaps, responseFrequencies, sampleRate]);
 
   const combinedPreview = useMemo(() => {
     if (!previewFirComplex) return null;

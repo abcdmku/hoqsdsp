@@ -14,7 +14,6 @@ interface ConvolutionGraphPanelProps {
   groupDelayPlot: { series: FrequencySeries[]; yMin: number; yMax: number; yGridLines: number[] };
   currentTaps: number[];
   previewTaps?: number[] | null;
-  previewEnabled: boolean;
   sampleRate: number;
   hoverInfo: HoverInfo | null;
   onHoverChange: (info: HoverInfo | null) => void;
@@ -29,7 +28,6 @@ export function ConvolutionGraphPanel({
   groupDelayPlot,
   currentTaps,
   previewTaps,
-  previewEnabled,
   sampleRate,
   hoverInfo,
   onHoverChange,
@@ -65,6 +63,7 @@ export function ConvolutionGraphPanel({
           yMax={magnitudePlot.yMax}
           yGridLines={magnitudePlot.yGridLines}
           yFormatter={(v) => (v > 0 ? `+${v}` : String(v))}
+          hoverValueFormatter={formatHoverValue}
           ariaLabel="Magnitude response"
           onHoverChange={onHoverChange}
         />
@@ -79,6 +78,7 @@ export function ConvolutionGraphPanel({
           yMax={180}
           yGridLines={[-180, -90, 0, 90, 180]}
           yFormatter={(v) => `${v.toFixed(0)} deg`}
+          hoverValueFormatter={formatHoverValue}
           ariaLabel="Phase response (excess phase)"
           onHoverChange={onHoverChange}
         />
@@ -93,13 +93,14 @@ export function ConvolutionGraphPanel({
           yMax={groupDelayPlot.yMax}
           yGridLines={groupDelayPlot.yGridLines}
           yFormatter={(v) => `${v.toFixed(v < 10 ? 2 : 1)} ms`}
+          hoverValueFormatter={formatHoverValue}
           ariaLabel="Group delay response"
           onHoverChange={onHoverChange}
         />
       )}
 
       {view === 'impulse' && (
-        <FirImpulseGraph taps={currentTaps} previewTaps={previewEnabled ? previewTaps : null} sampleRate={sampleRate} />
+        <FirImpulseGraph taps={currentTaps} previewTaps={previewTaps} sampleRate={sampleRate} />
       )}
 
       {view !== 'impulse' && (

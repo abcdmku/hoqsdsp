@@ -6,8 +6,6 @@ import { FirToggleSection } from './FirToggleSection';
 import { FirWindowSection } from './FirWindowSection';
 
 interface DesignSettingsPanelProps {
-  previewEnabled: boolean;
-  onPreviewEnabledChange: (value: boolean) => void;
   isIdentityFir: boolean;
   canEnableFromIdentity: boolean;
   onToggleEnabled: (enabled: boolean) => void;
@@ -24,8 +22,6 @@ interface DesignSettingsPanelProps {
 }
 
 export function DesignSettingsPanel({
-  previewEnabled,
-  onPreviewEnabledChange,
   isIdentityFir,
   canEnableFromIdentity,
   onToggleEnabled,
@@ -43,8 +39,6 @@ export function DesignSettingsPanel({
   return (
     <div className="rounded-md border border-dsp-primary/20 bg-dsp-bg/20 p-3 space-y-2">
       <FirToggleSection
-        previewEnabled={previewEnabled}
-        onPreviewEnabledChange={onPreviewEnabledChange}
         isIdentityFir={isIdentityFir}
         canEnableFromIdentity={canEnableFromIdentity}
         onToggleEnabled={onToggleEnabled}
@@ -68,6 +62,8 @@ export function DesignSettingsPanel({
         previewDesign={previewDesign}
         firMagnitudeStats={firMagnitudeStats}
         onApplyFir={onApplyFir}
+        normalize={settings.normalize}
+        onNormalizeChange={(value) => onSettingsChange((s) => ({ ...s, normalize: value }))}
       />
     </div>
   );

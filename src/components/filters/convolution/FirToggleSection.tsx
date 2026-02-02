@@ -3,8 +3,6 @@ import type { FirDesignSettings } from './useFirSettings';
 import { clampOddInt } from '../../../lib/dsp/firOperations';
 
 interface FirToggleSectionProps {
-  previewEnabled: boolean;
-  onPreviewEnabledChange: (value: boolean) => void;
   isIdentityFir: boolean;
   canEnableFromIdentity: boolean;
   onToggleEnabled: (enabled: boolean) => void;
@@ -17,8 +15,6 @@ interface FirToggleSectionProps {
 }
 
 export function FirToggleSection({
-  previewEnabled,
-  onPreviewEnabledChange,
   isIdentityFir,
   canEnableFromIdentity,
   onToggleEnabled,
@@ -32,25 +28,16 @@ export function FirToggleSection({
   return (
     <>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-dsp-text">Design Settings</p>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-dsp-text-muted">Preview</span>
-          <Switch checked={previewEnabled} onCheckedChange={(checked) => onPreviewEnabledChange(Boolean(checked))} aria-label="Show preview" />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-dsp-text">FIR Enabled</p>
-          <p className="text-[11px] text-dsp-text-muted">Toggle between applied taps and identity.</p>
-        </div>
+        <p className="text-sm font-medium text-dsp-text">FIR Settings</p>
         <div
           title={
             !isIdentityFir || canEnableFromIdentity
               ? undefined
-              : 'No FIR to enable (select filters to linearize and ensure Preview is producing a non-identity FIR).'
+              : 'No FIR to enable (select filters to linearize and adjust settings until a non-identity FIR is ready).'
           }
+          className="flex items-center gap-2"
         >
+          <span className="text-xs text-dsp-text-muted">FIR Enabled</span>
           <Switch
             checked={!isIdentityFir}
             onCheckedChange={(checked) => onToggleEnabled(Boolean(checked))}

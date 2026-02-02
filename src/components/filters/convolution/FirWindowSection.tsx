@@ -1,4 +1,4 @@
-import { NumericInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from '../../ui';
+import { NumericInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui';
 import type { FirDesignSettings } from './useFirSettings';
 
 interface FirWindowSectionProps {
@@ -43,14 +43,7 @@ export function FirWindowSection({ settings, onSettingsChange }: FirWindowSectio
         ) : (
           <div />
         )}
-
-        <div className="space-y-1.5">
-          <label className="text-xs text-dsp-text-muted">Normalize</label>
-          <div className="flex items-center gap-2 pt-1">
-            <Switch checked={settings.normalize} onCheckedChange={(checked) => onSettingsChange((s) => ({ ...s, normalize: Boolean(checked) }))} />
-            <span className="text-xs text-dsp-text-muted">DC gain to 0 dB</span>
-          </div>
-        </div>
+        <div />
       </div>
     </>
   );

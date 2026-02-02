@@ -22,6 +22,14 @@ const valuesConvolutionFilter: ConvolutionFilter = {
   },
 };
 
+const identityConvolutionFilter: ConvolutionFilter = {
+  type: 'Conv',
+  parameters: {
+    type: 'Values',
+    values: [1.0],
+  },
+};
+
 function renderWithTooltips(ui: React.ReactElement) {
   return render(<TooltipProvider>{ui}</TooltipProvider>);
 }
@@ -54,6 +62,22 @@ describe('ConvolutionEditor', () => {
     expect(screen.getByRole('tab', { name: 'Phase' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Delay' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Impulse' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Phase' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('renames settings heading and removes preview toggle', () => {
+    renderWithTooltips(
+      <ConvolutionEditor
+        open={true}
+        onClose={() => {}}
+        filter={identityConvolutionFilter}
+        onSave={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('FIR Settings')).toBeInTheDocument();
+    expect(screen.queryByText('Design Settings')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/show preview/i)).not.toBeInTheDocument();
   });
 
   it('displays tap count in stats bar for Values type', () => {

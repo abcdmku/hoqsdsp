@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { cn } from '../../../lib/utils';
 import type { FrequencySeries, HoverInfo } from './types';
 import { FrequencyGraphSvg } from './FrequencyGraphSvg';
+import { formatFrequency } from '../../../lib/dsp';
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 interface FrequencyGraphProps {
   series: FrequencySeries[];
   minFreq: number;
@@ -10,6 +16,7 @@ interface FrequencyGraphProps {
   yMax: number;
   yGridLines: number[];
   yFormatter: (value: number) => string;
+  hoverValueFormatter?: (value: number) => string;
   ariaLabel: string;
   onHoverChange?: (info: HoverInfo | null) => void;
   className?: string;
@@ -22,6 +29,7 @@ export function FrequencyGraph({
   yMax,
   yGridLines,
   yFormatter,
+  hoverValueFormatter,
   ariaLabel,
   onHoverChange,
   className,
@@ -29,6 +37,7 @@ export function FrequencyGraph({
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ width: number; height: number }>({ width: 800, height: 480 });
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -85,8 +94,10 @@ export function FrequencyGraph({
       if (!first || first.points.length === 0) return;
       const rect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
       const index = xToIndex(x);
       setHoverIndex(index);
+      setHoverPos({ x, y });
 
       const frequency = first.points[index]?.frequency ?? 0;
       const values: Record<string, number> = {};
@@ -99,6 +110,7 @@ export function FrequencyGraph({
   );
   const handlePointerLeave = useCallback(() => {
     setHoverIndex(null);
+    setHoverPos(null);
     onHoverChange?.(null);
   }, [onHoverChange]);
   const makePath = useCallback(
@@ -125,8 +137,59 @@ export function FrequencyGraph({
   );
   const hoverPoint = hoverIndex !== null ? series[0]?.points[hoverIndex] : null;
   const hoverX = hoverPoint ? freqToX(hoverPoint.frequency) : null;
+  const hoverFrequency = hoverPoint ? hoverPoint.frequency : null;
+
+  const tooltip = (() => {
+    if (hoverIndex === null || !hoverPos || hoverFrequency === null) return null;
+
+    const rows = series.map((s) => ({
+      id: s.id,
+      label: s.label,
+      colorClass: s.colorClass,
+      value: s.points[hoverIndex]?.value ?? Number.NaN,
+    }));
+
+    const tooltipWidth = 260;
+    const tooltipHeight = 34 + rows.length * 18;
+    const padding = 8;
+    const offset = 12;
+
+    let left = hoverPos.x + offset;
+    if (left + tooltipWidth > width - padding) left = hoverPos.x - offset - tooltipWidth;
+    left = clamp(left, padding, Math.max(padding, width - tooltipWidth - padding));
+
+    let top = hoverPos.y + offset;
+    if (top + tooltipHeight > height - padding) top = hoverPos.y - offset - tooltipHeight;
+    top = clamp(top, padding, Math.max(padding, height - tooltipHeight - padding));
+
+    return (
+      <div
+        className={cn(
+          'pointer-events-none absolute z-10 rounded-md border border-dsp-primary/30',
+          'bg-dsp-bg/95 px-3 py-2 text-xs shadow-md backdrop-blur',
+        )}
+        style={{ left, top, width: tooltipWidth }}
+        aria-hidden="true"
+      >
+        <div className="mb-1 text-[11px] text-dsp-text-muted">@ {formatFrequency(hoverFrequency)}</div>
+        <div className="space-y-1">
+          {rows.map((row) => (
+            <div key={row.id} className="flex items-center justify-between gap-4">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className={cn('h-2 w-2 flex-shrink-0 rounded-full bg-current', row.colorClass)} aria-hidden="true" />
+                <span className="truncate text-dsp-text">{row.label}</span>
+              </span>
+              <span className="font-mono tabular-nums text-dsp-text">
+                {hoverValueFormatter ? hoverValueFormatter(row.value) : Number.isFinite(row.value) ? row.value.toFixed(2) : '--'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  })();
   return (
-    <div ref={containerRef} className={cn('w-full', className)} style={{ height: size.height }}>
+    <div ref={containerRef} className={cn('relative w-full', className)} style={{ height: size.height }}>
       <FrequencyGraphSvg
         width={width}
         height={height}
@@ -140,10 +203,12 @@ export function FrequencyGraph({
         valueToY={valueToY}
         makePath={makePath}
         hoverX={hoverX}
+        hoverIndex={hoverIndex}
         ariaLabel={ariaLabel}
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
       />
+      {tooltip}
     </div>
   );
 }

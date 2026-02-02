@@ -15,6 +15,7 @@ interface FrequencyGraphSvgProps {
   valueToY: (value: number) => number;
   makePath: (points: { frequency: number; value: number }[]) => string;
   hoverX: number | null;
+  hoverIndex: number | null;
   ariaLabel: string;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerLeave: () => void;
@@ -33,6 +34,7 @@ export function FrequencyGraphSvg({
   valueToY,
   makePath,
   hoverX,
+  hoverIndex,
   ariaLabel,
   onPointerMove,
   onPointerLeave,
@@ -122,6 +124,23 @@ export function FrequencyGraphSvg({
           strokeDasharray="2 3"
         />
       )}
+      {hoverX !== null &&
+        hoverIndex !== null &&
+        series.map((s) => {
+          const point = s.points[hoverIndex];
+          if (!point || !Number.isFinite(point.value)) return null;
+          return (
+            <circle
+              key={`hover-${s.id}`}
+              cx={hoverX}
+              cy={valueToY(point.value)}
+              r={3.5}
+              fill="currentColor"
+              className={s.colorClass}
+              opacity={s.colorClass === 'text-dsp-text-muted' ? 0.7 : 1}
+            />
+          );
+        })}
     </svg>
   );
 }

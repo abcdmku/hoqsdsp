@@ -5,7 +5,6 @@ import type { FirDesignSettings } from './useFirSettings';
 import type { ChannelProcessingFilter } from '../../../lib/signalflow';
 
 interface FirPreviewOptions {
-  previewEnabled: boolean;
   sampleRate: number;
   effectiveTaps: number;
   settings: FirDesignSettings;
@@ -13,14 +12,12 @@ interface FirPreviewOptions {
 }
 
 export function useFirPreviewDesign({
-  previewEnabled,
   sampleRate,
   effectiveTaps,
   settings,
   selectedFilterConfigs,
 }: FirPreviewOptions): FirPreviewDesign {
   return useMemo(() => {
-    if (!previewEnabled) return { taps: null, error: null, warnings: [] };
     try {
       const result = designFirPhaseCorrection({
         sampleRate,
@@ -43,5 +40,5 @@ export function useFirPreviewDesign({
     } catch (error) {
       return { taps: null, error: error instanceof Error ? error.message : 'Failed to design FIR', warnings: [] };
     }
-  }, [effectiveTaps, previewEnabled, sampleRate, selectedFilterConfigs, settings]);
+  }, [effectiveTaps, sampleRate, selectedFilterConfigs, settings]);
 }

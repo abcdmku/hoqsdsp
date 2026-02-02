@@ -29,7 +29,7 @@ export function ConvolutionEditorContent({
   onDebouncedApply?: (config: ConvolutionFilter) => void;
 }) {
   const { filter, updateFilter } = useFilterEditor<ConvolutionFilter>();
-  const [view, setView] = useState<'magnitude' | 'phase' | 'groupDelay' | 'impulse'>('magnitude');
+  const [view, setView] = useState<'magnitude' | 'phase' | 'groupDelay' | 'impulse'>('phase');
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
 
   useEffect(() => {
@@ -48,8 +48,6 @@ export function ConvolutionEditorContent({
   } = useFirSelection({ channelFilters, filterName, firPhaseCorrectionSettings });
 
   const {
-    previewEnabled,
-    setPreviewEnabled,
     tapMode,
     setTapMode,
     settings,
@@ -60,7 +58,6 @@ export function ConvolutionEditorContent({
   } = useFirSettings({ sampleRate, firPhaseCorrectionSettings });
 
   const previewDesign = useFirPreviewDesign({
-    previewEnabled,
     sampleRate,
     effectiveTaps,
     settings,
@@ -70,7 +67,6 @@ export function ConvolutionEditorContent({
   const settingsToPersist = useMemo<FirPhaseCorrectionUiSettingsV1>(
     () => ({
       version: 1,
-      previewEnabled,
       tapMode,
       maxLatencyMs: settings.maxLatencyMs,
       taps: settings.taps,
@@ -87,7 +83,6 @@ export function ConvolutionEditorContent({
     }),
     [
       correctableUi,
-      previewEnabled,
       selectedFilterNames,
       settings.bandHighHz,
       settings.bandLowHz,
@@ -138,7 +133,6 @@ export function ConvolutionEditorContent({
     pipelineFilterConfigs,
     currentTaps,
     previewTaps: previewDesign.taps,
-    previewEnabled,
     canPreviewAppliedFirResponse,
     phaseHideBelowDb: settings.phaseHideBelowDb,
     targetDelaySamples,
@@ -176,7 +170,6 @@ export function ConvolutionEditorContent({
           groupDelayPlot={groupDelayPlot}
           currentTaps={currentTaps}
           previewTaps={previewDesign.taps}
-          previewEnabled={previewEnabled}
           sampleRate={sampleRate}
           hoverInfo={hoverInfo}
           onHoverChange={setHoverInfo}
@@ -184,8 +177,6 @@ export function ConvolutionEditorContent({
       </div>
       <div className="min-w-0 min-h-0 h-full overflow-y-auto">
         <ConvolutionSettingsPanel
-          previewEnabled={previewEnabled}
-          onPreviewEnabledChange={setPreviewEnabled}
           isIdentityFir={isIdentityFir}
           canEnableFromIdentity={canEnableFromIdentity}
           onToggleEnabled={handleToggleEnabled}
