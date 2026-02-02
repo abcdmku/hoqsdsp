@@ -5,7 +5,7 @@ import {
   removeWebSocketManager,
   setWebSocketManager,
 } from '../lib/websocket/managerRegistry';
-import type { ProcessingState, SignalLevels } from '../types';
+import { normalizeBufferLevel, type ProcessingState, type SignalLevels } from '../types';
 
 interface UnitWebSocketConnection {
   unitId: string;
@@ -109,7 +109,8 @@ class WebSocketService {
   async getBufferLevel(unitId: string): Promise<number> {
     const manager = this.getManager(unitId);
     if (!manager) throw new Error(`Unit ${unitId} not connected`);
-    return manager.send<number>('GetBufferLevel');
+    const raw = await manager.send<number>('GetBufferLevel');
+    return normalizeBufferLevel(raw);
   }
 
   async getSupportedDeviceTypes(unitId: string): Promise<string[]> {

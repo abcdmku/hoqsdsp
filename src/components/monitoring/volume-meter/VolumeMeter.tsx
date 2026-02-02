@@ -10,6 +10,11 @@ const COLOR_BY_ZONE = {
   clip: 'var(--color-meter-red)',
 } as const;
 
+const METER_MOTION_MS = {
+  attack: 70,
+  release: 160,
+} as const;
+
 function getColorForLevel(db: number): string {
   return COLOR_BY_ZONE[meterZoneForDb(db)];
 }
@@ -34,13 +39,36 @@ export const VolumeMeter = React.memo(function VolumeMeter({
   const isVertical = orientation === 'vertical';
   const levelPercent = dbToPercent(level);
   const peakPercent = peak !== undefined ? dbToPercent(peak) : undefined;
+
+  const prevLevelPercentRef = React.useRef(levelPercent);
+  const levelMotionMs = levelPercent >= prevLevelPercentRef.current ? METER_MOTION_MS.attack : METER_MOTION_MS.release;
+  React.useEffect(() => {
+    prevLevelPercentRef.current = levelPercent;
+  }, [levelPercent]);
+
+  const prevPeakPercentRef = React.useRef(peakPercent ?? levelPercent);
+  const peakMotionMs =
+    peakPercent !== undefined
+      ? peakPercent >= prevPeakPercentRef.current
+        ? METER_MOTION_MS.attack
+        : METER_MOTION_MS.release
+      : undefined;
+  React.useEffect(() => {
+    if (peakPercent === undefined) return;
+    prevPeakPercentRef.current = peakPercent;
+  }, [peakPercent]);
+
   const gridLines = React.useMemo(() => getGridLines(size), [size]);
   const scaleMarks = getScaleMarks(size);
   const segmentCount = getSegmentCount(size);
   const activeSegments = Math.round((levelPercent / 100) * segmentCount);
+  const coverScale = 1 - clampPercent(levelPercent, 100) / 100;
 
   const meterContent = (
-    <div className="relative h-full w-full overflow-hidden rounded-sm bg-dsp-primary/20">
+    <div
+      className="relative h-full w-full overflow-hidden rounded-sm bg-dsp-primary/20"
+      style={{ ['--meter-motion-ms' as any]: `${String(levelMotionMs)}ms` } as React.CSSProperties}
+    >
       {mode === 'segmented' ? (
         <div className={cn('flex h-full w-full gap-px', isVertical ? 'flex-col-reverse' : 'flex-row')}>
           {Array.from({ length: segmentCount }, (_, i) => {
@@ -52,23 +80,32 @@ export const VolumeMeter = React.memo(function VolumeMeter({
             return (
               <div
                 key={i}
-                className="flex-1 rounded-[1px]"
-                style={{ backgroundColor: color, opacity, transition: 'opacity 50ms ease-out' }}
+                className="dsp-meter-motion-opacity flex-1 rounded-[1px]"
+                style={{ backgroundColor: color, opacity }}
               />
             );
           })}
         </div>
       ) : (
-        <div
-          className={cn('absolute', isVertical ? 'bottom-0 left-0 right-0' : 'left-0 top-0 bottom-0')}
-          style={{
-            [isVertical ? 'height' : 'width']: `${String(levelPercent)}%`,
-            background: isVertical
-              ? 'linear-gradient(to top, var(--color-meter-green) 0%, var(--color-meter-green) 80%, var(--color-meter-yellow) 90%, var(--color-meter-red) 100%)'
-              : 'linear-gradient(to right, var(--color-meter-green) 0%, var(--color-meter-green) 80%, var(--color-meter-yellow) 90%, var(--color-meter-red) 100%)',
-            transition: 'height 50ms ease-out, width 50ms ease-out',
-          }}
-        />
+        <>
+          <div
+            className="absolute inset-0"
+            style={{
+              background: isVertical
+                ? 'linear-gradient(to top, var(--color-meter-green) 0%, var(--color-meter-green) 80%, var(--color-meter-yellow) 90%, var(--color-meter-red) 100%)'
+                : 'linear-gradient(to right, var(--color-meter-green) 0%, var(--color-meter-green) 80%, var(--color-meter-yellow) 90%, var(--color-meter-red) 100%)',
+            }}
+          />
+          <div
+            className={cn(
+              'dsp-meter-motion-transform absolute inset-0 bg-dsp-primary/20',
+              isVertical ? 'origin-top' : 'origin-right',
+            )}
+            style={{
+              transform: isVertical ? `scaleY(${String(coverScale)})` : `scaleX(${String(coverScale)})`,
+            }}
+          />
+        </>
       )}
 
       <div className="pointer-events-none absolute inset-0">
@@ -92,10 +129,13 @@ export const VolumeMeter = React.memo(function VolumeMeter({
 
       {peakPercent !== undefined && peakPercent > levelPercent && (
         <div
-          className={cn('absolute bg-white/80', isVertical ? 'left-0 right-0 h-[2px]' : 'top-0 bottom-0 w-[2px]')}
+          className={cn(
+            'dsp-meter-motion-position absolute bg-white/80',
+            isVertical ? 'left-0 right-0 h-[2px]' : 'top-0 bottom-0 w-[2px]',
+          )}
           style={{
             [isVertical ? 'bottom' : 'left']: `${String(clampPercent(peakPercent))}%`,
-            transition: 'bottom 50ms ease-out, left 50ms ease-out',
+            ...(peakMotionMs !== undefined ? ({ ['--meter-motion-ms' as any]: `${String(peakMotionMs)}ms` } as React.CSSProperties) : null),
           }}
         />
       )}

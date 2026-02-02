@@ -197,6 +197,28 @@ describe('MessageQueue', () => {
     });
   });
 
+  describe('Coalescing', () => {
+    it('should coalesce SetVolume commands to the latest value', () => {
+      queue.enqueue({ SetVolume: -10.5 }, 'high');
+      queue.enqueue({ SetVolume: -20.0 }, 'high');
+
+      expect(queue.length).toBe(1);
+      expect(queue.dequeue()?.command).toEqual({ SetVolume: -20.0 });
+    });
+
+    it('should coalesce SetFaderVolume commands per fader', () => {
+      queue.enqueue({ SetFaderVolume: { fader: 0, vol: -10 } }, 'high');
+      queue.enqueue({ SetFaderVolume: { fader: 1, vol: -12 } }, 'high');
+      queue.enqueue({ SetFaderVolume: { fader: 0, vol: -30 } }, 'high');
+
+      expect(queue.length).toBe(2);
+
+      const cmds = [queue.dequeue()?.command, queue.dequeue()?.command];
+      expect(cmds).toContainEqual({ SetFaderVolume: { fader: 1, vol: -12 } });
+      expect(cmds).toContainEqual({ SetFaderVolume: { fader: 0, vol: -30 } });
+    });
+  });
+
   describe('Timestamp', () => {
     it('should add timestamp to queued messages', () => {
       const before = Date.now();

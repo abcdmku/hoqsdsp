@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Activity, Cpu, Database, HardDrive, Thermometer } from 'lucide-react';
-import { useConnectionStore, selectActiveConnection } from '../../stores';
+import { useConnectionStore } from '../../stores';
+import { usePageVisibility } from '../../hooks';
 import { cn } from '../../lib/utils';
 import { useSystemMetrics } from '../../features/system/systemQueries';
 import { formatBytes } from '../../lib/utils/formatBytes';
@@ -16,28 +17,51 @@ export function StatusBar({
   bufferLevel: propBufferLevel,
   sampleRate = 48000,
 }: StatusBarProps) {
-  const activeConnection = useConnectionStore(selectActiveConnection);
+  const activeUnitId = useConnectionStore((state) => state.activeUnitId);
+  const activeConnectionStatus = useConnectionStore((state) => {
+    if (!state.activeUnitId) return 'disconnected';
+    return state.connections.get(state.activeUnitId)?.status ?? 'disconnected';
+  });
   const [processingLoad, setProcessingLoad] = useState(propProcessingLoad ?? 0);
   const [bufferLevel, setBufferLevel] = useState(propBufferLevel ?? 0);
-  const activeUnitId = useConnectionStore((state) => state.activeUnitId);
+  const isPageVisible = usePageVisibility();
   const systemMetricsQuery = useSystemMetrics(activeUnitId);
+  const pollInFlightRef = useRef(false);
 
   useEffect(() => {
-    if (!activeUnitId) return;
+    if (!activeUnitId || !isPageVisible || activeConnectionStatus !== 'connected') return;
 
-    const pollInterval = setInterval(async () => {
+    let alive = true;
+
+    const pollOnce = async () => {
+      if (!alive) return;
+      if (pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
       try {
-        const load = await useConnectionStore.getState().getProcessingLoad(activeUnitId);
-        const buffer = await useConnectionStore.getState().getBufferLevel(activeUnitId);
+        const [load, buffer] = await Promise.all([
+          useConnectionStore.getState().getProcessingLoad(activeUnitId),
+          useConnectionStore.getState().getBufferLevel(activeUnitId),
+        ]);
+
+        if (!alive) return;
         setProcessingLoad(load);
         setBufferLevel(buffer);
       } catch {
         // Silently handle polling errors
+      } finally {
+        pollInFlightRef.current = false;
       }
-    }, 1000);
+    };
 
-    return () => { clearInterval(pollInterval); };
-  }, [activeUnitId]);
+    void pollOnce();
+    const pollInterval = setInterval(() => { void pollOnce(); }, 1000);
+
+    return () => {
+      alive = false;
+      pollInFlightRef.current = false;
+      clearInterval(pollInterval);
+    };
+  }, [activeUnitId, isPageVisible, activeConnectionStatus]);
 
   const loadColor =
     processingLoad > 80 ? 'text-meter-red' : processingLoad > 50 ? 'text-meter-yellow' : 'text-meter-green';
@@ -49,7 +73,7 @@ export function StatusBar({
     bufferLevel < 20 ? 'text-meter-red' : bufferLevel < 40 ? 'text-meter-yellow' : 'text-meter-green';
 
   const hasSelectedUnit = !!activeUnitId;
-  const isUnitConnected = !!activeUnitId && activeConnection?.status === 'connected';
+  const isUnitConnected = !!activeUnitId && activeConnectionStatus === 'connected';
 
   const showSystemMetrics = hasSelectedUnit && !!systemMetricsQuery.systemMetricsUrl;
 

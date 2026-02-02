@@ -55,12 +55,22 @@ export function EQCanvas({
   const [isPlacing, setIsPlacing] = useState(false);
   const onBackgroundPointerMoveRef = useRef<EQCanvasProps['onBackgroundPointerMove']>(onBackgroundPointerMove);
   const onBackgroundPointerUpRef = useRef<EQCanvasProps['onBackgroundPointerUp']>(onBackgroundPointerUp);
+  // Track drag event listeners for cleanup on unmount
+  const dragCleanupRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     onBackgroundPointerMoveRef.current = onBackgroundPointerMove;
   }, [onBackgroundPointerMove]);
   useEffect(() => {
     onBackgroundPointerUpRef.current = onBackgroundPointerUp;
   }, [onBackgroundPointerUp]);
+
+  // Cleanup drag listeners on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      dragCleanupRef.current?.();
+      dragCleanupRef.current = null;
+    };
+  }, []);
   const [hoverPoint, setHoverPoint] = useState<{ x: number; y: number; frequency: number; gain: number } | null>(
     null,
   );
@@ -180,17 +190,24 @@ export function EQCanvas({
           onBackgroundPointerMoveRef.current?.(moveFreq, moveGain);
         };
 
+         const cleanupDragListeners = () => {
+           window.removeEventListener('mousemove', handleMouseMove);
+           window.removeEventListener('mouseup', handleMouseUp);
+           dragCleanupRef.current = null;
+         };
+
          const handleMouseUp = () => {
            if (!isPlacingRef.current) return;
            isPlacingRef.current = false;
            setIsPlacing(false);
            onBackgroundPointerUpRef.current?.();
-           window.removeEventListener('mousemove', handleMouseMove);
-           window.removeEventListener('mouseup', handleMouseUp);
+           cleanupDragListeners();
          };
 
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp, { once: true });
+        // Store cleanup function so it can be called on unmount
+        dragCleanupRef.current = cleanupDragListeners;
         return;
       }
     }

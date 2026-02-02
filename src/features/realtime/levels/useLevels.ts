@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePageVisibility } from '../../../hooks';
 import type { SignalLevels, SignalLevelsRaw } from '../../../types';
 import { normalizeSignalLevels } from '../../../types';
 import { DEFAULT_STATE } from './constants';
@@ -21,12 +22,14 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
 
   const [levels, setLevels] = useState(DEFAULT_STATE);
   const isPolling = enabled && !!wsManager;
+  const isPageVisible = usePageVisibility();
 
   const rafRef = useRef<number | null>(null);
   const pollInFlightRef = useRef(false);
   const lastPollRef = useRef(0);
   const lastFrameRef = useRef(0);
   const lastClippedPollRef = useRef<number>(-Infinity);
+  const isPageVisibleRef = useRef(true);
   const lastSuccessfulLevelsRef = useRef(0);
   const consecutiveLevelFailuresRef = useRef(0);
   const lastReconnectAttemptRef = useRef(0);
@@ -54,6 +57,16 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
   const resetClipping = useCallback(() => {
     setLevels((prev) => ({ ...prev, clippedSamples: 0 }));
   }, []);
+
+  useEffect(() => {
+    isPageVisibleRef.current = isPageVisible;
+
+    // When returning to the tab, allow an immediate poll.
+    if (isPageVisible) {
+      lastPollRef.current = 0;
+      lastClippedPollRef.current = -Infinity;
+    }
+  }, [isPageVisible]);
 
   useEffect(() => {
     if (!enabled || !wsManager) {
@@ -98,10 +111,16 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
       }
 
       try {
-        const [newLevels, clippedSamples] = await Promise.all([
-          fetchLevels(),
-          shouldPollClipped ? fetchClippedSamples() : Promise.resolve<number | null>(null),
-        ]);
+        const newLevels = await fetchLevels();
+
+        if (shouldPollClipped && alive) {
+          // Do not let clipped sample fetching delay meter updates.
+          // Check alive before starting fetch to avoid unnecessary network requests on unmount.
+          void fetchClippedSamples().then((clippedSamples) => {
+            if (!alive) return;
+            setLevels((prev) => ({ ...prev, clippedSamples }));
+          });
+        }
 
         if (!alive) return;
 
@@ -138,7 +157,7 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
               peakHoldDecay,
               peakHoldDecayRate,
             ),
-            clippedSamples: clippedSamples ?? prev.clippedSamples,
+            clippedSamples: prev.clippedSamples,
             lastUpdated: timestamp,
           }));
           return;
@@ -146,11 +165,6 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
 
         consecutiveLevelFailuresRef.current += 1;
         maybeReconnect(timestamp);
-
-        // Still allow clipped sample updates to surface if requested.
-        if (clippedSamples !== null) {
-          setLevels((prev) => ({ ...prev, clippedSamples }));
-        }
       } finally {
         pollInFlightRef.current = false;
       }
@@ -158,6 +172,11 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
 
     const animate = (timestamp: number) => {
       if (!alive) return;
+
+      if (!isPageVisibleRef.current) {
+        rafRef.current = requestAnimationFrame(animate);
+        return;
+      }
 
       const timeSinceLastPoll = timestamp - lastPollRef.current;
       if (timeSinceLastPoll >= pollInterval && !pollInFlightRef.current) {

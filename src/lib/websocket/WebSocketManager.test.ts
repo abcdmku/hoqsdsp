@@ -26,6 +26,7 @@ class MockWebSocket {
   onerror: ((event: Event) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
   lastSentMessage = '';
+  sendCount = 0;
 
   constructor(url: string) {
     this.url = url;
@@ -43,6 +44,7 @@ class MockWebSocket {
       throw new Error('WebSocket is not open');
     }
     this.lastSentMessage = data;
+    this.sendCount += 1;
   }
 
   close(code?: number, reason?: string): void {
@@ -276,6 +278,27 @@ describe('WebSocketManager', () => {
       expect(messages).toHaveLength(1);
       expect(messages[0]).toEqual(testMessage);
     });
+
+    it('should dedupe in-flight polling requests by default', async () => {
+      const ws = (manager as any).ws as MockWebSocket;
+
+      const promise1 = manager.send<number>('GetProcessingLoad');
+      const promise2 = manager.send<number>('GetProcessingLoad');
+
+      expect(ws.sendCount).toBe(1);
+
+      setTimeout(() => {
+        ws.simulateMessage({
+          GetProcessingLoad: {
+            Ok: 12.34,
+          },
+        });
+      }, 10);
+
+      const [result1, result2] = await Promise.all([promise1, promise2]);
+      expect(result1).toBe(12.34);
+      expect(result2).toBe(12.34);
+    });
   });
 
   describe('Message Queue', () => {
@@ -285,6 +308,11 @@ describe('WebSocketManager', () => {
 
       // Message should be queued
       expect((manager as any).messageQueue.size).toBe(1);
+    });
+
+    it('should not queue high-frequency polling commands when disconnected', async () => {
+      await expect(manager.send('GetProcessingLoad')).rejects.toThrow('WebSocket not connected');
+      expect((manager as any).messageQueue.size).toBe(0);
     });
 
     it('should prioritize high priority messages', async () => {

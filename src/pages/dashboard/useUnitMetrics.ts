@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { usePageVisibility } from '../../hooks';
 import type { ConnectionStatus, DSPUnit } from '../../types';
 
 interface UseUnitMetricsParams {
@@ -19,47 +20,69 @@ export function useUnitMetrics({
   const [unitMuted, setUnitMuted] = useState<Record<string, boolean>>({});
   const [unitLoads, setUnitLoads] = useState<Record<string, number>>({});
   const [unitBuffers, setUnitBuffers] = useState<Record<string, number>>({});
+  const isPageVisible = usePageVisibility();
 
   useEffect(() => {
+    if (!isPageVisible) {
+      return;
+    }
+
     let alive = true;
+    let pollInFlight = false;
 
     const poll = async () => {
+      if (pollInFlight) return;
+      pollInFlight = true;
+
       const connectedUnitIds = units
         .filter((u) => getConnectionStatus(u.id).status === 'connected')
         .map((u) => u.id);
 
-      if (connectedUnitIds.length === 0) return;
+      if (connectedUnitIds.length === 0) {
+        pollInFlight = false;
+        return;
+      }
 
       const nextVolumes: Record<string, number> = {};
       const nextMuted: Record<string, boolean> = {};
       const nextLoads: Record<string, number> = {};
       const nextBuffers: Record<string, number> = {};
 
-      await Promise.all(
-        connectedUnitIds.map(async (unitId) => {
-          try {
-            const [volume, mute, load, buffer] = await Promise.all([
-              useConnectionStore.getState().getVolume(unitId),
-              useConnectionStore.getState().getMute(unitId),
-              useConnectionStore.getState().getProcessingLoad(unitId),
-              useConnectionStore.getState().getBufferLevel(unitId),
-            ]);
+      try {
+        await Promise.all(
+          connectedUnitIds.map(async (unitId) => {
+            // Check alive before each unit fetch to avoid unnecessary work on unmount
+            if (!alive) return;
+            try {
+              const [volume, mute, load, buffer] = await Promise.all([
+                useConnectionStore.getState().getVolume(unitId),
+                useConnectionStore.getState().getMute(unitId),
+                useConnectionStore.getState().getProcessingLoad(unitId),
+                useConnectionStore.getState().getBufferLevel(unitId),
+              ]);
 
-            nextVolumes[unitId] = volume;
-            nextMuted[unitId] = mute;
-            nextLoads[unitId] = load;
-            nextBuffers[unitId] = buffer;
-          } catch {
-            // Ignore per-unit errors to keep the dashboard responsive
-          }
-        }),
-      );
+              // Check alive again after async operations complete
+              if (!alive) return;
 
-      if (!alive) return;
-      setUnitVolumes((prev) => ({ ...prev, ...nextVolumes }));
-      setUnitMuted((prev) => ({ ...prev, ...nextMuted }));
-      setUnitLoads((prev) => ({ ...prev, ...nextLoads }));
-      setUnitBuffers((prev) => ({ ...prev, ...nextBuffers }));
+              nextVolumes[unitId] = volume;
+              nextMuted[unitId] = mute;
+              nextLoads[unitId] = load;
+              nextBuffers[unitId] = buffer;
+            } catch {
+              // Ignore per-unit errors to keep the dashboard responsive
+            }
+          }),
+        );
+
+        if (!alive) return;
+        // Replace state completely instead of merging to prevent orphaned keys from disconnected units
+        setUnitVolumes(nextVolumes);
+        setUnitMuted(nextMuted);
+        setUnitLoads(nextLoads);
+        setUnitBuffers(nextBuffers);
+      } finally {
+        pollInFlight = false;
+      }
     };
 
     void poll();
@@ -67,9 +90,10 @@ export function useUnitMetrics({
 
     return () => {
       alive = false;
+      pollInFlight = false;
       clearInterval(pollInterval);
     };
-  }, [units, getConnectionStatus]);
+  }, [units, getConnectionStatus, isPageVisible]);
 
   const handleVolumeChange = useCallback(
     (unitId: string, volume: number) => {

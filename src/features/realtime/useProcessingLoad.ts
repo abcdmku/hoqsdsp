@@ -1,4 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { usePageVisibility } from '../../hooks';
+import { normalizeBufferLevel } from '../../types';
 
 export interface ProcessingLoadState {
   /** CPU processing load as percentage (0-100) */
@@ -54,9 +56,12 @@ export function useProcessingLoad(options: UseProcessingLoadOptions = {}): {
 
   const [metrics, setMetrics] = useState<ProcessingLoadState>(DEFAULT_STATE);
   const isPolling = enabled && !!wsManager;
+  const isPageVisible = usePageVisibility();
 
   // Refs for interval management
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollInFlightRef = useRef(false);
+  const isMountedRef = useRef(false);
 
   /**
    * Fetch processing load from WebSocket
@@ -80,8 +85,7 @@ export function useProcessingLoad(options: UseProcessingLoadOptions = {}): {
 
     try {
       const result = await wsManager.send<number>('GetBufferLevel');
-      // CamillaDSP returns buffer level as a fraction 0-1, convert to percentage
-      return result * 100;
+      return normalizeBufferLevel(result);
     } catch {
       return 0;
     }
@@ -127,6 +131,10 @@ export function useProcessingLoad(options: UseProcessingLoadOptions = {}): {
         fetchRateAdjust(),
       ]);
 
+    if (!isMountedRef.current) {
+      return;
+    }
+
     setMetrics({
       processingLoad,
       bufferLevel,
@@ -140,25 +148,37 @@ export function useProcessingLoad(options: UseProcessingLoadOptions = {}): {
    * Main polling effect
    */
   useEffect(() => {
-    if (!enabled || !wsManager) {
+    if (!enabled || !wsManager || !isPageVisible) {
       return;
     }
 
-    // Initial poll - safe async function that updates state after data fetch
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void pollMetrics();
+    isMountedRef.current = true;
+
+    const pollOnce = async () => {
+      if (pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
+      try {
+        await pollMetrics();
+      } finally {
+        pollInFlightRef.current = false;
+      }
+    };
+
+    void pollOnce();
 
     // Set up interval
-    intervalRef.current = setInterval(() => { void pollMetrics(); }, pollInterval);
+    intervalRef.current = setInterval(() => { void pollOnce(); }, pollInterval);
 
     // Cleanup
     return () => {
+      isMountedRef.current = false;
+      pollInFlightRef.current = false;
       if (intervalRef.current !== null) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     };
-  }, [enabled, wsManager, pollInterval, pollMetrics]);
+  }, [enabled, wsManager, pollInterval, pollMetrics, isPageVisible]);
 
   return {
     metrics,

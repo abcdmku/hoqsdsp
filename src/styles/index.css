@@ -114,8 +114,33 @@ body {
   @apply bg-dsp-accent;
 }
 
+.dsp-meter-motion-transform {
+  will-change: transform;
+  transition-property: transform;
+  transition-duration: var(--meter-motion-ms, 120ms);
+  transition-timing-function: linear;
+}
+
+.dsp-meter-motion-opacity {
+  transition-property: opacity;
+  transition-duration: var(--meter-motion-ms, 120ms);
+  transition-timing-function: linear;
+}
+
+.dsp-meter-motion-position {
+  transition-property: bottom, left;
+  transition-duration: var(--meter-motion-ms, 120ms);
+  transition-timing-function: linear;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;
+  }
+
+  .dsp-meter-motion-transform,
+  .dsp-meter-motion-opacity,
+  .dsp-meter-motion-position {
+    transition-duration: 0ms !important;
   }
 }

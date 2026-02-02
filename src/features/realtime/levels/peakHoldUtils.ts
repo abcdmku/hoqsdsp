@@ -40,16 +40,24 @@ export function applyPeakHoldDecay(
   decayMs: number,
   decayRate: number,
 ): ChannelLevelState[] {
-  let needsUpdate = false;
-  const next = channels.map((ch, index) => {
+  let next: ChannelLevelState[] | null = null;
+
+  for (let index = 0; index < channels.length; index++) {
+    const ch = channels[index];
+    if (!ch) continue;
+
     const key = `${prefix}-${index}`;
     const lastPeakTime = timestamps.get(key) ?? 0;
-    if (now - lastPeakTime > decayMs && ch.peakHold > ch.peak) {
-      needsUpdate = true;
-      return { ...ch, peakHold: Math.max(ch.peakHold - decayRate, ch.peak) };
+    if (now - lastPeakTime <= decayMs || ch.peakHold <= ch.peak) {
+      continue;
     }
-    return ch;
-  });
 
-  return needsUpdate ? next : channels;
+    if (!next) {
+      next = channels.slice();
+    }
+
+    next[index] = { ...ch, peakHold: Math.max(ch.peakHold - decayRate, ch.peak) };
+  }
+
+  return next ?? channels;
 }

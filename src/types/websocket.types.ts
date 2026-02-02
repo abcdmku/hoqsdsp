@@ -111,6 +111,33 @@ export function normalizeSignalLevels(raw: SignalLevelsRaw): SignalLevels {
   return { capture, playback };
 }
 
+/**
+ * Normalize CamillaDSP buffer level to a percentage (0-100).
+ *
+ * CamillaDSP returns different units depending on version/config:
+ * - Fraction (0..1)
+ * - Percent (0..100)
+ * - Per-mille (0..1000) commonly seen with rate adjust enabled
+ */
+export function normalizeBufferLevel(raw: number): number {
+  if (!Number.isFinite(raw)) return 0;
+
+  let percent: number;
+  if (raw <= 1) {
+    percent = raw * 100;
+  } else if (raw <= 100) {
+    percent = raw;
+  } else if (raw <= 1000) {
+    percent = raw / 10;
+  } else {
+    // Unknown scale (some implementations may return raw samples).
+    // Clamp to keep UI sane rather than rendering huge percentages.
+    percent = 100;
+  }
+
+  return Math.max(0, Math.min(100, percent));
+}
+
 // Signal range (min/max since last query)
 export interface SignalRange {
   capture: ChannelRange[];

@@ -6,7 +6,7 @@
  * and cleanup automatically.
  */
 
-import type { SignalLevels } from '../../types';
+import { normalizeBufferLevel, type SignalLevels } from '../../types';
 
 export type SubscriptionType =
   | 'levels'
@@ -124,9 +124,15 @@ export class RealtimeSubscriptionManager {
 
         await Promise.all(promises);
 
+        // Check if subscription was cancelled during the poll to prevent memory leaks
+        if (!this.subscriptions.has(id)) return;
+
         options.onData(data);
       } catch (error) {
-        options.onError?.(error instanceof Error ? error : new Error(String(error)));
+        // Only call onError if subscription is still active
+        if (this.subscriptions.has(id)) {
+          options.onError?.(error instanceof Error ? error : new Error(String(error)));
+        }
       }
     };
 
@@ -205,7 +211,7 @@ export class RealtimeSubscriptionManager {
   private async fetchBufferLevel(): Promise<number> {
     try {
       const result = await this.wsManager.send<number>('GetBufferLevel');
-      return result * 100; // Convert 0-1 to percentage
+      return normalizeBufferLevel(result);
     } catch {
       return 0;
     }

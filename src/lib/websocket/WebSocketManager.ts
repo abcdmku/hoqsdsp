@@ -18,6 +18,7 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   private readonly url: string;
   private readonly pendingRequests = new PendingRequestStore();
   private readonly messageQueue = new MessageQueue();
+  private readonly inFlightDedupedRequests = new Map<string, Promise<unknown>>();
   private state: WSConnectionState = 'disconnected';
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 10;
@@ -32,6 +33,29 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
   private intentionalClose = false;
   private readonly heartbeatInterval = 15000;
   private readonly staleTimeout = 45000;
+
+  private static readonly dedupeCommands = new Set<string>([
+    'GetSignalLevelsSinceLast',
+    'GetClippedSamples',
+    'GetProcessingLoad',
+    'GetBufferLevel',
+    'GetCaptureSampleRate',
+    'GetRateAdjust',
+    'GetVolume',
+    'GetMute',
+    'GetState',
+  ]);
+
+  private static readonly noQueueWhenDisconnectedCommands = new Set<string>([
+    'GetSignalLevelsSinceLast',
+    'GetClippedSamples',
+    'GetProcessingLoad',
+    'GetBufferLevel',
+    'GetCaptureSampleRate',
+    'GetRateAdjust',
+    'GetVolume',
+    'GetMute',
+  ]);
 
   constructor(url: string) {
     super();
@@ -120,31 +144,55 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
     this.intentionalClose = true;
 
     if (this.ws) {
+      // Nullify all handlers to prevent closure references from preventing GC
+      this.ws.onopen = null;
       this.ws.onclose = null;
+      this.ws.onerror = null;
+      this.ws.onmessage = null;
       this.ws.close(1000, 'Client disconnect');
       this.ws = null;
     }
 
     this.setState('disconnected');
     this.emit('disconnected', 1000, 'Client disconnect');
+
+    // Remove all EventEmitter listeners to prevent memory leaks from accumulated subscriptions
+    this.removeAllListeners();
   }
 
   async send<T>(
     command: WSCommand,
     priority: MessagePriority = 'normal',
-    options?: { timeout?: number },
+    options?: { timeout?: number; dedupe?: boolean; queueWhenDisconnected?: boolean },
   ): Promise<T> {
+    const commandName = formatCommand(command);
+    const message = formatMessage(command);
+    const dedupe = options?.dedupe ?? WebSocketManager.dedupeCommands.has(commandName);
+    const dedupeKey = message;
+
+    if (dedupe) {
+      const inFlight = this.inFlightDedupedRequests.get(dedupeKey);
+      if (inFlight) {
+        return inFlight as Promise<T>;
+      }
+    }
+
     if (!this.isConnected) {
-      this.messageQueue.enqueue(command, priority);
+      const queueWhenDisconnected =
+        options?.queueWhenDisconnected
+        ?? !WebSocketManager.noQueueWhenDisconnectedCommands.has(commandName);
+
+      if (queueWhenDisconnected) {
+        this.messageQueue.enqueue(command, priority);
+      }
+
       throw new Error('WebSocket not connected');
     }
 
     this.lastSentAt = Date.now();
-    const commandName = formatCommand(command);
-    const message = formatMessage(command);
     const timeout = options?.timeout ?? this.requestTimeout;
 
-    return new Promise<T>((resolve, reject) => {
+    const requestPromise = new Promise<T>((resolve, reject) => {
       const pending: PendingRequest = {
         resolve: resolve as (value: unknown) => void,
         reject,
@@ -160,6 +208,17 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
       this.pendingRequests.add(commandName, pending);
       this.ws?.send(message);
     });
+
+    if (dedupe) {
+      this.inFlightDedupedRequests.set(dedupeKey, requestPromise as Promise<unknown>);
+      requestPromise
+        .finally(() => {
+          this.inFlightDedupedRequests.delete(dedupeKey);
+        })
+        .catch(() => {});
+    }
+
+    return requestPromise;
   }
 
   private setState(state: WSConnectionState): void {
@@ -270,6 +329,8 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
       clearTimeout(pending.timeout);
       pending.reject(new Error('Connection closed'));
     });
+    // Clear in-flight deduped requests to prevent memory leaks
+    this.inFlightDedupedRequests.clear();
   }
 
   private flushMessageQueue(): void {
