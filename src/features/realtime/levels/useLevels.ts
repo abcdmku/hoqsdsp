@@ -21,6 +21,7 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
   } = options;
 
   const [levels, setLevels] = useState(DEFAULT_STATE);
+  const levelsRef = useRef(levels);
   const isPolling = enabled && !!wsManager;
   const isPageVisible = usePageVisibility();
 
@@ -34,6 +35,10 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
   const consecutiveLevelFailuresRef = useRef(0);
   const lastReconnectAttemptRef = useRef(0);
   const peakHoldTimestampRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    levelsRef.current = levels;
+  }, [levels]);
 
   const fetchLevels = useCallback(async (): Promise<SignalLevels | null> => {
     if (!wsManager) return null;
@@ -55,7 +60,13 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
   }, [wsManager]);
 
   const resetClipping = useCallback(() => {
-    setLevels((prev) => ({ ...prev, clippedSamples: 0 }));
+    if (levelsRef.current.clippedSamples === 0) return;
+    setLevels((prev) => {
+      if (prev.clippedSamples === 0) return prev;
+      const next = { ...prev, clippedSamples: 0 };
+      levelsRef.current = next;
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -118,7 +129,13 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
           // Check alive before starting fetch to avoid unnecessary network requests on unmount.
           void fetchClippedSamples().then((clippedSamples) => {
             if (!alive) return;
-            setLevels((prev) => ({ ...prev, clippedSamples }));
+            if (levelsRef.current.clippedSamples === clippedSamples) return;
+            setLevels((prev) => {
+              if (prev.clippedSamples === clippedSamples) return prev;
+              const next = { ...prev, clippedSamples };
+              levelsRef.current = next;
+              return next;
+            });
           });
         }
 
@@ -146,8 +163,8 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
             }
           }
 
-          setLevels((prev) => ({
-            capture: updatePeakHold(
+          setLevels((prev) => {
+            const capture = updatePeakHold(
               prev.capture,
               newLevels.capture,
               'capture',
@@ -155,8 +172,8 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
               peakHoldTimestampRef.current,
               peakHoldDecay,
               peakHoldDecayRate,
-            ),
-            playback: updatePeakHold(
+            );
+            const playback = updatePeakHold(
               prev.playback,
               newLevels.playback,
               'playback',
@@ -164,10 +181,16 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
               peakHoldTimestampRef.current,
               peakHoldDecay,
               peakHoldDecayRate,
-            ),
-            clippedSamples: prev.clippedSamples,
-            lastUpdated: timestamp,
-          }));
+            );
+            const next = {
+              capture,
+              playback,
+              clippedSamples: prev.clippedSamples,
+              lastUpdated: timestamp,
+            };
+            levelsRef.current = next;
+            return next;
+          });
           return;
         }
 
@@ -194,28 +217,60 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
 
       if (timestamp - lastFrameRef.current >= 16) {
         lastFrameRef.current = timestamp;
-        setLevels((prev) => {
-          const nextCapture = applyPeakHoldDecay(
-            prev.capture,
-            'capture',
-            timestamp,
-            peakHoldTimestampRef.current,
-            peakHoldDecay,
-            peakHoldDecayRate,
-          );
-          const nextPlayback = applyPeakHoldDecay(
-            prev.playback,
-            'playback',
-            timestamp,
-            peakHoldTimestampRef.current,
-            peakHoldDecay,
-            peakHoldDecayRate,
-          );
-          if (nextCapture === prev.capture && nextPlayback === prev.playback) {
-            return prev;
-          }
-          return { ...prev, capture: nextCapture, playback: nextPlayback };
-        });
+        const snapshot = levelsRef.current;
+        const snapshotCapture = applyPeakHoldDecay(
+          snapshot.capture,
+          'capture',
+          timestamp,
+          peakHoldTimestampRef.current,
+          peakHoldDecay,
+          peakHoldDecayRate,
+        );
+        const snapshotPlayback = applyPeakHoldDecay(
+          snapshot.playback,
+          'playback',
+          timestamp,
+          peakHoldTimestampRef.current,
+          peakHoldDecay,
+          peakHoldDecayRate,
+        );
+        const captureChanged = snapshotCapture !== snapshot.capture;
+        const playbackChanged = snapshotPlayback !== snapshot.playback;
+
+        // Avoid calling setState when nothing changes; repeated no-op updates can accumulate
+        // in React's internal update queue over time.
+        if (captureChanged || playbackChanged) {
+          setLevels((prev) => {
+            if (prev.capture === snapshot.capture && prev.playback === snapshot.playback) {
+              const next = { ...prev, capture: snapshotCapture, playback: snapshotPlayback };
+              levelsRef.current = next;
+              return next;
+            }
+
+            const nextCapture = applyPeakHoldDecay(
+              prev.capture,
+              'capture',
+              timestamp,
+              peakHoldTimestampRef.current,
+              peakHoldDecay,
+              peakHoldDecayRate,
+            );
+            const nextPlayback = applyPeakHoldDecay(
+              prev.playback,
+              'playback',
+              timestamp,
+              peakHoldTimestampRef.current,
+              peakHoldDecay,
+              peakHoldDecayRate,
+            );
+            if (nextCapture === prev.capture && nextPlayback === prev.playback) {
+              return prev;
+            }
+            const next = { ...prev, capture: nextCapture, playback: nextPlayback };
+            levelsRef.current = next;
+            return next;
+          });
+        }
       }
 
       rafRef.current = requestAnimationFrame(animate);

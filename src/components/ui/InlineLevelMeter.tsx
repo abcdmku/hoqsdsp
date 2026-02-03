@@ -37,54 +37,119 @@ export interface InlineLevelMeterProps {
 function useSmoothedValue(targetValue: number, smoothingMs: number): number {
   const [smoothedValue, setSmoothedValue] = useState(targetValue);
   const targetRef = useRef(targetValue);
+  const smoothedRef = useRef(targetValue);
   const lastTimeRef = useRef<number>(0);
-  const animationFrameRef = useRef<number | undefined>(undefined);
+  const animationFrameRef = useRef<number | null>(null);
+  const runningRef = useRef(false);
+  const startRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    smoothedRef.current = smoothedValue;
+  }, [smoothedValue]);
 
   useEffect(() => {
     targetRef.current = targetValue;
   }, [targetValue]);
 
   useEffect(() => {
-    if (smoothingMs <= 0) return;
+    if (smoothingMs <= 0) {
+      startRef.current = null;
+      runningRef.current = false;
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
 
-    lastTimeRef.current = performance.now();
+      const target = targetRef.current;
+      if (smoothedRef.current !== target) {
+        smoothedRef.current = target;
+        setSmoothedValue(target);
+      }
+      return;
+    }
 
-    const animate = () => {
+    let alive = true;
+
+    const step = () => {
+      if (!alive) return;
+
       const now = performance.now();
       const deltaTime = now - lastTimeRef.current;
       lastTimeRef.current = now;
 
-      setSmoothedValue((current) => {
-        // If target is at minimum (no signal), decay slowly
-        // If target is higher, rise quickly
-        const target = targetRef.current;
-        const isRising = target > current;
-        // Rise time is faster (1/4 of smoothing), fall time uses full smoothing
-        const effectiveSmoothing = isRising ? smoothingMs / 4 : smoothingMs;
+      const current = smoothedRef.current;
+      const target = targetRef.current;
+      const isRising = target > current;
+      const effectiveSmoothing = isRising ? smoothingMs / 4 : smoothingMs;
 
-        // Exponential smoothing factor
-        const alpha = 1 - Math.exp(-deltaTime / effectiveSmoothing);
-        const newValue = current + alpha * (target - current);
+      const alpha = 1 - Math.exp(-deltaTime / effectiveSmoothing);
+      let next = current + alpha * (target - current);
 
-        // Snap to target if very close
-        if (Math.abs(newValue - target) < 0.1) {
-          return target;
-        }
+      // Snap to target if very close
+      if (Math.abs(next - target) < 0.1) {
+        next = target;
+      }
 
-        return newValue;
-      });
+      // Avoid no-op state updates; repeated no-ops can accumulate React internal updates over time.
+      if (Math.abs(next - current) > 0.0001) {
+        smoothedRef.current = next;
+        setSmoothedValue(next);
+      }
 
-      animationFrameRef.current = requestAnimationFrame(animate);
+      if (next === target) {
+        runningRef.current = false;
+        animationFrameRef.current = null;
+        return;
+      }
+
+      animationFrameRef.current = requestAnimationFrame(step);
     };
 
-    animationFrameRef.current = requestAnimationFrame(animate);
+    const start = () => {
+      if (!alive) return;
+      if (runningRef.current) return;
+
+      const current = smoothedRef.current;
+      const target = targetRef.current;
+      if (Math.abs(target - current) < 0.1) {
+        if (current !== target) {
+          smoothedRef.current = target;
+          setSmoothedValue(target);
+        }
+        return;
+      }
+
+      runningRef.current = true;
+      lastTimeRef.current = performance.now();
+      animationFrameRef.current = requestAnimationFrame(step);
+    };
+
+    startRef.current = start;
+    start();
 
     return () => {
-      if (animationFrameRef.current) {
+      alive = false;
+      startRef.current = null;
+      runningRef.current = false;
+      if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
   }, [smoothingMs]);
+
+  useEffect(() => {
+    if (smoothingMs <= 0) {
+      if (smoothedRef.current !== targetValue) {
+        smoothedRef.current = targetValue;
+        setSmoothedValue(targetValue);
+      }
+      return;
+    }
+
+    // If the target changes and the animation has stopped, restart it.
+    startRef.current?.();
+  }, [targetValue, smoothingMs]);
 
   return smoothingMs > 0 ? smoothedValue : targetValue;
 }
