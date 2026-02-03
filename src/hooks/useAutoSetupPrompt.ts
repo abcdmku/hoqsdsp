@@ -3,6 +3,7 @@ import { useConnectionStore } from '../stores/connectionStore';
 import { useUnitStore } from '../stores/unitStore';
 import { useAutoSetupStore } from '../stores/autoSetupStore';
 import { websocketService } from '../services/websocketService';
+import { fetchConfigFromManager } from '../features/configuration';
 import { showToast } from '../components/feedback';
 import type { ConnectionStatus } from '../types';
 
@@ -21,43 +22,50 @@ export function useAutoSetupPrompt(): void {
   const prevStatusesRef = useRef<Map<string, ConnectionStatus>>(new Map());
   // Track units we've already prompted for to avoid duplicate prompts
   const promptedUnitsRef = useRef<Set<string>>(new Set());
+  const mountedRef = useRef<boolean>(true);
+  const timersRef = useRef<Map<string, number>>(new Map());
+  const retryCountsRef = useRef<Map<string, number>>(new Map());
+  const errorNotifiedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    mountedRef.current = true;
+    const timers = timersRef.current;
+    const retryCounts = retryCountsRef.current;
+    const errorNotified = errorNotifiedRef.current;
+    const prevStatuses = prevStatusesRef.current;
+    const promptedUnits = promptedUnitsRef.current;
+
+    return () => {
+      mountedRef.current = false;
+      for (const timerId of timers.values()) {
+        window.clearTimeout(timerId);
+      }
+      timers.clear();
+      retryCounts.clear();
+      errorNotified.clear();
+      prevStatuses.clear();
+      promptedUnits.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    const isMounted = () => mountedRef.current;
+
     const checkAndPrompt = async (unitId: string) => {
+      if (!isMounted()) return;
       // Don't prompt again for units we've already prompted
       if (promptedUnitsRef.current.has(unitId)) {
         return;
       }
 
       try {
-        // Check if unit has a config by trying to get config JSON
         const manager = websocketService.getManager(unitId);
         if (!manager?.isConnected) return;
 
-        // Try to get the config - if it fails or returns empty, offer auto setup
-        const configResult = await manager.send<string>('GetConfigJson');
+        const config = await fetchConfigFromManager(manager, { timeoutMs: 30000 });
+        if (!isMounted()) return;
 
-        // Parse to check if it's a valid config
-        let hasValidConfig = false;
-        if (configResult) {
-          try {
-            const parsed: unknown = JSON.parse(configResult);
-            // Check if it has the minimum required structure
-            if (
-              typeof parsed === 'object' &&
-              parsed !== null &&
-              'devices' in parsed &&
-              typeof (parsed as { devices: unknown }).devices === 'object'
-            ) {
-              const devices = (parsed as { devices: { capture?: unknown; playback?: unknown } }).devices;
-              hasValidConfig = !!(devices.capture && devices.playback);
-            }
-          } catch {
-            hasValidConfig = false;
-          }
-        }
-
-        if (!hasValidConfig) {
+        if (!config) {
           // Mark as prompted so we don't show again
           promptedUnitsRef.current.add(unitId);
 
@@ -75,22 +83,38 @@ export function useAutoSetupPrompt(): void {
           });
         }
       } catch {
-        // If we can't get config, it might mean there is no config
-        // Mark as prompted and offer auto setup
-        if (!promptedUnitsRef.current.has(unitId)) {
-          promptedUnitsRef.current.add(unitId);
+        if (!isMounted()) return;
 
+        // Don't auto-prompt setup on transient config load failures; retry a few times.
+        const attempt = (retryCountsRef.current.get(unitId) ?? 0) + 1;
+        retryCountsRef.current.set(unitId, attempt);
+
+        const status = useConnectionStore.getState().connections.get(unitId)?.status;
+        const stillConnected = status === 'connected' && websocketService.getManager(unitId)?.isConnected;
+
+        if (stillConnected && attempt <= 3) {
+          const delayMs = Math.min(5000, 500 * 2 ** (attempt - 1));
+          const existingTimer = timersRef.current.get(unitId);
+          if (existingTimer !== undefined) {
+            window.clearTimeout(existingTimer);
+          }
+          const timerId = window.setTimeout(() => {
+            timersRef.current.delete(unitId);
+            void checkAndPrompt(unitId);
+          }, delayMs);
+          timersRef.current.set(unitId, timerId);
+          return;
+        }
+
+        // Avoid spamming the user; show a single non-actionable warning toast.
+        if (!errorNotifiedRef.current.has(unitId)) {
+          errorNotifiedRef.current.add(unitId);
           const unit = getUnit(unitId);
           const unitName = unit?.name ?? unitId;
-
-          showToast.action(`${unitName} needs configuration`, {
-            description: 'Could not load configuration. Run Auto Setup?',
-            actionLabel: 'Auto Setup',
-            duration: 15000,
-            onAction: () => {
-              requestAutoSetup(unitId);
-            },
-          });
+          showToast.warning(
+            `${unitName}: could not load configuration`,
+            'Not prompting Auto Setup to avoid overwriting existing config.',
+          );
         }
       }
     };
@@ -103,9 +127,19 @@ export function useAutoSetupPrompt(): void {
       // If unit just connected (was not connected before, now connected)
       if (currentStatus === 'connected' && prevStatus !== 'connected') {
         // Small delay to let the connection stabilize
-        setTimeout(() => {
+        const existingTimer = timersRef.current.get(unitId);
+        if (existingTimer !== undefined) {
+          window.clearTimeout(existingTimer);
+          timersRef.current.delete(unitId);
+        }
+        retryCountsRef.current.delete(unitId);
+        errorNotifiedRef.current.delete(unitId);
+
+        const timerId = window.setTimeout(() => {
+          timersRef.current.delete(unitId);
           void checkAndPrompt(unitId);
         }, 500);
+        timersRef.current.set(unitId, timerId);
       }
 
       // Update tracked status
@@ -115,6 +149,13 @@ export function useAutoSetupPrompt(): void {
     // Clean up removed connections from tracking
     prevStatusesRef.current.forEach((_, unitId) => {
       if (!connections.has(unitId)) {
+        const timerId = timersRef.current.get(unitId);
+        if (timerId !== undefined) {
+          window.clearTimeout(timerId);
+          timersRef.current.delete(unitId);
+        }
+        retryCountsRef.current.delete(unitId);
+        errorNotifiedRef.current.delete(unitId);
         prevStatusesRef.current.delete(unitId);
         // Also clear from prompted set so reconnecting shows prompt again
         promptedUnitsRef.current.delete(unitId);

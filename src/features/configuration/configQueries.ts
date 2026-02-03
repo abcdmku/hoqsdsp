@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import type { CamillaConfig } from '../../types';
 import { websocketService } from '../../services/websocketService';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { cleanNullValues } from '../../lib/config/cleanConfig';
 import { useConfigBackupStore } from '../../stores/configBackupStore';
+import { fetchConfigFromManager } from './configFetch';
 
 export const configKeys = {
   all: ['config'] as const,
@@ -16,15 +16,15 @@ export function useConfig(unitId: string) {
   const status = useConnectionStore(
     (state) => state.connections.get(unitId)?.status,
   );
-  const wsManager = websocketService.getManager(unitId);
 
   return useQuery({
     queryKey: configKeys.detail(unitId),
     queryFn: async (): Promise<string> => {
+      const wsManager = websocketService.getManager(unitId);
       if (!wsManager) throw new Error('WebSocket not connected');
-      return wsManager.send<string>('GetConfig');
+      return wsManager.send<string>('GetConfig', 'normal', { timeout: 30000 });
     },
-    enabled: status === 'connected' && !!wsManager,
+    enabled: status === 'connected',
     staleTime: 5000,
   });
 }
@@ -33,22 +33,16 @@ export function useConfigJson(unitId: string) {
   const status = useConnectionStore(
     (state) => state.connections.get(unitId)?.status,
   );
-  const wsManager = websocketService.getManager(unitId);
   const saveConfig = useConfigBackupStore((state) => state.saveConfig);
 
   const query = useQuery({
     queryKey: configKeys.json(unitId),
     queryFn: async (): Promise<CamillaConfig | null> => {
+      const wsManager = websocketService.getManager(unitId);
       if (!wsManager) throw new Error('WebSocket not connected');
-      const jsonString = await wsManager.send<string>('GetConfigJson');
-      const rawConfig = JSON.parse(jsonString) as CamillaConfig | null;
-      if (rawConfig == null) {
-        return null;
-      }
-      // Clean null values that CamillaDSP sends for optional fields
-      return cleanNullValues(rawConfig);
+      return fetchConfigFromManager(wsManager, { timeoutMs: 30000 });
     },
-    enabled: status === 'connected' && !!wsManager,
+    enabled: status === 'connected',
     staleTime: 5000,
   });
 

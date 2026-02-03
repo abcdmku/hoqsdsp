@@ -27,7 +27,7 @@ interface ConnectedUnitCardProps
 }
 
 export function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
-  const { data: config, isLoading: configLoading } = useConfigJson(unit.id);
+  const { data: config, isLoading: configLoading, error: configError } = useConfigJson(unit.id);
   const isConnected = props.status === 'connected';
 
   const autoSetup = useAutoSetup(unit.id);
@@ -48,7 +48,7 @@ export function ConnectedUnitCard({ unit, ...props }: ConnectedUnitCardProps) {
     return playback;
   }, [isConnected, playback]);
 
-  const hasConfig = configLoading ? undefined : !!config;
+  const hasConfig = configLoading || configError ? undefined : !!config;
 
   const handleAutoSetupClick = useCallback(() => {
     setAutoSetupDialogOpen(true);

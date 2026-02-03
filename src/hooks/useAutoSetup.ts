@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { websocketService } from '../services/websocketService';
 import { useSetConfigJson } from '../features/configuration/configMutations';
+import { fetchConfigFromManager } from '../features/configuration';
 import { createMinimalConfig } from '../lib/config/createConfig';
 import {
   findBestHardwareDevice,
@@ -213,27 +214,38 @@ export function useAutoSetup(unitId: string) {
       });
 
       // Step 4: Apply config to device
+      let existingConfig: CamillaConfig | null = null;
+      try {
+        const manager = websocketService.getManager(unitId);
+        if (manager?.isConnected) {
+          existingConfig = await fetchConfigFromManager(manager, { timeoutMs: 30000 });
+        }
+      } catch {
+        existingConfig = null;
+      }
+
       const backupConfig = useConfigBackupStore.getState().getConfig(unitId);
-      const configToApply = backupConfig
-        ? patchConfigForDevices(backupConfig, {
-          captureDevice: captureConfig.deviceForConfig,
-          captureBackend: captureConfig.backend,
-          captureChannels: captureConfig.channels,
-          captureFormat: captureConfig.format,
-          playbackDevice: playbackConfig.deviceForConfig,
-          playbackBackend: playbackConfig.backend,
-          playbackChannels: playbackConfig.channels,
-          playbackFormat: playbackConfig.format,
-          sampleRate: captureConfig.sampleRate,
-          chunkSize: captureConfig.chunkSize,
-        })
+      const baseConfig = existingConfig ?? backupConfig;
+      const configToApply = baseConfig
+        ? patchConfigForDevices(baseConfig, {
+            captureDevice: captureConfig.deviceForConfig,
+            captureBackend: captureConfig.backend,
+            captureChannels: captureConfig.channels,
+            captureFormat: captureConfig.format,
+            playbackDevice: playbackConfig.deviceForConfig,
+            playbackBackend: playbackConfig.backend,
+            playbackChannels: playbackConfig.channels,
+            playbackFormat: playbackConfig.format,
+            sampleRate: captureConfig.sampleRate,
+            chunkSize: captureConfig.chunkSize,
+          })
         : config;
 
       setState(s => ({
         ...s,
         step: 'applying',
-        message: backupConfig
-          ? 'Restoring previous configuration with updated devices...'
+        message: baseConfig
+          ? 'Updating existing configuration with detected devices...'
           : 'Applying configuration...',
       }));
 
@@ -272,7 +284,7 @@ export function useAutoSetup(unitId: string) {
 
       return result;
     }
-  }, [detectDevices, setConfigMutation]);
+  }, [detectDevices, setConfigMutation, unitId]);
 
   // Apply config with user-selected devices
   const applyWithDevices = useCallback(async (
@@ -300,26 +312,37 @@ export function useAutoSetup(unitId: string) {
       });
 
       const backupConfig = useConfigBackupStore.getState().getConfig(unitId);
-      const configToApply = backupConfig
-        ? patchConfigForDevices(backupConfig, {
-          captureDevice: captureConfig.deviceForConfig,
-          captureBackend: captureConfig.backend,
-          captureChannels: captureConfig.channels,
-          captureFormat: captureConfig.format,
-          playbackDevice: playbackConfig.deviceForConfig,
-          playbackBackend: playbackConfig.backend,
-          playbackChannels: playbackConfig.channels,
-          playbackFormat: playbackConfig.format,
-          sampleRate: captureConfig.sampleRate,
-          chunkSize: captureConfig.chunkSize,
-        })
+      let existingConfig: CamillaConfig | null = null;
+      try {
+        const manager = websocketService.getManager(unitId);
+        if (manager?.isConnected) {
+          existingConfig = await fetchConfigFromManager(manager, { timeoutMs: 30000 });
+        }
+      } catch {
+        existingConfig = null;
+      }
+
+      const baseConfig = existingConfig ?? backupConfig;
+      const configToApply = baseConfig
+        ? patchConfigForDevices(baseConfig, {
+            captureDevice: captureConfig.deviceForConfig,
+            captureBackend: captureConfig.backend,
+            captureChannels: captureConfig.channels,
+            captureFormat: captureConfig.format,
+            playbackDevice: playbackConfig.deviceForConfig,
+            playbackBackend: playbackConfig.backend,
+            playbackChannels: playbackConfig.channels,
+            playbackFormat: playbackConfig.format,
+            sampleRate: captureConfig.sampleRate,
+            chunkSize: captureConfig.chunkSize,
+          })
         : config;
 
       setState(s => ({
         ...s,
         step: 'applying',
-        message: backupConfig
-          ? 'Restoring previous configuration with updated devices...'
+        message: baseConfig
+          ? 'Updating existing configuration with selected devices...'
           : 'Applying configuration...',
       }));
 
@@ -358,7 +381,7 @@ export function useAutoSetup(unitId: string) {
 
       return result;
     }
-  }, [setConfigMutation]);
+  }, [setConfigMutation, unitId]);
 
   const reset = useCallback(() => {
     setState({
