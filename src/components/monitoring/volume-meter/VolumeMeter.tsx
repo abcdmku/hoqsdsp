@@ -62,6 +62,12 @@ export const VolumeMeter = React.memo(function VolumeMeter({
   const scaleMarks = getScaleMarks(size);
   const segmentCount = getSegmentCount(size);
   const activeSegments = Math.round((levelPercent / 100) * segmentCount);
+
+  // Cache segment indices to avoid Array.from allocation on every render
+  const segmentIndices = React.useMemo(
+    () => Array.from({ length: segmentCount }, (_, i) => i),
+    [segmentCount],
+  );
   const coverScale = 1 - clampPercent(levelPercent, 100) / 100;
 
   const meterContent = (
@@ -71,7 +77,7 @@ export const VolumeMeter = React.memo(function VolumeMeter({
     >
       {mode === 'segmented' ? (
         <div className={cn('flex h-full w-full gap-px', isVertical ? 'flex-col-reverse' : 'flex-row')}>
-          {Array.from({ length: segmentCount }, (_, i) => {
+          {segmentIndices.map((i) => {
             const isActive = i < activeSegments;
             const segmentDb = -60 + ((i + 1) / segmentCount) * 60;
             const color = isActive ? getColorForLevel(segmentDb) : 'var(--color-dsp-primary)';

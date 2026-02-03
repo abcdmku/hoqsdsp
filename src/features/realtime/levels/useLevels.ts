@@ -129,12 +129,20 @@ export function useLevels(options: UseLevelsOptions = {}): UseLevelsResult {
           consecutiveLevelFailuresRef.current = 0;
 
           // Clean up stale peak hold timestamps for removed channels
-          const validKeys = new Set<string>();
-          newLevels.capture.forEach((_, i) => validKeys.add(`capture-${i}`));
-          newLevels.playback.forEach((_, i) => validKeys.add(`playback-${i}`));
-          for (const key of peakHoldTimestampRef.current.keys()) {
-            if (!validKeys.has(key)) {
-              peakHoldTimestampRef.current.delete(key);
+          // Only delete if map is larger than expected (avoids Set allocation on every poll)
+          const expectedSize = newLevels.capture.length + newLevels.playback.length;
+          if (peakHoldTimestampRef.current.size > expectedSize) {
+            const captureCount = newLevels.capture.length;
+            const playbackCount = newLevels.playback.length;
+            for (const key of peakHoldTimestampRef.current.keys()) {
+              const parts = key.split('-');
+              const prefix = parts[0];
+              const index = parseInt(parts[1] ?? '0', 10);
+              const isValid = (prefix === 'capture' && index < captureCount) ||
+                              (prefix === 'playback' && index < playbackCount);
+              if (!isValid) {
+                peakHoldTimestampRef.current.delete(key);
+              }
             }
           }
 

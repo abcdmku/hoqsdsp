@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { usePageVisibility } from '../../hooks';
 import { normalizeBufferLevel } from '../../types';
 
@@ -210,33 +210,36 @@ export function useFormattedProcessingMetrics(options: UseProcessingLoadOptions 
 } {
   const { metrics, isPolling } = useProcessingLoad(options);
 
-  // CPU load color: green < 50%, yellow 50-80%, red > 80%
-  const cpuLoadColor =
-    metrics.processingLoad > 80
-      ? 'text-meter-red'
-      : metrics.processingLoad > 50
-        ? 'text-meter-yellow'
-        : 'text-meter-green';
+  // Memoize formatted strings to avoid allocation on every render
+  return useMemo(() => {
+    // CPU load color: green < 50%, yellow 50-80%, red > 80%
+    const cpuLoadColor =
+      metrics.processingLoad > 80
+        ? 'text-meter-red'
+        : metrics.processingLoad > 50
+          ? 'text-meter-yellow'
+          : 'text-meter-green';
 
-  // Buffer level color: green 30-80%, yellow 20-30% or 80-90%, red < 20% or > 90%
-  const bufferLevelColor =
-    metrics.bufferLevel < 20 || metrics.bufferLevel > 90
-      ? 'text-meter-red'
-      : metrics.bufferLevel < 30 || metrics.bufferLevel > 80
-        ? 'text-meter-yellow'
-        : 'text-meter-green';
+    // Buffer level color: green 30-80%, yellow 20-30% or 80-90%, red < 20% or > 90%
+    const bufferLevelColor =
+      metrics.bufferLevel < 20 || metrics.bufferLevel > 90
+        ? 'text-meter-red'
+        : metrics.bufferLevel < 30 || metrics.bufferLevel > 80
+          ? 'text-meter-yellow'
+          : 'text-meter-green';
 
-  return {
-    cpuLoadFormatted: `${metrics.processingLoad.toFixed(1)}%`,
-    bufferLevelFormatted: `${metrics.bufferLevel.toFixed(0)}%`,
-    sampleRateFormatted:
-      metrics.captureSampleRate > 0
-        ? `${(metrics.captureSampleRate / 1000).toFixed(1)} kHz`
-        : '-- kHz',
-    rateAdjustFormatted: `${metrics.rateAdjust.toFixed(4)}x`,
-    cpuLoadColor,
-    bufferLevelColor,
-    isPolling,
-    metrics,
-  };
+    return {
+      cpuLoadFormatted: `${metrics.processingLoad.toFixed(1)}%`,
+      bufferLevelFormatted: `${metrics.bufferLevel.toFixed(0)}%`,
+      sampleRateFormatted:
+        metrics.captureSampleRate > 0
+          ? `${(metrics.captureSampleRate / 1000).toFixed(1)} kHz`
+          : '-- kHz',
+      rateAdjustFormatted: `${metrics.rateAdjust.toFixed(4)}x`,
+      cpuLoadColor,
+      bufferLevelColor,
+      isPolling,
+      metrics,
+    };
+  }, [metrics, isPolling]);
 }
