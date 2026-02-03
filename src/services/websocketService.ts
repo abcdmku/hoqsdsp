@@ -39,6 +39,10 @@ class WebSocketService {
       setWebSocketManager(unitId, manager);
       this.connections.set(unitId, { unitId, address, port });
     } catch (error) {
+      // Prevent "ghost" managers from retaining timers/sockets after a failed connect.
+      // If connect() rejects, the manager may still have an underlying WebSocket and/or
+      // scheduled reconnect attempts that keep it alive and leak memory.
+      manager.disconnect();
       throw new Error(`Failed to connect to ${address}:${port}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }

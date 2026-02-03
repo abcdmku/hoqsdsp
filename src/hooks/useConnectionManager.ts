@@ -1,6 +1,18 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useUnitStore } from '../stores/unitStore';
+import type { DSPUnit } from '../types';
+
+const BASE_RETRY_DELAY_MS = 1000;
+const MAX_RETRY_DELAY_MS = 30000;
+const MAX_RETRY_EXPONENT = 5;
+
+function getRetryDelayMs(attempt: number): number {
+  // attempt: 1 => 1s, 2 => 2s, 3 => 4s ... capped to ~30s
+  const exponent = Math.min(Math.max(0, attempt - 1), MAX_RETRY_EXPONENT);
+  const delay = BASE_RETRY_DELAY_MS * 2 ** exponent;
+  return Math.min(MAX_RETRY_DELAY_MS, delay);
+}
 
 /**
  * Manages WebSocket connections at the app level.
@@ -20,64 +32,127 @@ export function useConnectionManager() {
   const connectUnit = useConnectionStore((state) => state.connectUnit);
   const connections = useConnectionStore((state) => state.connections);
 
-  // Track which units we've attempted to connect
-  const connectedUnitsRef = useRef<Set<string>>(new Set());
-  // Track if initial auto-connect has run
-  const initialConnectDone = useRef(false);
+  const mountedRef = useRef(true);
+  const unitsByIdRef = useRef<Map<string, DSPUnit>>(new Map());
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const retryAttemptsRef = useRef<Map<string, number>>(new Map());
+  const retryTimersRef = useRef<Map<string, number>>(new Map());
+  const connectNowRef = useRef<(unitId: string) => void>(() => {});
 
-  // Auto-connect ALL units on app startup
   useEffect(() => {
-    if (initialConnectDone.current || units.length === 0) return;
-    initialConnectDone.current = true;
-
-    // Connect all units in parallel
-    units.forEach((unit) => {
-      const connection = connections.get(unit.id);
-      const isConnected = connection?.status === 'connected';
-      const isConnecting = connection?.status === 'connecting';
-
-      if (!isConnected && !isConnecting && !connectedUnitsRef.current.has(unit.id)) {
-        connectedUnitsRef.current.add(unit.id);
-        connectUnit(unit.id, unit.address, unit.port).catch((error) => {
-          console.error(`Failed to connect to unit ${unit.id}:`, error);
-          connectedUnitsRef.current.delete(unit.id);
-        });
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      for (const timerId of retryTimersRef.current.values()) {
+        window.clearTimeout(timerId);
       }
-    });
+      retryTimersRef.current.clear();
+      retryAttemptsRef.current.clear();
+      inFlightRef.current.clear();
+      unitsByIdRef.current.clear();
+    };
+  }, []);
 
-    // Auto-set active unit if none selected
+  useEffect(() => {
+    unitsByIdRef.current = new Map(units.map((unit) => [unit.id, unit]));
+  }, [units]);
+
+  // Auto-set active unit if none selected
+  useEffect(() => {
+    if (activeUnitId) return;
     const firstUnit = units[0];
-    if (!activeUnitId && firstUnit) {
+    if (firstUnit) {
       setActiveUnit(firstUnit.id);
     }
-  }, [units, activeUnitId, connections, connectUnit, setActiveUnit]);
+  }, [activeUnitId, setActiveUnit, units]);
 
-  // Connect newly added units
-  useEffect(() => {
-    if (!initialConnectDone.current) return;
+  const clearRetry = useCallback((unitId: string) => {
+    const timerId = retryTimersRef.current.get(unitId);
+    if (timerId !== undefined) {
+      window.clearTimeout(timerId);
+      retryTimersRef.current.delete(unitId);
+    }
+    retryAttemptsRef.current.delete(unitId);
+  }, []);
 
-    units.forEach((unit) => {
-      const connection = connections.get(unit.id);
-      const isConnected = connection?.status === 'connected';
-      const isConnecting = connection?.status === 'connecting';
+  const scheduleRetry = useCallback((unitId: string) => {
+    if (!mountedRef.current) return;
+    if (retryTimersRef.current.has(unitId)) return;
 
-      if (!isConnected && !isConnecting && !connectedUnitsRef.current.has(unit.id)) {
-        connectedUnitsRef.current.add(unit.id);
-        connectUnit(unit.id, unit.address, unit.port).catch((error) => {
-          console.error(`Failed to connect to unit ${unit.id}:`, error);
-          connectedUnitsRef.current.delete(unit.id);
-        });
+    const attempt = (retryAttemptsRef.current.get(unitId) ?? 0) + 1;
+    retryAttemptsRef.current.set(unitId, attempt);
+
+    const delay = getRetryDelayMs(attempt);
+    const timerId = window.setTimeout(() => {
+      retryTimersRef.current.delete(unitId);
+      if (!mountedRef.current) return;
+
+      const unit = unitsByIdRef.current.get(unitId);
+      if (!unit) {
+        clearRetry(unitId);
+        return;
       }
-    });
-  }, [units, connections, connectUnit]);
 
-  // Clean up tracking when units are removed
+      connectNowRef.current(unitId);
+    }, delay);
+
+    retryTimersRef.current.set(unitId, timerId);
+  }, [clearRetry]);
+
+  const connectNow = useCallback((unitId: string) => {
+    if (!mountedRef.current) return;
+
+    const unit = unitsByIdRef.current.get(unitId);
+    if (!unit) return;
+
+    if (inFlightRef.current.has(unitId)) return;
+    inFlightRef.current.add(unitId);
+
+    void connectUnit(unit.id, unit.address, unit.port)
+      .then(() => {
+        if (!mountedRef.current) return;
+        clearRetry(unitId);
+      })
+      .catch((error) => {
+        console.error(`Failed to connect to unit ${unit.id}:`, error);
+        if (!mountedRef.current) return;
+        scheduleRetry(unitId);
+      })
+      .finally(() => {
+        inFlightRef.current.delete(unitId);
+      });
+  }, [clearRetry, connectUnit, scheduleRetry]);
+
   useEffect(() => {
-    const currentUnitIds = new Set(units.map((u) => u.id));
-    connectedUnitsRef.current.forEach((id) => {
-      if (!currentUnitIds.has(id)) {
-        connectedUnitsRef.current.delete(id);
+    connectNowRef.current = connectNow;
+  }, [connectNow]);
+
+  // Ensure we keep trying to connect, but with backoff to avoid runaway attempts and memory leaks.
+  useEffect(() => {
+    for (const unit of units) {
+      const status = connections.get(unit.id)?.status;
+      if (status === 'connected') {
+        clearRetry(unit.id);
+        continue;
       }
-    });
-  }, [units]);
+
+      if (status === 'connecting') continue;
+      if (inFlightRef.current.has(unit.id)) continue;
+      if (retryTimersRef.current.has(unit.id)) continue;
+
+      connectNow(unit.id);
+    }
+
+    // Clean up retry state for units that no longer exist.
+    for (const unitId of Array.from(retryTimersRef.current.keys())) {
+      if (!unitsByIdRef.current.has(unitId)) {
+        clearRetry(unitId);
+      }
+    }
+    for (const unitId of Array.from(retryAttemptsRef.current.keys())) {
+      if (!unitsByIdRef.current.has(unitId)) {
+        clearRetry(unitId);
+      }
+    }
+  }, [clearRetry, connectNow, connections, units]);
 }
