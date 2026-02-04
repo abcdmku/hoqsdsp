@@ -70,11 +70,17 @@ function useSmoothedValue(targetValue: number, smoothingMs: number): number {
 
     let alive = true;
 
-    const step = () => {
+    const step = (now: number) => {
       if (!alive) return;
 
-      const now = performance.now();
-      const deltaTime = now - lastTimeRef.current;
+      const lastTime = lastTimeRef.current;
+      if (lastTime === 0) {
+        lastTimeRef.current = now;
+        animationFrameRef.current = requestAnimationFrame(step);
+        return;
+      }
+
+      const deltaTime = now - lastTime;
       lastTimeRef.current = now;
 
       const current = smoothedRef.current;
@@ -120,7 +126,7 @@ function useSmoothedValue(targetValue: number, smoothingMs: number): number {
       }
 
       runningRef.current = true;
-      lastTimeRef.current = performance.now();
+      lastTimeRef.current = 0;
       animationFrameRef.current = requestAnimationFrame(step);
     };
 

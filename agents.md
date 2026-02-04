@@ -117,6 +117,35 @@ const indices = useMemo(() => Array.from({ length: count }, (_, i) => i), [count
 {indices.map((i) => <div key={i} />)}
 ```
 
+### 12. Never Enqueue No-op `setState` in RAF Loops
+React can still allocate internal update-queue nodes even when you `return prev`.
+If a loop can finish (e.g., smoothing), stop scheduling RAF when it reaches its target and restart only when inputs change.
+
+```typescript
+// BAD - enqueues an update every frame (even if React bails out)
+setState((prev) => prev);
+
+setState((prev) => {
+  if (!changed) return prev; // still enqueues an update
+  return { ...prev, value };
+});
+```
+
+```typescript
+// GOOD - only call setState when something actually changed
+const stateRef = useRef(state);
+useEffect(() => { stateRef.current = state; }, [state]);
+
+const animate = (t: number) => {
+  const next = computeNext(stateRef.current, t);
+  if (next !== stateRef.current) {
+    stateRef.current = next;
+    setState(next);
+  }
+  rafId = requestAnimationFrame(animate);
+};
+```
+
 ## Quick Checklist
 
 - [ ] Every `setInterval`/`setTimeout` has matching `clear*` in cleanup
@@ -125,6 +154,8 @@ const indices = useMemo(() => Array.from({ length: count }, (_, i) => i), [count
 - [ ] Dynamic state objects replaced, not spread-merged
 - [ ] WebSocket handlers nullified before close
 - [ ] Maps/Sets cleared on disposal
+- [ ] Every RAF loop has matching `cancelAnimationFrame` in cleanup
 - [ ] No allocations inside RAF/animation loops
+- [ ] No no-op `setState` inside RAF loops (skip calling setState when unchanged)
 - [ ] String keys cached for high-frequency lookups
 - [ ] Render arrays memoized with useMemo

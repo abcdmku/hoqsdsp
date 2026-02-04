@@ -14,6 +14,9 @@ export { useConnectionManager } from './useConnectionManager';
 // Page visibility (performance)
 export { usePageVisibility } from './usePageVisibility';
 
+export { useDevPerformanceEntryCleanup } from './useDevPerformanceEntryCleanup';
+export type { UseDevPerformanceEntryCleanupOptions } from './useDevPerformanceEntryCleanup';
+
 // Auto setup
 export { useAutoSetup } from './useAutoSetup';
 export type { AutoSetupResult, AutoSetupState } from './useAutoSetup';
