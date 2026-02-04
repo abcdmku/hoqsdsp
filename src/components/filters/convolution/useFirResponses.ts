@@ -46,6 +46,11 @@ export function useFirResponses({
     return buildFirSeries(previewTaps, sampleRate, responseFrequencies);
   }, [previewTaps, responseFrequencies, sampleRate]);
 
+  const previewFirDelaySamples = useMemo(() => {
+    if (!previewTaps) return targetDelaySamples;
+    return Math.floor((previewTaps.length - 1) / 2);
+  }, [previewTaps, targetDelaySamples]);
+
   const combinedPreview = useMemo(() => {
     if (!previewFirComplex) return null;
     return multiplySeries(pipelineComplex, previewFirComplex);
@@ -85,7 +90,7 @@ export function useFirResponses({
     previewFirComplex,
     pipelineDelaySamples,
     currentFirDelaySamples,
-    targetDelaySamples,
+    previewFirDelaySamples,
     sampleRate,
     phaseHideBelowDb,
     canPreviewAppliedFirResponse,
@@ -100,7 +105,7 @@ export function useFirResponses({
     previewFirComplex,
     pipelineDelaySamples,
     currentFirDelaySamples,
-    targetDelaySamples,
+    previewFirDelaySamples,
     sampleRate,
     canPreviewAppliedFirResponse,
   });

@@ -12,7 +12,7 @@ interface GroupDelayOptions {
   previewFirComplex: ComplexPoint[] | null;
   pipelineDelaySamples: number;
   currentFirDelaySamples: number;
-  targetDelaySamples: number;
+  previewFirDelaySamples: number;
   sampleRate: number;
   canPreviewAppliedFirResponse: boolean;
 }
@@ -26,13 +26,13 @@ export function useGroupDelayPlot({
   previewFirComplex,
   pipelineDelaySamples,
   currentFirDelaySamples,
-  targetDelaySamples,
+  previewFirDelaySamples,
   sampleRate,
   canPreviewAppliedFirResponse,
 }: GroupDelayOptions) {
   const groupDelayPlot = useMemo(() => {
     const hasPreview = Boolean(combinedPreview) || Boolean(previewFirComplex);
-    const targetDelaySamplesForLine = pipelineDelaySamples + (hasPreview ? targetDelaySamples : currentFirDelaySamples);
+    const targetDelaySamplesForLine = pipelineDelaySamples + (hasPreview ? previewFirDelaySamples : currentFirDelaySamples);
     const targetDelayMs = (targetDelaySamplesForLine / sampleRate) * 1000;
 
     const yMax = Math.max(5, Math.min(1000, targetDelayMs * 2 + 10));
@@ -110,7 +110,7 @@ export function useGroupDelayPlot({
     previewFirComplex,
     responseFrequencies,
     sampleRate,
-    targetDelaySamples,
+    previewFirDelaySamples,
   ]);
 
   return { groupDelayPlot };

@@ -12,7 +12,7 @@ interface PhaseSeriesOptions {
   previewFirComplex: ComplexPoint[] | null;
   pipelineDelaySamples: number;
   currentFirDelaySamples: number;
-  targetDelaySamples: number;
+  previewFirDelaySamples: number;
   sampleRate: number;
   phaseHideBelowDb: number;
   canPreviewAppliedFirResponse: boolean;
@@ -27,7 +27,7 @@ export function usePhaseSeries({
   previewFirComplex,
   pipelineDelaySamples,
   currentFirDelaySamples,
-  targetDelaySamples,
+  previewFirDelaySamples,
   sampleRate,
   phaseHideBelowDb,
   canPreviewAppliedFirResponse,
@@ -78,7 +78,7 @@ export function usePhaseSeries({
         buildPhaseSeriesFor(
           combinedPreview,
           responseFrequencies,
-          pipelineDelaySamples + targetDelaySamples,
+          pipelineDelaySamples + previewFirDelaySamples,
           sampleRate,
           phaseHideBelowDb,
           'Predicted result (preview)',
@@ -94,7 +94,7 @@ export function usePhaseSeries({
         buildPhaseSeriesFor(
           previewFirComplex,
           responseFrequencies,
-          targetDelaySamples,
+          previewFirDelaySamples,
           sampleRate,
           phaseHideBelowDb,
           'Correction (preview)',
@@ -118,7 +118,7 @@ export function usePhaseSeries({
     previewFirComplex,
     responseFrequencies,
     sampleRate,
-    targetDelaySamples,
+    previewFirDelaySamples,
   ]);
 
   return { phaseSeries };

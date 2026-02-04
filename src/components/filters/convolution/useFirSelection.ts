@@ -22,8 +22,9 @@ export function useFirSelection({
   const candidateFilters = useMemo(() => {
     if (!channelFilters || channelFilters.length === 0) return [] as ChannelProcessingFilter[];
     if (!filterName) return channelFilters;
-    const idx = channelFilters.findIndex((f) => f.name === filterName);
-    return idx >= 0 ? channelFilters.slice(0, idx) : channelFilters;
+    // Filters are linear and commutative for response/phase correction preview purposes,
+    // so we treat all filters in the chain (excluding the FIR itself) as candidates.
+    return channelFilters.filter((f) => f.name !== filterName);
   }, [channelFilters, filterName]);
 
   const correctableUi = useMemo(() => {

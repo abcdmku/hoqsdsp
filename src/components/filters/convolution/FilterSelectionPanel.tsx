@@ -31,7 +31,7 @@ export function FilterSelectionPanel({
       </div>
 
       {correctableUi.length === 0 ? (
-        <p className="text-xs text-dsp-text-muted">No upstream Biquad/DiffEq filters found.</p>
+        <p className="text-xs text-dsp-text-muted">No Biquad/DiffEq filters found.</p>
       ) : (
         <div className="space-y-1.5">
           {correctableUi.map((f) => (
