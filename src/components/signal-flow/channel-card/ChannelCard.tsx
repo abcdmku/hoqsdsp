@@ -93,10 +93,14 @@ export function ChannelCard({
     phaseInverted,
     ditherEnabled,
     ditherBits,
+    ditherType,
+    ditherAmplitude,
     applyDelay,
     applyGain,
     toggleDither,
     updateDitherBits,
+    updateDitherType,
+    updateDitherAmplitude,
     handleDelayUnitChange,
   } = useChannelInlineFilters({ node, sampleRate, onUpdateFilters });
 
@@ -178,11 +182,15 @@ export function ChannelCard({
           delayUnit={delayUnit}
           ditherEnabled={ditherEnabled}
           ditherBits={ditherBits}
+          ditherType={ditherType}
+          ditherAmplitude={ditherAmplitude}
           onApplyGain={applyGain}
           onApplyDelay={applyDelay}
           onDelayUnitChange={handleDelayUnitChange}
           onToggleDither={toggleDither}
           onUpdateDitherBits={updateDitherBits}
+          onUpdateDitherType={updateDitherType}
+          onUpdateDitherAmplitude={updateDitherAmplitude}
         >
           <ChannelFilterButtons
             node={node}

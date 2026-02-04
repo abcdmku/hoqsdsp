@@ -260,7 +260,7 @@ export class WebSocketManager extends EventEmitter<WebSocketManagerEvents> {
           raw = String(parsed);
         }
         if (raw.length > 800) raw = `${raw.slice(0, 800)}...`;
-        errorMessage = `Server returned an error without details for ${commandName}${raw ? `: ${raw}` : ''}`;
+        errorMessage = `Server returned an error without details for ${commandName}. This usually means the server rejected the request (often an invalid config); check CamillaDSP logs on the device for the real error.${raw ? ` Response: ${raw}` : ''}`;
       } else if (typeof error === 'string') {
         errorMessage = error;
       } else if (typeof error === 'object') {

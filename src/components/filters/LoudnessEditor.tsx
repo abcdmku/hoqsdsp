@@ -34,11 +34,14 @@ function LoudnessEditorContent() {
     [filter, params, updateFilter],
   );
 
-  // Simple visualization of the loudness compensation curve
+  // Visualization of the loudness compensation curve with proper axes
   const renderLoudnessCurve = () => {
     const width = 800;
     const height = 200;
-    const padding = 40;
+    const padding = { top: 20, right: 30, bottom: 40, left: 50 };
+
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
 
     // Simplified equal loudness contour visualization
     const points = [
@@ -53,21 +56,29 @@ function LoudnessEditorContent() {
       { freq: 20000, boost: params.high_boost },
     ];
 
-    // Map frequency (log scale) and gain to pixels
+    // Map frequency (log scale) to X
+    const logMin = Math.log10(20);
+    const logMax = Math.log10(20000);
     const freqToX = (freq: number) => {
-      const logMin = Math.log10(20);
-      const logMax = Math.log10(20000);
       const logFreq = Math.log10(freq);
-      return padding + ((logFreq - logMin) / (logMax - logMin)) * (width - 2 * padding);
+      return padding.left + ((logFreq - logMin) / (logMax - logMin)) * graphWidth;
     };
 
-    const boostToY = (boost: number) => {
-      const maxBoost = 20;
-      return height / 2 - (boost / maxBoost) * ((height - 2 * padding) / 2);
-    };
+    // Map dB boost to Y (range: -5 to +20 dB to show full range)
+    const dbMin = -5;
+    const dbMax = 20;
+    const dbRange = dbMax - dbMin;
+    const dbToY = (db: number) => padding.top + ((dbMax - db) / dbRange) * graphHeight;
+
+    // Frequency grid lines (logarithmic)
+    const freqGridLines = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+    const freqLabels = [20, 100, 1000, 10000, 20000];
+
+    // dB grid lines
+    const dbGridLines = [-5, 0, 5, 10, 15, 20];
 
     const pathD = points
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${freqToX(p.freq).toFixed(1)} ${boostToY(p.boost).toFixed(1)}`)
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${freqToX(p.freq).toFixed(1)} ${dbToY(p.boost).toFixed(1)}`)
       .join(' ');
 
     return (
@@ -75,37 +86,87 @@ function LoudnessEditorContent() {
         viewBox={`0 0 ${width} ${height}`}
         className="h-full w-full rounded bg-dsp-bg"
         role="img"
-        aria-label="Loudness compensation curve"
+        aria-label={`Loudness compensation: +${params.low_boost}dB bass, +${params.high_boost}dB treble`}
       >
-        {/* Zero line */}
-        <line
-          x1={padding}
-          y1={height / 2}
-          x2={width - padding}
-          y2={height / 2}
-          stroke="currentColor"
-          className="text-dsp-primary/50"
-          strokeWidth={1}
-        />
+        {/* Horizontal grid lines (dB levels) */}
+        {dbGridLines.map((db) => (
+          <g key={`h-${db}`}>
+            <line
+              x1={padding.left}
+              y1={dbToY(db)}
+              x2={width - padding.right}
+              y2={dbToY(db)}
+              stroke="currentColor"
+              className="text-dsp-primary/30"
+              strokeWidth={db === 0 ? 1 : 0.5}
+            />
+            {/* dB label */}
+            <text
+              x={padding.left - 6}
+              y={dbToY(db) + 3}
+              textAnchor="end"
+              className="fill-dsp-text-muted text-[9px]"
+            >
+              {db > 0 ? `+${db}` : db}
+            </text>
+          </g>
+        ))}
 
-        {/* Curve */}
+        {/* Vertical grid lines (frequency) */}
+        {freqGridLines.map((freq) => (
+          <line
+            key={`v-${freq}`}
+            x1={freqToX(freq)}
+            y1={padding.top}
+            x2={freqToX(freq)}
+            y2={height - padding.bottom}
+            stroke="currentColor"
+            className="text-dsp-primary/30"
+            strokeWidth={freq === 1000 ? 1 : 0.5}
+          />
+        ))}
+
+        {/* Frequency labels */}
+        {freqLabels.map((freq) => (
+          <text
+            key={`fl-${freq}`}
+            x={freqToX(freq)}
+            y={height - padding.bottom + 14}
+            textAnchor="middle"
+            className="fill-dsp-text-muted text-[9px]"
+          >
+            {freq >= 1000 ? `${freq / 1000}k` : freq}
+          </text>
+        ))}
+
+        {/* Loudness compensation curve */}
         <path
           d={pathD}
           fill="none"
           stroke="currentColor"
           className="text-filter-eq"
-          strokeWidth={2}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
 
-        {/* Labels */}
-        <text x={freqToX(50)} y={height - 8} textAnchor="middle" className="fill-dsp-text-muted text-[12px]">
-          Bass
+        {/* Axis labels */}
+        <text
+          x={width / 2}
+          y={height - 4}
+          textAnchor="middle"
+          className="fill-dsp-text-muted text-[11px]"
+        >
+          Frequency (Hz)
         </text>
-        <text x={freqToX(1000)} y={height - 8} textAnchor="middle" className="fill-dsp-text-muted text-[12px]">
-          Mid
-        </text>
-        <text x={freqToX(10000)} y={height - 8} textAnchor="middle" className="fill-dsp-text-muted text-[12px]">
-          Treble
+        <text
+          x={12}
+          y={height / 2}
+          textAnchor="middle"
+          transform={`rotate(-90 12 ${height / 2})`}
+          className="fill-dsp-text-muted text-[11px]"
+        >
+          Boost (dB)
         </text>
       </svg>
     );

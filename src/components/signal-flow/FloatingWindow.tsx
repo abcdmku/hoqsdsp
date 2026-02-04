@@ -110,6 +110,39 @@ export function FloatingWindow({
     return cleanupDrag;
   }, [cleanupDrag]);
 
+  // Handle Escape key to close the window
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        // Only close if this window is focused (has highest z-index among floating windows)
+        const rootEl = rootRef.current;
+        if (!rootEl) return;
+
+        // Check if focus is within this window or if this is the topmost window
+        const isWithinWindow = rootEl.contains(document.activeElement);
+        const allWindows = document.querySelectorAll('[data-floating-window]');
+        let isTopmost = true;
+
+        allWindows.forEach((win) => {
+          if (win !== rootEl) {
+            const winZ = parseInt((win as HTMLElement).style.zIndex || '0', 10);
+            if (winZ > zIndex) {
+              isTopmost = false;
+            }
+          }
+        });
+
+        // Close if focused within this window, or if topmost and no other element has focus
+        if (isWithinWindow || (isTopmost && !document.activeElement?.closest('[data-floating-window]'))) {
+          onRequestClose();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [zIndex, onRequestClose]);
+
   return (
     <div
       ref={rootRef}

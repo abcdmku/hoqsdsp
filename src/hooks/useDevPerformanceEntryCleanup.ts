@@ -23,6 +23,7 @@ export function useDevPerformanceEntryCleanup(options: UseDevPerformanceEntryCle
         perf.clearMeasures();
         perf.clearMarks?.();
       } catch {
+        return;
       }
     }, intervalMs);
 

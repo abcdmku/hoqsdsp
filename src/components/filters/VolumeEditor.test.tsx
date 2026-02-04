@@ -30,7 +30,7 @@ describe('VolumeEditor', () => {
     expect(screen.getByText('Volume')).toBeInTheDocument();
   });
 
-  it('shows volume fader info section', () => {
+  it('shows ramp time info section', () => {
     render(
       <VolumeEditor
         open={true}
@@ -40,7 +40,9 @@ describe('VolumeEditor', () => {
       />,
     );
 
-    expect(screen.getByText('Volume Fader Control')).toBeInTheDocument();
+    // The new design shows ramp time info text
+    expect(screen.getByText(/Ramp time/)).toBeInTheDocument();
+    expect(screen.getByText(/smooths volume changes/i)).toBeInTheDocument();
   });
 
   it('shows ramp time control', () => {

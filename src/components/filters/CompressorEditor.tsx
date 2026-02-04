@@ -70,9 +70,10 @@ function CompressorEditorContent() {
         role="img"
         aria-label="Compression transfer curve"
       >
-        {/* Grid lines */}
-        {[-48, -36, -24, -12, 0].map((db) => (
+        {/* Grid lines with dB labels */}
+        {[-60, -48, -36, -24, -12, 0].map((db) => (
           <g key={db}>
+            {/* Vertical grid line */}
             <line
               x1={dbToX(db)}
               y1={padding}
@@ -80,8 +81,9 @@ function CompressorEditorContent() {
               y2={height - padding}
               stroke="currentColor"
               className="text-dsp-primary/30"
-              strokeWidth={0.5}
+              strokeWidth={db === 0 || db === -60 ? 1 : 0.5}
             />
+            {/* Horizontal grid line */}
             <line
               x1={padding}
               y1={dbToY(db)}
@@ -89,8 +91,26 @@ function CompressorEditorContent() {
               y2={dbToY(db)}
               stroke="currentColor"
               className="text-dsp-primary/30"
-              strokeWidth={0.5}
+              strokeWidth={db === 0 || db === -60 ? 1 : 0.5}
             />
+            {/* X-axis label (Input dB) */}
+            <text
+              x={dbToX(db)}
+              y={height - padding + 14}
+              textAnchor="middle"
+              className="fill-dsp-text-muted text-[9px]"
+            >
+              {db}
+            </text>
+            {/* Y-axis label (Output dB) */}
+            <text
+              x={padding - 6}
+              y={dbToY(db) + 3}
+              textAnchor="end"
+              className="fill-dsp-text-muted text-[9px]"
+            >
+              {db}
+            </text>
           </g>
         ))}
 
@@ -128,17 +148,17 @@ function CompressorEditorContent() {
         />
 
         {/* Axis labels */}
-        <text x={width / 2} y={height - 8} textAnchor="middle" className="fill-dsp-text-muted text-[12px]">
-          Input
+        <text x={width / 2} y={height - 4} textAnchor="middle" className="fill-dsp-text-muted text-[11px]">
+          Input (dB)
         </text>
         <text
-          x={18}
+          x={12}
           y={height / 2}
           textAnchor="middle"
-          transform={`rotate(-90 18 ${height / 2})`}
-          className="fill-dsp-text-muted text-[12px]"
+          transform={`rotate(-90 12 ${height / 2})`}
+          className="fill-dsp-text-muted text-[11px]"
         >
-          Output
+          Output (dB)
         </text>
       </svg>
     );

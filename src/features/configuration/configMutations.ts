@@ -5,6 +5,7 @@ import type { CamillaConfig } from '../../types';
 import { websocketService } from '../../services/websocketService';
 import { cleanNullValues } from '../../lib/config/cleanConfig';
 import { stringifyConfig } from '../../lib/config/yaml';
+import { validateConfig } from '../../lib/config/validation';
 import { useConfigBackupStore } from '../../stores/configBackupStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 
@@ -36,6 +37,28 @@ export function useSetConfigJson(unitId: string) {
       // Clean null values from config before sending to CamillaDSP
       const cleanedConfig = cleanNullValues(config);
       const { ui: uiMetadata, ...cleanedWithoutUi } = cleanedConfig;
+
+      // Preflight validation (client-side) to surface actionable errors instead of
+      // relying on CamillaDSP to report a reason (it sometimes returns {result:"Error"} with no details).
+      const validateTarget = (uiMetadata ? cleanedWithoutUi : cleanedConfig) as CamillaConfig;
+      const validation = validateConfig(validateTarget);
+      if (!validation.valid) {
+        const first = validation.errors.slice(0, 6);
+        const summary = first
+          .map((e) => `${e.path || '(root)'}: ${e.message}`)
+          .join(' | ');
+
+        console.error('[SetConfigJson] Config validation failed:', validation.errors);
+        if (validation.warnings.length > 0) {
+          console.warn('[SetConfigJson] Config validation warnings:', validation.warnings);
+        }
+
+        const extra = validation.errors.length > first.length
+          ? ` (+${String(validation.errors.length - first.length)} more)`
+          : '';
+        throw new Error(`Config validation failed: ${summary}${extra}`);
+      }
+
       const jsonString = JSON.stringify(cleanedConfig);
       const fallbackJsonString = uiMetadata ? JSON.stringify(cleanedWithoutUi) : null;
       const yamlString = stringifyConfig(cleanedConfig);

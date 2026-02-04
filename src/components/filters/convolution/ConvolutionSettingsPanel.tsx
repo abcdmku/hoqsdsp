@@ -217,8 +217,8 @@ export function ConvolutionSettingsPanel({
           targetLatencyMs={targetLatencyMs}
           sampleRate={sampleRate}
           previewDesign={previewDesign}
-          onApplyFir={handleApplyFirAndCloseWizard}
           firMagnitudeStats={firMagnitudeStats}
+          showApplyButton={false}
         />
       ) : (
         <div className="space-y-4">
@@ -253,9 +253,22 @@ export function ConvolutionSettingsPanel({
             Next: Sources
           </Button>
         ) : (
-          <Button type="button" variant="secondary" size="sm" onClick={handleCloseWizard} disabled={isIdentityFir}>
-            Done
-          </Button>
+          <div className="flex items-center gap-2">
+            {!isIdentityFir && (
+              <Button type="button" variant="ghost" size="sm" onClick={handleCloseWizard}>
+                Cancel
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleApplyFirAndCloseWizard}
+              disabled={!previewDesign.taps}
+            >
+              Apply FIR
+            </Button>
+          </div>
         )}
       </div>
     </div>

@@ -37,7 +37,7 @@ describe('LoudnessEditor', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: /loudness compensation curve/i })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /loudness compensation/i })).toBeInTheDocument();
   });
 
   it('shows reference level control', () => {

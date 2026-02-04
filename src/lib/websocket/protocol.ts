@@ -69,7 +69,13 @@ export function extractWrappedResponse(parsed: unknown): WrappedResponse | null 
   }
 
   if (response.result === 'Error') {
-    return { commandName, ok: false, error: response.value };
+    // Legacy/compat wrappers vary in where they put the actual error details.
+    const legacyError =
+      response.value
+      ?? response.error
+      ?? response.message
+      ?? response.reason;
+    return { commandName, ok: false, error: legacyError ?? response };
   }
 
   // Some implementations return a legacy {value} wrapper without a {result} field.

@@ -9,7 +9,11 @@ export function cleanNullValues<T>(obj: T): T {
   }
 
   if (Array.isArray(obj)) {
-    return obj.map((item) => cleanNullValues(item)) as T;
+    // Important: JSON.stringify converts `undefined` array entries to `null`.
+    // Filter them out to avoid reintroducing nulls when round-tripping configs.
+    return obj
+      .map((item) => cleanNullValues(item))
+      .filter((item) => item !== undefined) as T;
   }
 
   if (typeof obj === 'object' && obj !== null) {

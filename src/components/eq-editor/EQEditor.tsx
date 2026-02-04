@@ -314,7 +314,7 @@ export function EQEditor({
       {/* Main content: Canvas and Parameters */}
       <div className="flex flex-col lg:flex-row gap-4">
         {/* EQ Canvas */}
-        <div ref={canvasContainerRef} className="flex-1 min-w-0 lg:flex-[5]">
+        <div ref={canvasContainerRef} className="relative flex-1 min-w-0 lg:flex-[5]">
           <EQCanvas
             bands={bands}
             sampleRate={sampleRate}
@@ -328,6 +328,20 @@ export function EQEditor({
             dimensions={dimensions}
             readOnly={readOnly}
           />
+
+          {/* Empty state hint when no bands exist */}
+          {bands.length === 0 && !readOnly && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center space-y-2 bg-dsp-bg/80 rounded-lg px-6 py-4 backdrop-blur-sm border border-dsp-primary/20">
+                <p className="text-sm text-dsp-text-muted">
+                  Click anywhere on the graph to add an EQ band
+                </p>
+                <p className="text-xs text-dsp-text-muted/60">
+                  or use the <span className="font-mono text-dsp-accent">+</span> button above
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Parameter Panel */}

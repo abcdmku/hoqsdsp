@@ -6,9 +6,10 @@ import type { FirMagnitudeStats, FirPreviewDesign } from './types';
 interface DesignSettingsStatusProps {
   previewDesign: FirPreviewDesign;
   firMagnitudeStats: { preview: FirMagnitudeStats | null };
-  onApplyFir: () => void;
+  onApplyFir?: () => void;
   normalize: boolean;
   onNormalizeChange: (value: boolean) => void;
+  showApplyButton?: boolean;
 }
 
 export function DesignSettingsStatus({
@@ -17,6 +18,7 @@ export function DesignSettingsStatus({
   onApplyFir,
   normalize,
   onNormalizeChange,
+  showApplyButton = true,
 }: DesignSettingsStatusProps) {
   return (
     <>
@@ -40,9 +42,11 @@ export function DesignSettingsStatus({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={onApplyFir} disabled={!previewDesign.taps}>
-            Apply FIR
-          </Button>
+          {showApplyButton && onApplyFir && (
+            <Button variant="secondary" size="sm" onClick={onApplyFir} disabled={!previewDesign.taps}>
+              Apply FIR
+            </Button>
+          )}
           {previewDesign.taps && (
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2 text-xs text-status-online">

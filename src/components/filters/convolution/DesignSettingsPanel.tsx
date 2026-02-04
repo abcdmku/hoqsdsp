@@ -17,8 +17,9 @@ interface DesignSettingsPanelProps {
   targetLatencyMs: number;
   sampleRate: number;
   previewDesign: FirPreviewDesign;
-  onApplyFir: () => void;
+  onApplyFir?: () => void;
   firMagnitudeStats: { preview: FirMagnitudeStats | null };
+  showApplyButton?: boolean;
 }
 
 export function DesignSettingsPanel({
@@ -35,6 +36,7 @@ export function DesignSettingsPanel({
   previewDesign,
   onApplyFir,
   firMagnitudeStats,
+  showApplyButton = true,
 }: DesignSettingsPanelProps) {
   return (
     <div className="rounded-md border border-dsp-primary/20 bg-dsp-bg/20 p-3 space-y-2">
@@ -64,6 +66,7 @@ export function DesignSettingsPanel({
         onApplyFir={onApplyFir}
         normalize={settings.normalize}
         onNormalizeChange={(value) => onSettingsChange((s) => ({ ...s, normalize: value }))}
+        showApplyButton={showApplyButton}
       />
     </div>
   );

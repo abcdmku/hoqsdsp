@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChannelNode, ChannelProcessingFilter } from '../../../lib/signalflow';
 import { removeFirstFilterOfType, upsertSingleFilterOfType } from '../../../lib/signalflow/filterUtils';
-import type { DelayFilter, DitherFilter, FilterConfig, FilterType, GainFilter } from '../../../types';
+import type { DelayFilter, DitherFilter, DitherParameters, FilterConfig, FilterType, GainFilter } from '../../../types';
 import { delayDistanceMmFromMs, delayDistanceMmFromValue, delayDistanceValueFromMm, delayMsFromDistanceMm, delayMsFromSamples, type DelayDisplayUnit } from './delayUtils';
 function buildDelayConfig(delay: number, unit: 'ms' | 'mm', subsample: boolean): DelayFilter {
   return { type: 'Delay', parameters: { delay, unit, subsample } };
@@ -20,10 +20,14 @@ export interface ChannelInlineFilters {
   phaseInverted: boolean;
   ditherEnabled: boolean;
   ditherBits: number;
+  ditherType: DitherParameters['type'] | undefined;
+  ditherAmplitude: number;
   applyDelay: (value: number, unit: DelayDisplayUnit, options?: { debounce?: boolean }) => void;
   applyGain: (nextGainDb: number, nextInverted: boolean, options?: { debounce?: boolean }) => void;
   toggleDither: () => void;
   updateDitherBits: (bits: number, options?: { debounce?: boolean }) => void;
+  updateDitherType: (type: DitherParameters['type'], options?: { debounce?: boolean }) => void;
+  updateDitherAmplitude: (amplitude: number, options?: { debounce?: boolean }) => void;
   handleDelayUnitChange: (unit: DelayDisplayUnit) => void;
 }
 export function useChannelInlineFilters({
@@ -188,6 +192,27 @@ export function useChannelInlineFilters({
     [ditherFilter, upsertFilter],
   );
 
+  const updateDitherType = useCallback(
+    (type: DitherParameters['type'], options?: { debounce?: boolean }) => {
+      const base = ditherFilter?.parameters ?? lastDitherParamsRef.current;
+      const nextParams: DitherFilter['parameters'] = type === 'Flat'
+        ? { type: 'Flat', bits: base.bits, amplitude: base.type === 'Flat' ? base.amplitude : 2 }
+        : { type, bits: base.bits };
+      upsertFilter({ type: 'Dither', parameters: nextParams }, options);
+    },
+    [ditherFilter, upsertFilter],
+  );
+
+  const updateDitherAmplitude = useCallback(
+    (amplitude: number, options?: { debounce?: boolean }) => {
+      if (!Number.isFinite(amplitude)) return;
+      const base = ditherFilter?.parameters ?? lastDitherParamsRef.current;
+      if (base.type !== 'Flat') return;
+      upsertFilter({ type: 'Dither', parameters: { ...base, amplitude } }, options);
+    },
+    [ditherFilter, upsertFilter],
+  );
+
   const handleDelayUnitChange = useCallback(
     (nextUnit: DelayDisplayUnit) => {
       setDelayUnit(nextUnit);
@@ -202,6 +227,9 @@ export function useChannelInlineFilters({
     [applyDelay, delayMs],
   );
 
+  const ditherType = ditherFilter?.parameters.type;
+  const ditherAmplitude = ditherFilter?.parameters.type === 'Flat' ? ditherFilter.parameters.amplitude : 2;
+
   return {
     delayUnit,
     delayDisplayValue,
@@ -210,10 +238,14 @@ export function useChannelInlineFilters({
     phaseInverted,
     ditherEnabled,
     ditherBits,
+    ditherType,
+    ditherAmplitude,
     applyDelay,
     applyGain,
     toggleDither,
     updateDitherBits,
+    updateDitherType,
+    updateDitherAmplitude,
     handleDelayUnitChange,
   };
 }

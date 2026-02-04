@@ -49,6 +49,7 @@ export function ChannelConnectionsWindowContent({
   const phaseSymbol = '\u00d8';
 
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [connectionSearch, setConnectionSearch] = useState('');
 
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkSearch, setBulkSearch] = useState('');
@@ -106,18 +107,51 @@ export function ChannelConnectionsWindowContent({
     bulkSearchRef.current?.focus();
   };
 
+  // Filter connections by search
+  const connectionSearchQuery = connectionSearch.trim().toLowerCase();
+  const filteredConnections = connectionSearchQuery
+    ? connections.filter(({ route }) => {
+        const connectedEndpoint = side === 'input' ? route.to : route.from;
+        const connectedNode = (side === 'input' ? allOutputs : allInputs).find(
+          (n) => n.deviceId === connectedEndpoint.deviceId && n.channelIndex === connectedEndpoint.channelIndex,
+        );
+        return connectedNode?.label.toLowerCase().includes(connectionSearchQuery);
+      })
+    : connections;
+
   return (
     <div className="space-y-4">
       <div>
-        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-dsp-text-muted">
-          {side === 'input' ? 'Connected Outputs' : 'Connected Inputs'}
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="text-xs font-medium uppercase tracking-wide text-dsp-text-muted">
+            {side === 'input' ? 'Connected Outputs' : 'Connected Inputs'} ({connections.length})
+          </div>
         </div>
+
+        {/* Search filter for connections */}
+        {connections.length > 3 && (
+          <div className="mb-2">
+            <input
+              value={connectionSearch}
+              onChange={(e) => setConnectionSearch(e.target.value)}
+              className={cn(
+                'h-8 w-full rounded-md border border-dsp-primary/40 bg-dsp-bg px-3',
+                'text-sm text-dsp-text placeholder:text-dsp-text-muted',
+                'focus:outline-none focus:ring-2 focus:ring-dsp-accent/50',
+              )}
+              placeholder="Filter connections..."
+              aria-label="Filter connections"
+            />
+          </div>
+        )}
 
         {connections.length === 0 ? (
           <div className="py-2 text-sm text-dsp-text-muted">No connections yet.</div>
+        ) : filteredConnections.length === 0 ? (
+          <div className="py-2 text-sm text-dsp-text-muted">No matching connections.</div>
         ) : (
           <div className="space-y-1">
-            {connections.map(({ route, index }) => {
+            {filteredConnections.map(({ route, index }) => {
               const connectedEndpoint = side === 'input' ? route.to : route.from;
               const connectedNode = (side === 'input' ? allOutputs : allInputs).find(
                 (n) => n.deviceId === connectedEndpoint.deviceId && n.channelIndex === connectedEndpoint.channelIndex,

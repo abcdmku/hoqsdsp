@@ -146,6 +146,142 @@ const animate = (t: number) => {
 };
 ```
 
+## Inline Parameter Editing Pattern
+
+For compact inline controls that expand to show settings (like DTH), use this pattern:
+
+### States
+- `expanded`: Whether settings panel is visible
+- `pinned`: Whether it stays open when mouse leaves
+
+### Behavior Matrix
+| Action | Result |
+|--------|--------|
+| Click toggle (off) | Enable + expand + pin |
+| Click toggle (expanded + pinned) | Disable + collapse |
+| Click toggle (expanded, not pinned) | Pin it |
+| Click toggle (collapsed but enabled) | Expand + pin |
+| Hover 400ms (enabled, collapsed) | Expand (not pinned) |
+| Mouse leave (not pinned) | Collapse after 150ms |
+| Interact with any control | Pin |
+| Click outside | Collapse + unpin |
+| Press Escape | Collapse + unpin |
+
+### Implementation
+```typescript
+function ExpandableControl({ enabled, onToggle, ... }) {
+  const [expanded, setExpanded] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownOpenRef = useRef(false);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeouts
+  useEffect(() => () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+  }, []);
+
+  // Click outside + Escape handling
+  useEffect(() => {
+    if (!expanded) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownOpenRef.current) return;
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setExpanded(false);
+        setPinned(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !dropdownOpenRef.current) {
+        setExpanded(false);
+        setPinned(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [expanded]);
+
+  // Auto-expand when enabled externally
+  useEffect(() => {
+    if (enabled) {
+      setExpanded(true);
+      setPinned(true);
+    }
+  }, [enabled]);
+
+  const handleToggleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!enabled) {
+      onToggle(); // Will auto-expand via useEffect
+    } else if (expanded && pinned) {
+      onToggle();
+      setExpanded(false);
+      setPinned(false);
+    } else if (expanded && !pinned) {
+      setPinned(true);
+    } else {
+      setExpanded(true);
+      setPinned(true);
+    }
+  }, [enabled, expanded, pinned, onToggle]);
+
+  const handleMouseEnter = useCallback(() => {
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = null;
+    }
+    if (!expanded && enabled) {
+      hoverTimeoutRef.current = setTimeout(() => setExpanded(true), 400);
+    }
+  }, [expanded, enabled]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    if (expanded && !pinned && !dropdownOpenRef.current) {
+      leaveTimeoutRef.current = setTimeout(() => setExpanded(false), 150);
+    }
+  }, [expanded, pinned]);
+
+  const handleInteraction = useCallback(() => {
+    if (expanded && !pinned) setPinned(true);
+  }, [expanded, pinned]);
+
+  // Use Framer Motion for smooth width animation
+  return (
+    <motion.div ref={containerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <button onClick={handleToggleClick}>Toggle</button>
+      <AnimatePresence initial={false}>
+        {expanded && enabled && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 'auto', opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            {/* Controls - call handleInteraction on click/focus/change */}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+```
+
+### Key Points
+- Use `framer-motion` for smooth width animations (`width: 0` → `width: 'auto'`)
+- Track dropdown/portal open state via ref to prevent premature collapse
+- Pin on any interaction to avoid frustrating users mid-edit
+- Short delays (150ms) on mouse leave prevent flicker during normal mouse movement
+
 ## Quick Checklist
 
 - [ ] Every `setInterval`/`setTimeout` has matching `clear*` in cleanup

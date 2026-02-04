@@ -35,48 +35,161 @@ function NoiseGateEditorContent() {
     [filter, params, updateFilter],
   );
 
-  // Visual gate state indicator
+  // Visual gate state indicator with proper timing diagram
   const renderGateDiagram = () => {
     const width = 800;
     const height = 200;
-    const padding = 40;
-    const envelopeHeight = 100;
-    const envelopeTop = height / 2 - envelopeHeight / 2;
-    const envelopeBottom = height / 2 + envelopeHeight / 2;
+    const padding = { top: 20, right: 30, bottom: 40, left: 50 };
 
-    // Gate states visualization
-    const totalTime = Math.max(params.attack + params.release, 1);
-    const timeToX = (t: number) => padding + (t / totalTime) * (width - 2 * padding);
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
 
-    const attackEnd = params.attack;
+    // Total time with some buffer for closed state visualization
+    const closedTime = 20; // Show 20ms of closed state before trigger
+    const totalTime = closedTime + params.attack + params.release + 20; // +20ms after
+
+    const timeToX = (t: number) => padding.left + (t / totalTime) * graphWidth;
+
+    // Gain: 0 = full attenuation (closed), 1 = open (no attenuation)
+    const gainToY = (gain: number) => padding.top + (1 - gain) * graphHeight;
+
+    // Generate time grid lines
+    const timeGridStep = totalTime < 200 ? 20 : totalTime < 500 ? 50 : totalTime < 1000 ? 100 : 200;
+    const timeGridLines: number[] = [];
+    for (let t = 0; t <= totalTime; t += timeGridStep) {
+      timeGridLines.push(t);
+    }
+
+    // Key time points for the gate envelope
+    const triggerTime = closedTime;
+    const openTime = triggerTime + params.attack;
+    const closeStartTime = openTime;
+    const closeEndTime = closeStartTime + params.release;
 
     return (
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="h-full w-full rounded bg-dsp-bg"
         role="img"
-        aria-label="Gate timing diagram"
+        aria-label={`Gate timing diagram: ${params.attack}ms attack, ${params.release}ms release`}
       >
+        {/* Background grid - horizontal lines (gain levels) */}
+        {[0, 0.25, 0.5, 0.75, 1].map((level) => (
+          <line
+            key={`h-${level}`}
+            x1={padding.left}
+            y1={gainToY(level)}
+            x2={width - padding.right}
+            y2={gainToY(level)}
+            stroke="currentColor"
+            className="text-dsp-primary/30"
+            strokeWidth={level === 0 || level === 1 ? 1 : 0.5}
+          />
+        ))}
+
+        {/* Background grid - vertical lines (time) */}
+        {timeGridLines.map((t) => (
+          <line
+            key={`v-${t}`}
+            x1={timeToX(t)}
+            y1={padding.top}
+            x2={timeToX(t)}
+            y2={height - padding.bottom}
+            stroke="currentColor"
+            className="text-dsp-primary/30"
+            strokeWidth={t === 0 ? 1 : 0.5}
+          />
+        ))}
+
+        {/* Trigger point marker */}
+        <line
+          x1={timeToX(triggerTime)}
+          y1={padding.top}
+          x2={timeToX(triggerTime)}
+          y2={height - padding.bottom}
+          stroke="currentColor"
+          className="text-dsp-accent"
+          strokeWidth={1}
+          strokeDasharray="4 2"
+        />
+
         {/* Gate envelope line */}
         <path
           d={`
-            M ${padding} ${envelopeBottom}
-            L ${timeToX(attackEnd)} ${envelopeBottom}
-            L ${timeToX(attackEnd)} ${envelopeTop}
-            L ${width - padding} ${envelopeBottom}
+            M ${timeToX(0)} ${gainToY(0)}
+            L ${timeToX(triggerTime)} ${gainToY(0)}
+            L ${timeToX(openTime)} ${gainToY(1)}
+            L ${timeToX(closeStartTime)} ${gainToY(1)}
+            L ${timeToX(closeEndTime)} ${gainToY(0)}
+            L ${timeToX(totalTime)} ${gainToY(0)}
           `}
           fill="none"
           stroke="currentColor"
           className="text-meter-green"
-          strokeWidth={5}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
 
-        {/* Labels */}
-        <text x={timeToX(attackEnd / 2)} y={height - 8} textAnchor="middle" className="fill-dsp-text-muted text-[12px]">
-          Attack
+        {/* Y-axis labels (Gain state) */}
+        <text x={padding.left - 8} y={gainToY(1) + 4} textAnchor="end" className="fill-dsp-text-muted text-[10px]">
+          Open
         </text>
-        <text x={timeToX(attackEnd + params.release / 2)} y={height - 8} textAnchor="middle" className="fill-dsp-text-muted text-[12px]">
-          Release
+        <text x={padding.left - 8} y={gainToY(0) + 4} textAnchor="end" className="fill-dsp-text-muted text-[10px]">
+          Closed
+        </text>
+        <text x={padding.left - 8} y={gainToY(0.5) + 4} textAnchor="end" className="fill-dsp-text-muted text-[9px]">
+          -{Math.round(params.attenuation / 2)}dB
+        </text>
+
+        {/* X-axis labels (Time ms) */}
+        {timeGridLines.filter((_, i, arr) => i === 0 || i === arr.length - 1 || i % 2 === 0).map((t) => (
+          <text
+            key={`x-${t}`}
+            x={timeToX(t)}
+            y={height - padding.bottom + 14}
+            textAnchor="middle"
+            className="fill-dsp-text-muted text-[9px]"
+          >
+            {t}ms
+          </text>
+        ))}
+
+        {/* Phase labels */}
+        <text
+          x={timeToX(triggerTime + params.attack / 2)}
+          y={padding.top - 6}
+          textAnchor="middle"
+          className="fill-meter-green text-[10px] font-medium"
+        >
+          Attack {params.attack}ms
+        </text>
+        <text
+          x={timeToX(closeStartTime + params.release / 2)}
+          y={padding.top - 6}
+          textAnchor="middle"
+          className="fill-meter-green text-[10px] font-medium"
+        >
+          Release {params.release}ms
+        </text>
+
+        {/* Axis labels */}
+        <text
+          x={width / 2}
+          y={height - 4}
+          textAnchor="middle"
+          className="fill-dsp-text-muted text-[11px]"
+        >
+          Time
+        </text>
+        <text
+          x={12}
+          y={height / 2}
+          textAnchor="middle"
+          transform={`rotate(-90 12 ${height / 2})`}
+          className="fill-dsp-text-muted text-[11px]"
+        >
+          Gate State
         </text>
       </svg>
     );
