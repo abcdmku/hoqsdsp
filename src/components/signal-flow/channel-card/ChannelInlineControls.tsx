@@ -36,6 +36,7 @@ function DitherControl({
   const [pinned, setPinned] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownOpenRef = useRef(false);
+  const prevEnabledRef = useRef(ditherEnabled);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -76,7 +77,12 @@ function DitherControl({
 
   // Auto-expand and pin when dither becomes enabled
   useEffect(() => {
-    if (ditherEnabled) {
+    const wasEnabled = prevEnabledRef.current;
+    prevEnabledRef.current = ditherEnabled;
+
+    // Avoid auto-opening on initial mount/navigation when already enabled.
+    // Only expand when transitioning from disabled -> enabled.
+    if (!wasEnabled && ditherEnabled) {
       setExpanded(true);
       setPinned(true);
     }
