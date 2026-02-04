@@ -11,6 +11,7 @@ import {
   type EQEditorProps,
   type EQBand,
   type CanvasDimensions,
+  getBandColor,
   hasGain,
   hasQ,
   getBandFrequency,
@@ -63,6 +64,23 @@ export function EQEditor({
 
   // Container ref for keyboard events
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const focusContainer = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const active = typeof document !== 'undefined' ? document.activeElement : null;
+    if (active && container.contains(active)) return;
+    container.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    focusContainer();
+  }, [focusContainer]);
+
+  const handleSelectBand = useCallback((index: number | null) => {
+    focusContainer();
+    onSelectBand(index);
+  }, [focusContainer, onSelectBand]);
 
   // Responsive canvas dimensions
   const [dimensions, setDimensions] = useState<CanvasDimensions>(DEFAULT_DIMENSIONS);
@@ -125,14 +143,14 @@ export function EQEditor({
     const newBand = createDefaultBand(newFreq, 0);
     const newBands = [...bands, newBand];
     onChange(newBands);
-    onSelectBand(newBands.length - 1);
-  }, [bands, onChange, onSelectBand, readOnly]);
+    handleSelectBand(newBands.length - 1);
+  }, [bands, onChange, handleSelectBand, readOnly]);
 
   const { handleAddBandStart, handleAddBandMove, handleAddBandEnd } = useAddBandDrag({
     readOnly,
     bands,
     onChange,
-    onSelectBand,
+    onSelectBand: handleSelectBand,
     createBand: createDefaultBand,
     updateBand: (index, freq, gain) => {
       handleBandChange(index, { freq, gain });
@@ -147,11 +165,11 @@ export function EQEditor({
 
     // Update selection
     if (selectedBandIndex === index) {
-      onSelectBand(newBands.length > 0 ? Math.min(index, newBands.length - 1) : null);
+      handleSelectBand(newBands.length > 0 ? Math.min(index, newBands.length - 1) : null);
     } else if (selectedBandIndex !== null && selectedBandIndex > index) {
-      onSelectBand(selectedBandIndex - 1);
+      handleSelectBand(selectedBandIndex - 1);
     }
-  }, [bands, onChange, selectedBandIndex, onSelectBand, readOnly]);
+  }, [bands, onChange, selectedBandIndex, handleSelectBand, readOnly]);
 
   // Handle toggling a band's enabled state
   const handleToggleBand = useCallback((index: number) => {
@@ -189,7 +207,7 @@ export function EQEditor({
         const index = parseInt(e.key, 10) - 1;
         if (index < bands.length) {
           e.preventDefault();
-          onSelectBand(index);
+          handleSelectBand(index);
         }
         return;
       }
@@ -197,7 +215,7 @@ export function EQEditor({
       // Escape to deselect
       if (e.key === 'Escape') {
         e.preventDefault();
-        onSelectBand(null);
+        handleSelectBand(null);
         return;
       }
 
@@ -281,7 +299,7 @@ export function EQEditor({
   }, [
     bands,
     selectedBandIndex,
-    onSelectBand,
+    handleSelectBand,
     handleBandChange,
     handleRemoveBand,
     handleToggleBand,
@@ -301,15 +319,9 @@ export function EQEditor({
         className
       )}
     >
-      {/* Band Selector */}
-      <BandSelector
-        bands={bands}
-        selectedIndex={selectedBandIndex}
-        onSelect={onSelectBand}
-        onAdd={handleAddBand}
-        disabled={readOnly}
-        topRightControls={topRightControls}
-      />
+      {topRightControls && (
+        <div className="flex justify-end">{topRightControls}</div>
+      )}
 
       {/* Main content: Canvas and Parameters */}
       <div className="flex flex-col lg:flex-row gap-4">
@@ -319,7 +331,7 @@ export function EQEditor({
             bands={bands}
             sampleRate={sampleRate}
             selectedBandIndex={selectedBandIndex}
-            onSelectBand={onSelectBand}
+            onSelectBand={handleSelectBand}
             onBandChange={handleBandChange}
             onBackgroundPointerDown={handleAddBandStart}
             onBackgroundPointerMove={handleAddBandMove}
@@ -331,7 +343,7 @@ export function EQEditor({
 
           {/* Empty state hint when no bands exist */}
           {bands.length === 0 && !readOnly && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 flex items-start justify-center pt-3 pointer-events-none">
               <div className="text-center space-y-2 bg-dsp-bg/80 rounded-lg px-6 py-4 backdrop-blur-sm border border-dsp-primary/20">
                 <p className="text-sm text-dsp-text-muted">
                   Click anywhere on the graph to add an EQ band
@@ -346,10 +358,17 @@ export function EQEditor({
 
         {/* Parameter Panel */}
         <div className="min-w-0 lg:flex-[1] lg:min-w-[280px] lg:max-w-[340px]">
-          <div className="p-4 bg-dsp-bg/50 rounded-lg">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-medium text-dsp-text">
+          <div className="p-4 bg-dsp-bg/50 rounded-lg space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-dsp-text flex items-center gap-2">
                 {selectedBand && selectedBandIndex !== null ? `Band ${selectedBandIndex + 1}` : 'Band Parameters'}
+                {selectedBandIndex !== null && (
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: getBandColor(selectedBandIndex) }}
+                    aria-hidden="true"
+                  />
+                )}
               </h3>
               {selectedBand && selectedBandIndex !== null && (
                 <div className="flex items-center gap-1">
@@ -394,6 +413,14 @@ export function EQEditor({
                 </div>
               )}
             </div>
+
+            <BandSelector
+              bands={bands}
+              selectedIndex={selectedBandIndex}
+              onSelect={handleSelectBand}
+              onAdd={handleAddBand}
+              disabled={readOnly}
+            />
             <BandParameters
               band={selectedBand}
               onChange={handleParameterChange}

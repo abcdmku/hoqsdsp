@@ -5,7 +5,7 @@ import type { BiquadParameters } from '../../types';
 import { BandSelector } from '../eq-editor/BandSelector';
 import { BandParameters } from '../eq-editor/BandParameters';
 import type { CanvasDimensions } from '../eq-editor/types';
-import { hasGain } from '../eq-editor/types';
+import { getBandColor, hasGain } from '../eq-editor/types';
 import { useAddBandDrag } from '../eq-editor/useAddBandDrag';
 import { Button, GainInput, NumericInput, Tooltip, TooltipContent, TooltipTrigger } from '../ui';
 import { DEQCanvas } from './DEQCanvas';
@@ -66,6 +66,23 @@ export function DEQEditor({
   const onSelectBand = controlledOnSelectBand ?? setInternalSelectedIndex;
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const focusContainer = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const active = typeof document !== 'undefined' ? document.activeElement : null;
+    if (active && container.contains(active)) return;
+    container.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    focusContainer();
+  }, [focusContainer]);
+
+  const handleSelectBand = useCallback((index: number | null) => {
+    focusContainer();
+    onSelectBand(index);
+  }, [focusContainer, onSelectBand]);
 
   const [dimensions, setDimensions] = useState<CanvasDimensions>(DEFAULT_DIMENSIONS);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -140,14 +157,14 @@ export function DEQEditor({
     const newBand = createDefaultBand(newFreq, 0);
     const nextBands = [...bands, newBand];
     onChange(nextBands);
-    onSelectBand(nextBands.length - 1);
-  }, [bands, onChange, onSelectBand, readOnly]);
+    handleSelectBand(nextBands.length - 1);
+  }, [bands, onChange, handleSelectBand, readOnly]);
 
   const { handleAddBandStart, handleAddBandMove, handleAddBandEnd } = useAddBandDrag({
     readOnly,
     bands,
     onChange,
-    onSelectBand,
+    onSelectBand: handleSelectBand,
     createBand: createDefaultBand,
     updateBand: (index, freq, gain) => {
       handleBandChange(index, { freq, gain });
@@ -161,12 +178,12 @@ export function DEQEditor({
       onChange(nextBands);
 
       if (selectedBandIndex === index) {
-        onSelectBand(nextBands.length > 0 ? Math.min(index, nextBands.length - 1) : null);
+        handleSelectBand(nextBands.length > 0 ? Math.min(index, nextBands.length - 1) : null);
       } else if (selectedBandIndex !== null && selectedBandIndex > index) {
-        onSelectBand(selectedBandIndex - 1);
+        handleSelectBand(selectedBandIndex - 1);
       }
     },
-    [bands, onChange, selectedBandIndex, onSelectBand, readOnly],
+    [bands, onChange, selectedBandIndex, handleSelectBand, readOnly],
   );
 
   const handleToggleBand = useCallback(
@@ -205,14 +222,14 @@ export function DEQEditor({
         const index = parseInt(e.key, 10) - 1;
         if (index < bands.length) {
           e.preventDefault();
-          onSelectBand(index);
+          handleSelectBand(index);
         }
         return;
       }
 
       if (e.key === 'Escape') {
         e.preventDefault();
-        onSelectBand(null);
+        handleSelectBand(null);
         return;
       }
 
@@ -271,7 +288,7 @@ export function DEQEditor({
   }, [
     bands,
     selectedBandIndex,
-    onSelectBand,
+    handleSelectBand,
     handleBandChange,
     handleRemoveBand,
     handleToggleBand,
@@ -295,17 +312,12 @@ export function DEQEditor({
       className={cn(
         'flex flex-col gap-4 p-4 bg-dsp-surface rounded-lg outline-none',
         'focus-within:ring-2 focus-within:ring-dsp-accent/50',
-        className,
+      className,
       )}
     >
-      <BandSelector
-        bands={bands}
-        selectedIndex={selectedBandIndex}
-        onSelect={onSelectBand}
-        onAdd={handleAddBand}
-        disabled={readOnly}
-        topRightControls={topRightControls}
-      />
+      {topRightControls && (
+        <div className="flex justify-end">{topRightControls}</div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-4">
         <div ref={canvasContainerRef} className="relative flex-1 min-w-0 lg:flex-[5]">
@@ -313,7 +325,7 @@ export function DEQEditor({
             bands={bands}
             sampleRate={sampleRate}
             selectedBandIndex={selectedBandIndex}
-            onSelectBand={onSelectBand}
+            onSelectBand={handleSelectBand}
             onBandChange={handleBandChange}
             onBackgroundPointerDown={handleAddBandStart}
             onBackgroundPointerMove={handleAddBandMove}
@@ -325,7 +337,7 @@ export function DEQEditor({
 
           {/* Empty state hint when no bands exist */}
           {bands.length === 0 && !readOnly && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 flex items-start justify-center pt-3 pointer-events-none">
               <div className="text-center space-y-2 bg-dsp-bg/80 rounded-lg px-6 py-4 backdrop-blur-sm border border-dsp-primary/20">
                 <p className="text-sm text-dsp-text-muted">
                   Click anywhere on the graph to add a Dynamic EQ band
@@ -339,10 +351,17 @@ export function DEQEditor({
         </div>
 
         <div className="min-w-0 lg:flex-[1] lg:min-w-[300px] lg:max-w-[380px]">
-          <div className="p-4 bg-dsp-bg/50 rounded-lg">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-medium text-dsp-text">
+          <div className="p-4 bg-dsp-bg/50 rounded-lg space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-dsp-text flex items-center gap-2">
                 {selectedBand && selectedBandIndex !== null ? `Band ${selectedBandIndex + 1}` : 'Band Parameters'}
+                {selectedBandIndex !== null && (
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: getBandColor(selectedBandIndex) }}
+                    aria-hidden="true"
+                  />
+                )}
               </h3>
 
               {selectedBand && selectedBandIndex !== null && (
@@ -389,6 +408,14 @@ export function DEQEditor({
               )}
             </div>
 
+            <BandSelector
+              bands={bands}
+              selectedIndex={selectedBandIndex}
+              onSelect={handleSelectBand}
+              onAdd={handleAddBand}
+              disabled={readOnly}
+            />
+
             <div className="space-y-4">
               <BandParameters
                 band={selectedBand}
@@ -419,70 +446,68 @@ export function DEQEditor({
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1">
-                          <label className="text-sm font-medium text-dsp-text">Threshold (dBFS)</label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex h-5 w-5 items-center justify-center rounded text-dsp-text-muted hover:bg-dsp-primary/20 hover:text-dsp-text"
-                                aria-label="Threshold help"
-                                onClick={(e) => { e.preventDefault(); }}
-                              >
-                                <Info className="h-3.5 w-3.5" aria-hidden="true" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-64">
-                              Signal-level threshold (in dBFS) where the dynamic EQ starts reacting. Lower values (more
-                              negative) mean it engages more often.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <GainInput
-                          value={selectedBand.dynamics.thresholdDb}
-                          onChange={(v) => {
-                            handleDynamicsChange(selectedBandIndex, { thresholdDb: v });
-                          }}
-                          min={-80}
-                          max={0}
-                          disabled={readOnly}
-                        />
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1">
+                        <label className="text-sm font-medium text-dsp-text">Threshold (dBFS)</label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded text-dsp-text-muted hover:bg-dsp-primary/20 hover:text-dsp-text"
+                              aria-label="Threshold help"
+                              onClick={(e) => { e.preventDefault(); }}
+                            >
+                              <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-64">
+                            Signal-level threshold (in dBFS) where the dynamic EQ starts reacting. Lower values (more
+                            negative) mean it engages more often.
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
+                      <GainInput
+                        value={selectedBand.dynamics.thresholdDb}
+                        onChange={(v) => {
+                          handleDynamicsChange(selectedBandIndex, { thresholdDb: v });
+                        }}
+                        min={-80}
+                        max={0}
+                        disabled={readOnly}
+                      />
+                    </div>
 
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1">
-                          <label className="text-sm font-medium text-dsp-text">Ratio</label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex h-5 w-5 items-center justify-center rounded text-dsp-text-muted hover:bg-dsp-primary/20 hover:text-dsp-text"
-                                aria-label="Ratio help"
-                                onClick={(e) => { e.preventDefault(); }}
-                              >
-                                <Info className="h-3.5 w-3.5" aria-hidden="true" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-64">
-                              Controls how strongly the band reacts once past the threshold (higher = more aggressive).
-                              1.0 means no dynamic change.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <NumericInput
-                          value={selectedBand.dynamics.ratio}
-                          onChange={(v) => {
-                            handleDynamicsChange(selectedBandIndex, { ratio: v });
-                          }}
-                          min={1}
-                          max={20}
-                          step={0.1}
-                          precision={1}
-                          disabled={readOnly}
-                        />
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1">
+                        <label className="text-sm font-medium text-dsp-text">Ratio</label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded text-dsp-text-muted hover:bg-dsp-primary/20 hover:text-dsp-text"
+                              aria-label="Ratio help"
+                              onClick={(e) => { e.preventDefault(); }}
+                            >
+                              <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-64">
+                            Controls how strongly the band reacts once past the threshold (higher = more aggressive).
+                            1.0 means no dynamic change.
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
+                      <NumericInput
+                        value={selectedBand.dynamics.ratio}
+                        onChange={(v) => {
+                          handleDynamicsChange(selectedBandIndex, { ratio: v });
+                        }}
+                        min={1}
+                        max={20}
+                        step={0.1}
+                        precision={1}
+                        disabled={readOnly}
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

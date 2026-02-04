@@ -1,7 +1,6 @@
 import { forwardRef, useMemo } from 'react';
 import { Slider } from './Slider';
 import { NumericInput } from './NumericInput';
-import { formatFrequency } from '../../lib/dsp';
 import { cn } from '../../lib/utils';
 
 export interface FrequencyInputProps {
@@ -55,22 +54,17 @@ export const FrequencyInput = forwardRef<HTMLInputElement, FrequencyInputProps>(
 
     return (
       <div className={cn("flex flex-col gap-2", className)}>
-        <div className="flex items-center gap-2">
-          <NumericInput
-            ref={ref}
-            value={value}
-            onChange={onChange}
-            min={min}
-            max={max}
-            step={value < 100 ? 1 : value < 1000 ? 5 : 10}
-            precision={0}
-            unit="Hz"
-            disabled={disabled}
-          />
-          <span className="text-sm text-dsp-text-muted">
-            ({formatFrequency(value)})
-          </span>
-        </div>
+        <NumericInput
+          ref={ref}
+          value={value}
+          onChange={onChange}
+          min={min}
+          max={max}
+          step={value < 100 ? 1 : value < 1000 ? 5 : 10}
+          precision={0}
+          unit="Hz"
+          disabled={disabled}
+        />
         {showSlider && (
           <Slider
             value={[sliderValue]}

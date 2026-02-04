@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useRef, useState } from 'react';
-import { render, screen, fireEvent } from '../../test/setup';
+import { render, screen, fireEvent, waitFor } from '../../test/setup';
 import userEvent from '@testing-library/user-event';
 import { EQEditor } from './EQEditor';
 import { EQCanvas } from './EQCanvas';
@@ -359,6 +359,16 @@ describe('BandParameters', () => {
     expect(screen.getByText('Slope')).toBeInTheDocument();
   });
 
+  it('should show order input for first-order shelf/pass filters', () => {
+    const band = createTestBand({
+      parameters: { type: 'LowpassFO', freq: 1000 },
+    });
+    render(<BandParameters band={band} onChange={vi.fn()} />);
+    expect(screen.getByText('Order')).toBeInTheDocument();
+    // 1st order low-pass has no Q parameter
+    expect(screen.queryByText('Q Factor')).not.toBeInTheDocument();
+  });
+
   it('should not show Q input for Lowshelf filter', () => {
     const band = createTestBand({
       parameters: { type: 'Lowshelf', freq: 100, gain: 6, slope: 1 },
@@ -400,6 +410,26 @@ describe('EQEditor', () => {
     render(<EQEditor {...defaultProps} />);
     expect(screen.getByText('1-9')).toBeInTheDocument();
     expect(screen.getByText('Select band')).toBeInTheDocument();
+  });
+
+  it('should autofocus the editor so keyboard shortcuts work immediately', async () => {
+    const user = userEvent.setup();
+    const onSelectBand = vi.fn();
+
+    render(
+      <EQEditor
+        {...defaultProps}
+        selectedBandIndex={null}
+        onSelectBand={onSelectBand}
+      />
+    );
+
+    const container = screen.getByText('Band Parameters').closest<HTMLElement>('div[tabindex="0"]');
+    expect(container).toBeTruthy();
+    await waitFor(() => { expect(container).toHaveFocus(); });
+
+    await user.keyboard('1');
+    expect(onSelectBand).toHaveBeenCalledWith(0);
   });
 
   it('should handle band selection via number keys', async () => {

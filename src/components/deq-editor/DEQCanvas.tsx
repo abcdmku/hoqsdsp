@@ -168,11 +168,8 @@ export function DEQCanvas({
         gain: magnitude,
       }));
 
-    const staticResponse = staticFilters.length === 0
-      ? null
-      : calculateCompositeResponse(staticFilters, sampleRate);
-
-    const staticPoints = staticResponse ? toPoints(staticResponse) : [];
+    const staticResponse = calculateCompositeResponse(staticFilters, sampleRate);
+    const staticPoints = toPoints(staticResponse);
 
     return {
       staticPoints,
@@ -712,10 +709,10 @@ export function DEQCanvas({
             strokeDasharray="2 3"
             opacity={0.85}
           />
-        )}
+      )}
 
       {/* Legend for composite curves */}
-      {overallCurves.staticPath && (
+      {enabledBands.length > 0 && overallCurves.staticPath && (
         <g style={{ pointerEvents: 'none' }}>
           {(() => {
             const selected = selectedBand;

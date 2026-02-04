@@ -29,31 +29,20 @@ export const GainInput = forwardRef<HTMLInputElement, GainInputProps>(
       onChange(values[0] ?? 0);
     };
 
-    const gainColor = value > 0
-      ? 'text-meter-green'
-      : value < 0
-        ? 'text-meter-yellow'
-        : 'text-dsp-text';
-
     return (
       <div className={cn("flex flex-col gap-2", className)}>
-        <div className="flex items-center gap-2">
-          <NumericInput
-            ref={ref}
-            value={value}
-            onChange={onChange}
-            min={min}
-            max={max}
-            step={0.5}
-            precision={1}
-            unit="dB"
-            disabled={disabled}
-            aria-label={ariaLabel}
-          />
-          <span className={cn("text-sm font-mono", gainColor)}>
-            {value > 0 ? '+' : ''}{value.toFixed(1)}
-          </span>
-        </div>
+        <NumericInput
+          ref={ref}
+          value={value}
+          onChange={onChange}
+          min={min}
+          max={max}
+          step={0.5}
+          precision={1}
+          unit="dB"
+          disabled={disabled}
+          aria-label={ariaLabel}
+        />
         {showSlider && (
           <Slider
             value={[value]}

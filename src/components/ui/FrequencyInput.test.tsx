@@ -9,19 +9,9 @@ describe('FrequencyInput', () => {
     expect(input.value).toBe('1000');
   });
 
-  it('displays formatted frequency', () => {
-    render(<FrequencyInput value={1500} onChange={vi.fn()} />);
-    expect(screen.getByText('(1.5k)')).toBeInTheDocument();
-  });
-
   it('displays Hz unit', () => {
     render(<FrequencyInput value={100} onChange={vi.fn()} />);
     expect(screen.getByText('Hz')).toBeInTheDocument();
-  });
-
-  it('displays frequency below 1000 Hz without k suffix', () => {
-    render(<FrequencyInput value={500} onChange={vi.fn()} />);
-    expect(screen.getByText('(500)')).toBeInTheDocument();
   });
 
   it('renders slider when showSlider is true', () => {

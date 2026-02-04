@@ -14,37 +14,16 @@ describe('GainInput', () => {
     expect(screen.getByText('dB')).toBeInTheDocument();
   });
 
-  it('displays positive gain with + sign', () => {
+  it('displays positive gain value', () => {
     render(<GainInput value={6} onChange={vi.fn()} />);
-    expect(screen.getByText('+6.0')).toBeInTheDocument();
+    const input = screen.getByRole<HTMLInputElement>('textbox');
+    expect(input.value).toBe('6.0');
   });
 
-  it('displays negative gain without + sign', () => {
+  it('displays negative gain value', () => {
     render(<GainInput value={-6} onChange={vi.fn()} />);
-    expect(screen.getByText('-6.0')).toBeInTheDocument();
-  });
-
-  it('displays zero gain without sign', () => {
-    render(<GainInput value={0} onChange={vi.fn()} />);
-    expect(screen.getByText('0.0')).toBeInTheDocument();
-  });
-
-  it('applies green color for positive gain', () => {
-    render(<GainInput value={6} onChange={vi.fn()} />);
-    const gainDisplay = screen.getByText('+6.0');
-    expect(gainDisplay).toHaveClass('text-meter-green');
-  });
-
-  it('applies yellow color for negative gain', () => {
-    render(<GainInput value={-6} onChange={vi.fn()} />);
-    const gainDisplay = screen.getByText('-6.0');
-    expect(gainDisplay).toHaveClass('text-meter-yellow');
-  });
-
-  it('applies default color for zero gain', () => {
-    render(<GainInput value={0} onChange={vi.fn()} />);
-    const gainDisplay = screen.getByText('0.0');
-    expect(gainDisplay).toHaveClass('text-dsp-text');
+    const input = screen.getByRole<HTMLInputElement>('textbox');
+    expect(input.value).toBe('-6.0');
   });
 
   it('renders slider when showSlider is true', () => {

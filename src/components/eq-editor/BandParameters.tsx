@@ -9,17 +9,66 @@ const BIQUAD_TYPES = [
   { value: 'Peaking', label: 'Peaking EQ' },
   { value: 'Lowshelf', label: 'Low Shelf' },
   { value: 'Highshelf', label: 'High Shelf' },
-  { value: 'LowshelfFO', label: 'Low Shelf (1st)' },
-  { value: 'HighshelfFO', label: 'High Shelf (1st)' },
   { value: 'Lowpass', label: 'Low Pass' },
   { value: 'Highpass', label: 'High Pass' },
-  { value: 'LowpassFO', label: 'Low Pass (1st)' },
-  { value: 'HighpassFO', label: 'High Pass (1st)' },
   { value: 'Notch', label: 'Notch' },
   { value: 'Bandpass', label: 'Band Pass' },
   { value: 'Allpass', label: 'All Pass' },
   { value: 'AllpassFO', label: 'All Pass (1st)' },
 ] as const;
+
+const ORDERABLE_TYPES = ['Lowshelf', 'Highshelf', 'Lowpass', 'Highpass'] as const;
+type OrderableType = (typeof ORDERABLE_TYPES)[number];
+
+function isOrderableType(value: string): value is OrderableType {
+  return (ORDERABLE_TYPES as readonly string[]).includes(value);
+}
+
+function uiTypeFor(type: BiquadParameters['type']): BiquadParameters['type'] {
+  switch (type) {
+    case 'LowpassFO':
+      return 'Lowpass';
+    case 'HighpassFO':
+      return 'Highpass';
+    case 'LowshelfFO':
+      return 'Lowshelf';
+    case 'HighshelfFO':
+      return 'Highshelf';
+    default:
+      return type;
+  }
+}
+
+function orderFor(type: BiquadParameters['type']): 1 | 2 | null {
+  switch (type) {
+    case 'LowpassFO':
+    case 'HighpassFO':
+    case 'LowshelfFO':
+    case 'HighshelfFO':
+      return 1;
+    case 'Lowpass':
+    case 'Highpass':
+    case 'Lowshelf':
+    case 'Highshelf':
+      return 2;
+    default:
+      return null;
+  }
+}
+
+function applyOrder(uiType: OrderableType, order: 1 | 2): BiquadParameters['type'] {
+  if (order === 2) return uiType;
+  switch (uiType) {
+    case 'Lowpass':
+      return 'LowpassFO';
+    case 'Highpass':
+      return 'HighpassFO';
+    case 'Lowshelf':
+      return 'LowshelfFO';
+    case 'Highshelf':
+      return 'HighshelfFO';
+  }
+}
 
 export const BandParameters = memo(function BandParameters({
   band,
@@ -41,18 +90,20 @@ export const BandParameters = memo(function BandParameters({
   const gain = 'gain' in parameters ? parameters.gain : 0;
   const q = 'q' in parameters ? parameters.q : 0.707;
   const slope = 'slope' in parameters ? parameters.slope : 1;
+  const uiType = uiTypeFor(parameters.type);
+  const order = orderFor(parameters.type);
 
   const showGain = hasGain(parameters.type);
   const showQ = hasQ(parameters.type);
   const showSlope = hasSlope(parameters.type);
+  const showOrder = isOrderableType(uiType);
 
-  // Handle filter type change
-  const handleTypeChange = (newType: string) => {
+  const buildParamsForType = (nextType: BiquadParameters['type']) => {
     // Build new parameters based on type
-    const newParams: Record<string, unknown> = { type: newType };
+    const newParams: Record<string, unknown> = { type: nextType };
 
     // Preserve frequency
-    if (newType === 'LinkwitzTransform') {
+    if (nextType === 'LinkwitzTransform') {
       newParams.freq_act = freq;
       newParams.q_act = q;
       newParams.freq_target = freq;
@@ -62,21 +113,39 @@ export const BandParameters = memo(function BandParameters({
     }
 
     // Add gain if applicable
-    if (['Peaking', 'Lowshelf', 'Highshelf', 'LowshelfFO', 'HighshelfFO'].includes(newType)) {
+    if (hasGain(nextType)) {
       newParams.gain = gain;
     }
 
     // Add Q if applicable
-    if (['Lowpass', 'Highpass', 'Peaking', 'Notch', 'Bandpass', 'Allpass'].includes(newType)) {
+    if (hasQ(nextType)) {
       newParams.q = q;
     }
 
     // Add slope if applicable
-    if (['Lowshelf', 'Highshelf'].includes(newType)) {
+    if (hasSlope(nextType)) {
       newParams.slope = slope;
     }
 
-    onChange(newParams as Partial<BiquadParameters>);
+    return newParams as Partial<BiquadParameters>;
+  };
+
+  // Handle filter type change
+  const handleTypeChange = (nextUiType: string) => {
+    const nextOrder = isOrderableType(nextUiType)
+      ? (order ?? 2)
+      : null;
+    const nextType = isOrderableType(nextUiType)
+      ? applyOrder(nextUiType, nextOrder)
+      : (nextUiType as BiquadParameters['type']);
+
+    onChange(buildParamsForType(nextType));
+  };
+
+  const handleOrderChange = (nextOrder: 1 | 2) => {
+    if (!isOrderableType(uiType)) return;
+    const nextType = applyOrder(uiType, nextOrder);
+    onChange(buildParamsForType(nextType));
   };
 
   return (
@@ -85,7 +154,7 @@ export const BandParameters = memo(function BandParameters({
       <div className="space-y-1.5">
         <label className="text-xs text-dsp-text-muted font-medium">Filter Type</label>
         <Select
-          value={parameters.type}
+          value={uiType}
           onValueChange={handleTypeChange}
           disabled={disabled}
         >
@@ -101,6 +170,30 @@ export const BandParameters = memo(function BandParameters({
           </SelectContent>
         </Select>
       </div>
+
+      {showOrder && (
+        <div className="space-y-1.5">
+          <label className="text-xs text-dsp-text-muted font-medium">Order</label>
+          <Select
+            value={String(order ?? 2)}
+            onValueChange={(value) => {
+              const parsed = Number.parseInt(value, 10);
+              if (parsed === 1 || parsed === 2) {
+                handleOrderChange(parsed);
+              }
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select order" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1st</SelectItem>
+              <SelectItem value="2">2nd</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Frequency */}
       <div className="space-y-1.5">

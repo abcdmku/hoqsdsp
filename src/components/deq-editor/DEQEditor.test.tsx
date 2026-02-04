@@ -20,6 +20,14 @@ describe('DEQEditor', () => {
     expect(screen.getByText('Band Parameters')).toBeInTheDocument();
   });
 
+  it('shows a 0 dB baseline when there are no bands', () => {
+    const { container } = render(<DEQEditor bands={[]} onChange={() => {}} sampleRate={48000} />);
+    const svg = container.querySelector('svg');
+    expect(svg).toBeInTheDocument();
+    const baseline = svg?.querySelector('path[stroke="#facc15"]');
+    expect(baseline).toBeInTheDocument();
+  });
+
   it('shows dynamics controls for a selected band', async () => {
     const user = userEvent.setup();
     render(<DEQEditor bands={defaultBands} onChange={vi.fn()} sampleRate={48000} />);
