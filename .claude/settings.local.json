@@ -2,7 +2,29 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:henquist.github.io)"
+      "WebFetch(domain:henquist.github.io)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_fill",
+      "mcp__plugin_playwright_playwright__browser_get_text",
+      "mcp__plugin_playwright_playwright__browser_get_html",
+      "mcp__plugin_playwright_playwright__browser_screenshot",
+      "mcp__plugin_playwright_playwright__browser_wait_for_element",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "mcp__plugin_playwright_playwright__browser_new_page",
+      "mcp__plugin_playwright_playwright__browser_launch",
+      "mcp__plugin_playwright_playwright__*",
+      "Bash(*)",
+      "Edit(*)",
+      "Read(*)",
+      "Write(*)",
+      "WebFetch(*)",
+      "mcp(*)",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_press_key",
+      "mcp__plugin_playwright_playwright__browser_run_code"
     ],
     "defaultMode": "bypassPermissions"
   }
