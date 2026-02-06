@@ -37,6 +37,7 @@ export interface UIState {
 export type ViewType =
   | 'dashboard'
   | 'signal-flow'
+  | 'opus'
   | 'routing'
   | 'settings';
 
