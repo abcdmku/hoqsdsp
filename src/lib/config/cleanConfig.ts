@@ -19,10 +19,10 @@ export function cleanNullValues<T>(obj: T): T {
   if (typeof obj === 'object' && obj !== null) {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
-      if (value !== null) {
+      if (value !== null && value !== undefined) {
         result[key] = cleanNullValues(value);
       }
-      // Skip null values entirely (don't add to result)
+      // Skip null/undefined values entirely (don't add to result)
     }
     return result as T;
   }

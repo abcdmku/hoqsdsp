@@ -8,6 +8,7 @@ describe('VolumeFilterHandler', () => {
       const filter: VolumeFilter = {
         type: 'Volume',
         parameters: {
+          fader: 'Aux1',
           ramp_time: 200,
         },
       };
@@ -19,7 +20,9 @@ describe('VolumeFilterHandler', () => {
     it('should validate volume filter without ramp_time', () => {
       const filter: VolumeFilter = {
         type: 'Volume',
-        parameters: {},
+        parameters: {
+          fader: 'Aux1',
+        },
       };
 
       const result = volumeFilterSchema.safeParse(filter);
@@ -30,6 +33,7 @@ describe('VolumeFilterHandler', () => {
       const filter: VolumeFilter = {
         type: 'Volume',
         parameters: {
+          fader: 'Aux2',
           ramp_time: 0,
         },
       };
@@ -38,10 +42,23 @@ describe('VolumeFilterHandler', () => {
       expect(result.success).toBe(true);
     });
 
+    it('should reject volume filter without fader', () => {
+      const filter = {
+        type: 'Volume',
+        parameters: {
+          ramp_time: 100,
+        },
+      };
+
+      const result = volumeFilterSchema.safeParse(filter);
+      expect(result.success).toBe(false);
+    });
+
     it('should reject negative ramp_time', () => {
       const filter = {
         type: 'Volume',
         parameters: {
+          fader: 'Aux1',
           ramp_time: -100,
         },
       };
@@ -59,6 +76,7 @@ describe('VolumeFilterHandler', () => {
         expect(defaultFilter).toEqual({
           type: 'Volume',
           parameters: {
+            fader: 'Aux1',
             ramp_time: 200,
           },
         });
@@ -77,6 +95,7 @@ describe('VolumeFilterHandler', () => {
         const filter: VolumeFilter = {
           type: 'Volume',
           parameters: {
+            fader: 'Aux1',
             ramp_time: 100,
           },
         };
@@ -86,6 +105,7 @@ describe('VolumeFilterHandler', () => {
         expect(serialized).toEqual({
           type: 'Volume',
           parameters: {
+            fader: 'Aux1',
             ramp_time: 100,
           },
         });
@@ -97,6 +117,7 @@ describe('VolumeFilterHandler', () => {
         const filter: VolumeFilter = {
           type: 'Volume',
           parameters: {
+            fader: 'Aux1',
             ramp_time: 200,
           },
         };
@@ -109,7 +130,9 @@ describe('VolumeFilterHandler', () => {
       it('should return display name without ramp', () => {
         const filter: VolumeFilter = {
           type: 'Volume',
-          parameters: {},
+          parameters: {
+            fader: 'Aux1',
+          },
         };
 
         const displayName = volumeHandler.getDisplayName(filter);
@@ -123,24 +146,27 @@ describe('VolumeFilterHandler', () => {
         const filter: VolumeFilter = {
           type: 'Volume',
           parameters: {
+            fader: 'Aux1',
             ramp_time: 200,
           },
         };
 
         const summary = volumeHandler.getSummary(filter);
 
-        expect(summary).toBe('Ramp: 200ms');
+        expect(summary).toBe('Aux1, ramp: 200ms');
       });
 
       it('should return summary without ramp time', () => {
         const filter: VolumeFilter = {
           type: 'Volume',
-          parameters: {},
+          parameters: {
+            fader: 'Aux1',
+          },
         };
 
         const summary = volumeHandler.getSummary(filter);
 
-        expect(summary).toBe('Fader control');
+        expect(summary).toBe('Aux1 fader control');
       });
     });
   });

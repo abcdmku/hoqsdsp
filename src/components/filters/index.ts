@@ -10,8 +10,6 @@ export { DelayEditor } from './DelayEditor';
 export { DelayEditorPanel } from './DelayEditor';
 export { GainEditor } from './GainEditor';
 export { GainEditorPanel } from './GainEditor';
-export { VolumeEditor } from './VolumeEditor';
-export { VolumeEditorPanel } from './VolumeEditor';
 export { DitherEditor } from './DitherEditor';
 export { DitherEditorPanel } from './DitherEditor';
 export { DiffEqEditor } from './DiffEqEditor';

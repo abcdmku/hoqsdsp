@@ -219,6 +219,27 @@ describe('WebSocketManager', () => {
       await expect(responsePromise).rejects.toThrow('Command failed');
     });
 
+    it('should provide diagnostics for legacy error responses without details', async () => {
+      const responsePromise = manager.send<string>('GetVersion');
+
+      const ws = (manager as any).ws as MockWebSocket;
+      expect(JSON.parse(ws.lastSentMessage)).toBe('GetVersion');
+
+      setTimeout(() => {
+        ws.simulateMessage({
+          GetVersion: {
+            result: 'Error',
+          },
+        });
+      }, 10);
+
+      await responsePromise.catch((error) => {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toContain('Server returned an error without details for GetVersion');
+        expect((error as Error).message).toContain('Response: {"GetVersion":{"result":"Error"}}');
+      });
+    });
+
     it('should handle direct primitive responses', async () => {
       const responsePromise = manager.send<string>({ SetConfigJson: '{}' });
 

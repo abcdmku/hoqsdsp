@@ -132,11 +132,8 @@ export const BandParameters = memo(function BandParameters({
 
   // Handle filter type change
   const handleTypeChange = (nextUiType: string) => {
-    const nextOrder = isOrderableType(nextUiType)
-      ? (order ?? 2)
-      : null;
     const nextType = isOrderableType(nextUiType)
-      ? applyOrder(nextUiType, nextOrder)
+      ? applyOrder(nextUiType, order ?? 2)
       : (nextUiType as BiquadParameters['type']);
 
     onChange(buildParamsForType(nextType));

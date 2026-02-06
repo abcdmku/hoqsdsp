@@ -25,6 +25,7 @@ export type WSCommand =
   | 'GetVolume'
   | 'GetMute'
   | 'GetSupportedDeviceTypes'
+  | { ValidateConfig: string }
   | { GetAvailableCaptureDevices: string }
   | { GetAvailablePlaybackDevices: string }
   | 'Stop'
@@ -35,6 +36,7 @@ export type WSCommand =
   | { SetVolume: number }
   | { SetMute: boolean }
   | { SetUpdateInterval: number }
+  | 'Reload'
   | { Reload: string | null }
   | { GetFaderVolume: number }
   | { SetFaderVolume: { fader: number; vol: number } }

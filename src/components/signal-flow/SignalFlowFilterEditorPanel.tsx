@@ -11,7 +11,6 @@ import type {
   GainFilter,
   LoudnessFilter,
   NoiseGateFilter,
-  VolumeFilter,
 } from '../../types';
 import {
   CompressorEditorPanel,
@@ -22,7 +21,6 @@ import {
   GainEditorPanel,
   LoudnessEditorPanel,
   NoiseGateEditorPanel,
-  VolumeEditorPanel,
 } from '../filters';
 
 interface SignalFlowFilterEditorPanelProps {
@@ -57,8 +55,6 @@ export function SignalFlowFilterEditorPanel({
       return <GainEditorPanel {...commonProps} filter={config as GainFilter} />;
     case 'Delay':
       return <DelayEditorPanel {...commonProps} filter={config as DelayFilter} sampleRate={sampleRate} />;
-    case 'Volume':
-      return <VolumeEditorPanel {...commonProps} filter={config as VolumeFilter} />;
     case 'DiffEq':
       return <DiffEqEditorPanel {...commonProps} filter={config as DiffEqFilter} />;
     case 'Conv':

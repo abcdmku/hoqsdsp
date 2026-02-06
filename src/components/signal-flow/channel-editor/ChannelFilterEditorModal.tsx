@@ -10,7 +10,6 @@ import type {
   GainFilter,
   LoudnessFilter,
   NoiseGateFilter,
-  VolumeFilter,
 } from '../../../types';
 import {
   BiquadEditor,
@@ -22,7 +21,6 @@ import {
   GainEditor,
   LoudnessEditor,
   NoiseGateEditor,
-  VolumeEditor,
 } from '../../filters';
 
 interface ChannelFilterEditorModalProps {
@@ -88,16 +86,6 @@ export function ChannelFilterEditorModal({
           open={true}
           onClose={onClose}
           filter={filter.config as DiffEqFilter}
-          onSave={handleSave}
-          onApply={applyDebounced}
-        />
-      );
-    case 'Volume':
-      return (
-        <VolumeEditor
-          open={true}
-          onClose={onClose}
-          filter={filter.config as VolumeFilter}
           onSave={handleSave}
           onApply={applyDebounced}
         />

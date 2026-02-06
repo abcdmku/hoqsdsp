@@ -75,7 +75,9 @@ export function extractWrappedResponse(parsed: unknown): WrappedResponse | null 
       ?? response.error
       ?? response.message
       ?? response.reason;
-    return { commandName, ok: false, error: legacyError ?? response };
+    // If no details are available, leave error undefined so caller can attach
+    // a standardized "silent error" diagnostic with raw response context.
+    return { commandName, ok: false, error: legacyError };
   }
 
   // Some implementations return a legacy {value} wrapper without a {result} field.

@@ -2,9 +2,19 @@ import { z } from 'zod';
 import type { VolumeFilter } from '../../types';
 import { BaseFilterHandler } from './types';
 
+const volumeFaderSchema = z.enum(['Aux1', 'Aux2', 'Aux3', 'Aux4']);
+
 // Volume parameters schema
 export const volumeParametersSchema = z.object({
-  ramp_time: z.number().min(0).optional(),
+  fader: volumeFaderSchema,
+  ramp_time: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.number().min(0).optional(),
+  ),
+  limit: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.number().optional(),
+  ),
 });
 
 // Complete volume filter schema
@@ -29,6 +39,7 @@ class VolumeFilterHandler extends BaseFilterHandler<VolumeFilter> {
     return {
       type: 'Volume',
       parameters: {
+        fader: 'Aux1',
         ramp_time: 200,
       },
     };
@@ -39,8 +50,8 @@ class VolumeFilterHandler extends BaseFilterHandler<VolumeFilter> {
   }
 
   getSummary(config: VolumeFilter): string {
-    const { ramp_time } = config.parameters;
-    return ramp_time !== undefined ? `Ramp: ${String(ramp_time)}ms` : 'Fader control';
+    const { fader, ramp_time } = config.parameters;
+    return ramp_time !== undefined ? `${fader}, ramp: ${String(ramp_time)}ms` : `${fader} fader control`;
   }
 }
 

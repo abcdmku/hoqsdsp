@@ -134,18 +134,15 @@ describe('camillaConfigSchema', () => {
     ];
 
     for (const filterType of filterTypes) {
-      const config = createValidConfig({
+      const config = {
+        ...createValidConfig(),
         filters: {
           testFilter: {
-            type: filterType as Parameters<typeof createValidConfig>[0] extends {
-              filters: { testFilter: { type: infer T } };
-            }
-              ? T
-              : never,
-            parameters: {},
+            type: filterType,
+            parameters: filterType === 'Volume' ? { fader: 'Aux1' } : {},
           },
         },
-      });
+      } as unknown;
       const result = camillaConfigSchema.safeParse(config);
       expect(result.success).toBe(true);
     }
@@ -245,6 +242,24 @@ describe('validateConfig', () => {
     const result = validateConfig(config);
     expect(result.valid).toBe(true);
     expect(result.warnings.some((w) => w.code === 'unused_filter')).toBe(true);
+  });
+
+  it('rejects Volume filters missing fader', () => {
+    const config = {
+      ...createValidConfig(),
+      filters: {
+        badVolume: {
+          type: 'Volume',
+          parameters: {
+            ramp_time: 200,
+          },
+        },
+      },
+    } as unknown;
+
+    const result = validateConfig(config);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path.includes('filters.badVolume'))).toBe(true);
   });
 
   it('warns about unused mixers', () => {

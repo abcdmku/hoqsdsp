@@ -47,6 +47,8 @@ export function useSignalFlowWindows({ workspaceRef }: SignalFlowWindowsParams) 
 
   const openFilterWindow = useCallback(
     (channel: ChannelNode, filterType: FilterType, _point?: { x: number; y: number }) => {
+      // Volume is edited inline on the channel card (no drawer/window).
+      if (filterType === 'Volume') return;
       setDockedFilterEditor({
         side: channel.side,
         deviceId: channel.deviceId,

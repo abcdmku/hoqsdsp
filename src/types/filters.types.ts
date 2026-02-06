@@ -87,8 +87,12 @@ export interface VolumeFilter {
   parameters: VolumeParameters;
 }
 
+export type VolumeFader = 'Aux1' | 'Aux2' | 'Aux3' | 'Aux4';
+
 export interface VolumeParameters {
+  fader: VolumeFader;
   ramp_time?: number;
+  limit?: number;
 }
 
 // Dither Filter

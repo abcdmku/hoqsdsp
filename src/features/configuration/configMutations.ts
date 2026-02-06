@@ -9,6 +9,43 @@ import { validateConfig } from '../../lib/config/validation';
 import { useConfigBackupStore } from '../../stores/configBackupStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 
+const DEFAULT_VOLUME_FADER = 'Aux1' as const;
+
+function hasValidVolumeFader(value: unknown): boolean {
+  return value === 'Aux1' || value === 'Aux2' || value === 'Aux3' || value === 'Aux4';
+}
+
+function ensureVolumeFilterFaders(config: CamillaConfig): CamillaConfig {
+  if (!config.filters) return config;
+
+  let nextFilters: CamillaConfig['filters'] | undefined;
+  for (const [name, filter] of Object.entries(config.filters)) {
+    if (filter.type !== 'Volume') continue;
+
+    const currentFader = (filter.parameters as { fader?: unknown }).fader;
+    if (hasValidVolumeFader(currentFader)) continue;
+
+    if (!nextFilters) {
+      nextFilters = { ...config.filters };
+    }
+
+    nextFilters[name] = {
+      ...filter,
+      parameters: {
+        ...(filter.parameters as unknown as Record<string, unknown>),
+        fader: DEFAULT_VOLUME_FADER,
+      },
+    };
+  }
+
+  if (!nextFilters) return config;
+
+  return {
+    ...config,
+    filters: nextFilters,
+  };
+}
+
 export function useSetConfig(unitId: string) {
   const queryClient = useQueryClient();
 
@@ -34,8 +71,14 @@ export function useSetConfigJson(unitId: string) {
       const wsManager = websocketService.getManager(unitId);
       if (!wsManager) throw new Error('WebSocket not connected');
       if (!wsManager.isConnected) throw new Error('WebSocket connection lost');
+
+      const normalizedConfig = ensureVolumeFilterFaders(config);
+      if (normalizedConfig !== config) {
+        console.warn('[SetConfigJson] Added missing Volume.fader values (default: Aux1) for compatibility.');
+      }
+
       // Clean null values from config before sending to CamillaDSP
-      const cleanedConfig = cleanNullValues(config);
+      const cleanedConfig = cleanNullValues(normalizedConfig);
       const { ui: uiMetadata, ...cleanedWithoutUi } = cleanedConfig;
 
       // Preflight validation (client-side) to surface actionable errors instead of
@@ -86,21 +129,25 @@ export function useSetConfigJson(unitId: string) {
               saveConfig(unitId, cleanedConfig);
               return;
             } catch (fallbackError) {
-              console.warn('[SetConfigJson] Direct apply failed (with and without ui), trying Stop/SetConfig/Reload:', fallbackError);
+              console.warn('[SetConfigJson] Direct apply failed (with and without ui), trying Stop/SetConfig:', fallbackError);
             }
           } else {
-            console.warn('[SetConfigJson] Direct apply failed, trying Stop/SetConfig/Reload:', directError);
+            console.warn('[SetConfigJson] Direct apply failed, trying Stop/SetConfig:', directError);
           }
         }
 
-        // If direct apply fails (e.g., pipeline structure changed OR server doesn't support SetConfigJson),
-        // try Stop -> SetConfig (YAML) -> Reload. SetConfig is supported by more CamillaDSP versions.
-        const yamlForReload = fallbackYamlString ?? yamlString;
-        lastAttempt = fallbackYamlString ? 'stop/setconfig/reload (without ui)' : 'stop/setconfig/reload';
-        lastJsonSent = '(yaml)';
-        await wsManager.send('Stop', 'high', { timeout: controlTimeoutMs });
-        await wsManager.send({ SetConfig: yamlForReload }, 'high', { timeout: setConfigTimeoutMs });
-        await wsManager.send({ Reload: null }, 'high', { timeout: setConfigTimeoutMs });
+        // If direct apply fails (e.g., proxy/server quirks with SetConfigJson), fall back to YAML SetConfig.
+        // Per CamillaDSP websocket API, SetConfig applies immediately; Reload is only for SetConfigFilePath.
+        const yamlForSetConfig = fallbackYamlString ?? yamlString;
+        lastAttempt = fallbackYamlString ? 'stop/setconfig (without ui)' : 'stop/setconfig';
+        lastJsonSent = yamlForSetConfig;
+        try {
+          await wsManager.send('Stop', 'high', { timeout: controlTimeoutMs });
+        } catch (stopError) {
+          // Stop may fail if the engine is already inactive; continue with SetConfig.
+          console.warn('[SetConfigJson] Stop failed before SetConfig, continuing:', stopError);
+        }
+        await wsManager.send({ SetConfig: yamlForSetConfig }, 'high', { timeout: setConfigTimeoutMs });
         saveConfig(unitId, cleanedConfig);
       } catch (error) {
         const camillaVersion = useConnectionStore.getState().connections.get(unitId)?.version;
@@ -110,9 +157,19 @@ export function useSetConfigJson(unitId: string) {
         console.error('[SetConfigJson] Config that failed:', cleanedConfig);
         console.error('[SetConfigJson] Payload that failed:', lastJsonSent);
 
+        const yamlForValidation = fallbackYamlString ?? yamlString;
+        let validateConfigMessage: string | null = null;
+        try {
+          await wsManager.send({ ValidateConfig: yamlForValidation }, 'high', { timeout: setConfigTimeoutMs });
+        } catch (validateError) {
+          validateConfigMessage = validateError instanceof Error ? validateError.message : String(validateError);
+          console.error('[SetConfigJson] ValidateConfig details:', validateConfigMessage);
+        }
+
         const baseMessage = error instanceof Error ? error.message : String(error);
         const prefix = camillaVersion ? `CamillaDSP v${camillaVersion}` : 'CamillaDSP (version unknown)';
-        throw new Error(`${prefix}: ${baseMessage} (attempt: ${lastAttempt})`);
+        const validationSuffix = validateConfigMessage ? ` | ValidateConfig: ${validateConfigMessage}` : '';
+        throw new Error(`${prefix}: ${baseMessage} (attempt: ${lastAttempt})${validationSuffix}`);
       }
     },
     // Note: onSuccess is NOT used here to avoid a race condition.

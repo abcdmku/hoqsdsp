@@ -46,7 +46,7 @@ export const FILTER_UI: Record<FilterType, FilterUiMeta> = {
   Volume: {
     type: 'Volume',
     label: 'Volume',
-    shortLabel: 'VOL',
+    shortLabel: 'RAMP',
     icon: Volume2,
     color: 'gain',
   },

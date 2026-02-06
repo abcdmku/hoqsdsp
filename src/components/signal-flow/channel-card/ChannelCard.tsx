@@ -1,5 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChannelNode, ChannelSide, RouteEndpoint } from '../../../lib/signalflow';
 import { cn } from '../../../lib/utils';
 import type { FilterType } from '../../../types';
@@ -8,6 +8,17 @@ import { ChannelCardHeader } from './ChannelCardHeader';
 import { ChannelFilterButtons } from './ChannelFilterButtons';
 import { ChannelInlineControls } from './ChannelInlineControls';
 import { useChannelInlineFilters } from './useChannelInlineFilters';
+import { VolumeInlineControl } from './VolumeInlineControl';
+import { upsertSingleFilterOfType } from '../../../lib/signalflow/filterUtils';
+import type { VolumeFilter } from '../../../types';
+
+const DEFAULT_RAMP_TIME_MS = 200;
+const DEFAULT_VOLUME_FADER = 'Aux1' as const;
+
+function clampRampTimeMs(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.round(value));
+}
 
 export interface ChannelCardProps {
   node: ChannelNode;
@@ -82,9 +93,87 @@ export function ChannelCard({
   }, [node.processingSummary.hasCompressor, node.processingSummary.hasLoudness, node.processingSummary.hasNoiseGate, processingFilters]);
   const acceptedFilterTypes = side === 'input' ? INPUT_FILTER_TYPES : OUTPUT_FILTER_TYPES;
   const visibleFilterTypes = useMemo(() => {
-    const inlineTypes: FilterType[] = ['Delay', 'Gain', 'Dither'];
+    const inlineTypes: FilterType[] = ['Delay', 'Gain', 'Volume', 'Dither'];
     return acceptedFilterTypes.filter((type) => !inlineTypes.includes(type));
   }, [acceptedFilterTypes]);
+
+  const volumeFilter = useMemo(() => {
+    const filter = processingFilters.find((f) => f.config.type === 'Volume')?.config ?? null;
+    return filter?.type === 'Volume' ? filter : null;
+  }, [processingFilters]);
+
+  const volumeRampEnabled = useMemo(() => {
+    const ramp = volumeFilter?.parameters.ramp_time;
+    return typeof ramp === 'number' && Number.isFinite(ramp);
+  }, [volumeFilter]);
+
+  const activeVolumeRampTimeMs = useMemo(() => {
+    const ramp = volumeFilter?.parameters.ramp_time;
+    if (typeof ramp !== 'number' || !Number.isFinite(ramp)) return DEFAULT_RAMP_TIME_MS;
+    return clampRampTimeMs(ramp);
+  }, [volumeFilter]);
+
+  const [volumeRampDraftMs, setVolumeRampDraftMs] = useState<number>(activeVolumeRampTimeMs);
+
+  useEffect(() => {
+    if (!volumeRampEnabled) return;
+    setVolumeRampDraftMs((prev) => (prev === activeVolumeRampTimeMs ? prev : activeVolumeRampTimeMs));
+  }, [activeVolumeRampTimeMs, volumeRampEnabled]);
+
+  const setVolumeRampParameter = useCallback(
+    (nextRampTimeMs: number | undefined, options?: { debounce?: boolean }) => {
+      if (!onUpdateFilters) return;
+      if (nextRampTimeMs !== undefined && !Number.isFinite(nextRampTimeMs)) return;
+      if (!volumeFilter && nextRampTimeMs === undefined) return;
+
+      const normalized = nextRampTimeMs === undefined ? undefined : clampRampTimeMs(nextRampTimeMs);
+      const current = volumeFilter?.parameters.ramp_time;
+      if (normalized === current) return;
+
+      const base: VolumeFilter = volumeFilter ?? { type: 'Volume', parameters: { fader: DEFAULT_VOLUME_FADER } };
+      const nextParameters = { ...base.parameters };
+      if (normalized === undefined) {
+        delete nextParameters.ramp_time;
+      } else {
+        nextParameters.ramp_time = normalized;
+      }
+
+      const nextConfig: VolumeFilter = {
+        type: 'Volume',
+        parameters: nextParameters,
+      };
+
+      const nameBase = `${node.side[0]}${String(node.channelIndex)}_volume`;
+      onUpdateFilters(upsertSingleFilterOfType(processingFilters, nextConfig, nameBase), options);
+    },
+    [node.channelIndex, node.side, onUpdateFilters, processingFilters, volumeFilter],
+  );
+
+  const applyVolumeRampTime = useCallback(
+    (nextRampTimeMs: number, options?: { debounce?: boolean }) => {
+      if (!Number.isFinite(nextRampTimeMs)) return;
+      const next = clampRampTimeMs(nextRampTimeMs);
+      setVolumeRampDraftMs((prev) => (prev === next ? prev : next));
+      if (!volumeRampEnabled) return;
+      setVolumeRampParameter(next, options);
+    },
+    [setVolumeRampParameter, volumeRampEnabled],
+  );
+
+  const toggleVolumeRamp = useCallback(
+    (enabled: boolean, rampTimeMs: number, options?: { debounce?: boolean }) => {
+      const next = clampRampTimeMs(rampTimeMs);
+      setVolumeRampDraftMs((prev) => (prev === next ? prev : next));
+      if (enabled) {
+        setVolumeRampParameter(next, options);
+        return;
+      }
+      setVolumeRampParameter(undefined, options);
+    },
+    [setVolumeRampParameter],
+  );
+
+  const volumeRampTimeMs = volumeRampEnabled ? activeVolumeRampTimeMs : volumeRampDraftMs;
 
   const {
     delayUnit,
@@ -192,6 +281,14 @@ export function ChannelCard({
           onUpdateDitherType={updateDitherType}
           onUpdateDitherAmplitude={updateDitherAmplitude}
         >
+          <VolumeInlineControl
+            label={node.label}
+            rampEnabled={volumeRampEnabled}
+            rampTimeMs={volumeRampTimeMs}
+            disabled={!onUpdateFilters}
+            onRampTimeChange={applyVolumeRampTime}
+            onToggleRamp={toggleVolumeRamp}
+          />
           <ChannelFilterButtons
             node={node}
             visibleFilterTypes={visibleFilterTypes}
