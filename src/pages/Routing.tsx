@@ -350,13 +350,9 @@ export function RoutingPage() {
 
   return (
     <Page>
-      <PageHeader
-        title="Routing"
-        description={`${inChannels} input${inChannels === 1 ? '' : 's'} → ${outChannels} output${outChannels === 1 ? '' : 's'}`}
-      />
-      <PageBody>
+      <PageBody className="flex flex-col p-0 overflow-hidden">
         {!hasRoutingStep && (
-          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-b border-yellow-500/40 bg-yellow-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-500" aria-hidden="true" />
               <div>
@@ -376,17 +372,15 @@ export function RoutingPage() {
             </Button>
           </div>
         )}
-
-        <div className="rounded-lg border border-dsp-primary/50 bg-dsp-surface/30 p-6">
-          <RoutingMatrix
-            mixer={effectiveMixer}
-            onMixerChange={handleMixerChange}
-            inputLabels={labels.inputs.length > 0 ? labels.inputs : undefined}
-            outputLabels={labels.outputs.length > 0 ? labels.outputs : undefined}
-            inputDeviceLabel={labels.inputDeviceLabel}
-            outputDeviceLabel={labels.outputDeviceLabel}
-          />
-        </div>
+        <RoutingMatrix
+          className="flex-1 min-h-0"
+          mixer={effectiveMixer}
+          onMixerChange={handleMixerChange}
+          inputLabels={labels.inputs.length > 0 ? labels.inputs : undefined}
+          outputLabels={labels.outputs.length > 0 ? labels.outputs : undefined}
+          inputDeviceLabel={labels.inputDeviceLabel}
+          outputDeviceLabel={labels.outputDeviceLabel}
+        />
       </PageBody>
     </Page>
   );
